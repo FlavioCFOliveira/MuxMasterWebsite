@@ -1,0 +1,33 @@
+{{define "head"}}<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.FullTitle}}</title>
+  <meta name="description" content="{{.Description}}">
+  <link rel="canonical" href="{{.Canonical}}">
+  {{if .Robots}}<meta name="robots" content="{{.Robots}}">{{end}}
+
+  <meta property="og:type" content="{{.OGType}}">
+  <meta property="og:title" content="{{.FullTitle}}">
+  <meta property="og:description" content="{{.Description}}">
+  <meta property="og:url" content="{{.Canonical}}">
+  <meta property="og:image" content="{{.OGImage}}">
+  <meta property="og:site_name" content="MuxMaster">
+  <meta property="og:locale" content="en_US">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{.FullTitle}}">
+  <meta name="twitter:description" content="{{.Description}}">
+  <meta name="twitter:image" content="{{.OGImage}}">
+
+  <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#09090b" media="(prefers-color-scheme: dark)">
+
+  <link rel="icon" href="/favicon.ico" sizes="any">
+
+  <link rel="stylesheet" href="{{.CSSPath}}">
+
+  {{range .JSONLD}}
+  <script type="application/ld+json">{{json .}}</script>
+  {{end}}
+</head>
+{{end}}

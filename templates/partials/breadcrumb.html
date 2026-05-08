@@ -1,0 +1,10 @@
+{{define "breadcrumb"}}{{if .}}<nav aria-label="Breadcrumb" class="mb-6 text-sm text-zinc-600 dark:text-zinc-400">
+  <ol class="flex flex-wrap items-center gap-1">
+    {{range $i, $c := .}}
+      {{if $i}}<li aria-hidden="true" class="px-1 text-zinc-400">/</li>{{end}}
+      <li>
+        {{if $c.Href}}<a href="{{$c.Href}}" class="hover:underline">{{$c.Label}}</a>{{else}}<span aria-current="page">{{$c.Label}}</span>{{end}}
+      </li>
+    {{end}}
+  </ol>
+</nav>{{end}}{{end}}

@@ -1,0 +1,27 @@
+/bin/
+/dist/
+/tmp/
+*.test
+*.out
+coverage.*
+
+# Tailwind standalone CLI binary (downloaded by `make tailwind-install`)
+/bin/tailwindcss
+/bin/tailwindcss-*
+
+# Generated CSS bundle (hashed, build artefact). Keep app.css source.
+/static/css/app.*.css
+
+# Logo derivatives copied from upstream MuxMaster at build time.
+/static/img/logo-*.png
+/static/img/logo-*.webp
+/static/img/logo-*.avif
+
+# Generated favicons (build-time output).
+/static/favicon/*.png
+/static/favicon/*.ico
+
+# IDE / OS artefacts.
+.idea/
+.vscode/
+.DS_Store

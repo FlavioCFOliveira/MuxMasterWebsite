@@ -1,0 +1,50 @@
+{{define "landing.html"}}<!DOCTYPE html>
+<html lang="en">
+{{template "head" .Meta}}
+<body class="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 antialiased">
+  <input type="checkbox" id="dark-toggle" class="sr-only" aria-hidden="true" tabindex="-1">
+  <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:text-zinc-900 focus:shadow">Skip to main content</a>
+  {{template "header" .Meta}}
+  <main id="main" role="main" class="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+    <section class="py-8 sm:py-12">
+      {{/* TODO(spec): exact wording is open-questions.md item 5 (landing page copy). Placeholder. */}}
+      <h1 class="text-4xl font-bold tracking-tight sm:text-5xl">A high-performance, zero-dependency HTTP router for Go.</h1>
+      <p class="mt-4 max-w-2xl text-lg text-zinc-600 dark:text-zinc-400">
+        MuxMaster is a radix-tree HTTP router with O(k) lookups, zero allocations on static routes, and 100% compatibility with <code class="font-mono">net/http</code>. Build production services on the Go standard library.
+      </p>
+      <div class="mt-6 flex flex-wrap gap-3">
+        <a href="/docs/getting-started" class="inline-flex h-11 items-center rounded bg-cyan-600 px-4 font-semibold text-white hover:bg-cyan-700">Get started</a>
+        <a href="/api" class="inline-flex h-11 items-center rounded border border-zinc-300 px-4 font-semibold dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800">Read the API</a>
+      </div>
+    </section>
+
+    <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {{/* TODO(spec): replace placeholder highlight blocks once landing copy is ratified. */}}
+      <article class="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <h2 class="text-lg font-semibold">Zero dependencies</h2>
+        <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">The router and every middleware are implemented on the Go standard library alone.</p>
+      </article>
+      <article class="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <h2 class="text-lg font-semibold">Radix-tree performance</h2>
+        <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Static-route lookups are O(k) and allocation-free on the hot path.</p>
+      </article>
+      <article class="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <h2 class="text-lg font-semibold">Idiomatic API</h2>
+        <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Groups, scoped middleware, typed errors, and typed parameter helpers — without abandoning <code class="font-mono">net/http</code>.</p>
+      </article>
+      <article class="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <h2 class="text-lg font-semibold">Error handling</h2>
+        <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Optional <code class="font-mono">HandlerFuncE</code> typed-error pipeline with a dedicated middleware contract.</p>
+      </article>
+      <article class="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <h2 class="text-lg font-semibold">Production-ready middleware</h2>
+        <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">RequestID, Recoverer, Logger, Compress, RealIP, Timeout, Throttle, BasicAuth, JWTAuth, OAuth2Introspect, APIKey, CORS.</p>
+      </article>
+    </section>
+
+    <p class="mt-8">See <a href="/benchmarks" class="text-cyan-700 underline dark:text-cyan-400">the benchmarks</a> for measured numbers, or read <a href="/docs/" class="text-cyan-700 underline dark:text-cyan-400">the documentation</a>.</p>
+  </main>
+  {{template "footer" .Meta}}
+</body>
+</html>
+{{end}}

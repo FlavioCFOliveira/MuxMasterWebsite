@@ -1,0 +1,58 @@
+/*
+ * MuxMaster website — Tailwind CSS v4 entry.
+ *
+ * The CSS is compiled by the Tailwind v4 standalone CLI (no Node) and emitted
+ * to static/css/app.<hash>.css, which the Go renderer discovers at startup.
+ *
+ * Sources scanned for class strings:
+ *   - templates/**/*.html
+ *   - content/**/*.md
+ *   - any *.go that emits class strings (none today; reserved).
+ *
+ * TODO(spec): the cyan and yellow accent hexes are placeholders pending
+ * open-questions.md item 2 -- final colours must be sampled from
+ * assets/logo-muxmaster.png in the upstream MuxMaster source tree
+ * (MUXMASTER_SOURCE_DIR) and ratified by the project owner.
+ */
+
+@import "tailwindcss";
+
+@source "../../templates/**/*.html";
+@source "../../content/**/*.md";
+
+@theme {
+  --color-accent-cyan: #29b6f6;   /* TODO(spec): replace with logo-sampled hex. */
+  --color-accent-yellow: #ffd600; /* TODO(spec): replace with logo-sampled hex. */
+}
+
+/*
+ * No-JS dark-mode toggle.
+ *
+ * The site uses :has() against a hidden <input type="checkbox" id="dark-toggle">
+ * to flip the theme without JavaScript.
+ *
+ * Default: follow `prefers-color-scheme: dark` (Tailwind's default behaviour
+ * via the `dark` variant). When the checkbox is checked, force dark.
+ *
+ * Persistence across requests is out of scope for v1
+ * (specification/out-of-scope.md "Persistent dark-mode preference").
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+html:has(#dark-toggle:checked) {
+  color-scheme: dark;
+}
+html:has(#dark-toggle:checked) body {
+  background-color: var(--color-zinc-950);
+  color: var(--color-zinc-100);
+}
+
+/* Respect users who request reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

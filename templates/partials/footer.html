@@ -1,0 +1,17 @@
+{{define "footer"}}<footer class="mt-16 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+  <div class="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-6 text-sm sm:px-6 sm:flex-row sm:items-center sm:justify-between lg:px-8">
+    <nav aria-label="Footer" class="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <a href="/changelog" class="hover:underline">Changelog</a>
+      <a href="/releases/v1.0.0" class="hover:underline">Releases</a>
+      <a href="/security" class="hover:underline">Security</a>
+      <a href="/compatibility" class="hover:underline">Compatibility</a>
+      <a href="/contributing" class="hover:underline">Contributing</a>
+      <a href="https://github.com/FlavioCFOliveira/MuxMaster" rel="noopener" target="_blank" class="hover:underline">GitHub<span class="sr-only"> (opens in a new tab)</span></a>
+      <a href="/llms.txt" class="hover:underline">llms.txt</a>
+    </nav>
+    <p class="text-zinc-600 dark:text-zinc-400">
+      MuxMaster is MIT-licensed. <span class="font-mono">{{.Version}}</span>
+    </p>
+  </div>
+</footer>
+{{end}}
