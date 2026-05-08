@@ -145,7 +145,7 @@ Every public route reads from a single local file (or a startup-only data struct
 | `/contributing` | `/content/contributing.md` |
 | `/robots.txt` | Site-original; static text generated at startup. |
 | `/llms.txt` | Site-original; built at startup from the registered route table. |
-| `/llms-full.txt` | Site-original; built at startup from the registered route table. |
+| `/llms-full.txt` | Site-original; built at startup from the registered route table. Bundles the `/llms.txt` navigation index with the concatenated Markdown bodies of every content-backed route (see `geo.md`). |
 | `/sitemap.xml` | Site-original; built at startup from the registered route table. |
 | `/404` | `/content/site/404.md` (optional, with fallback). Pre-rendered at startup. |
 | `/500` | `/content/site/500.md` (optional, with fallback). Pre-rendered at startup. |

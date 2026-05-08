@@ -28,10 +28,17 @@ The site MUST be ingestible by AI answer engines (ChatGPT, Claude, Perplexity, G
 
 ## /llms-full.txt
 
-- Path: `/llms-full.txt`. Plain text, UTF-8.
-- Same structure as `/llms.txt` for the heading and section names.
-- Each link MUST point to the **Markdown companion** of the page (`<route>.md`), so that an LLM following the links retrieves machine-readable Markdown rather than HTML.
-- The file MUST NOT inline the page bodies; it is an index of `.md` URLs.
+`/llms-full.txt` is the **bundled** variant defined by the llmstxt.org convention: the navigation index of `/llms.txt` followed by the concatenated Markdown bodies of every content-backed page, so that a crawler can ingest the entire site in one request.
+
+- Path: `/llms-full.txt`. Served with `Content-Type: text/plain; charset=utf-8`.
+- The file MUST start with the same top-level `# MuxMaster` heading and the same one-paragraph project blurb as `/llms.txt`, so that a crawler that fetches only this file still has the project frame.
+- Immediately after the blurb, the file MUST list the canonical URLs of every documentation page in the same sectioned form as `/llms.txt` (`## Documentation`, `## API`, `## Examples`, `## Reference`, `## Optional`), each entry written as a Markdown link with a one-line description. The bundled file is therefore also a navigation index — a superset of `/llms.txt`, not a different navigation product.
+- The links in this navigation index MUST point at the canonical HTML URLs (the same URLs `/llms.txt` lists). The bundled file MUST NOT list `.md` companion URLs in this index.
+- After the navigation index, the file MUST emit a `---` separator on its own line, followed by a `# Full content` heading on its own line, followed by the concatenation of every content-backed page's Markdown body.
+- Inlined bodies MUST appear in the same order as the routes appear in the navigation index above.
+- Each inlined body MUST be preceded by a heading line that names the route URL (for example `## /docs/routing`), so that a crawler can locate the body it cares about within the bundle.
+- Only routes whose body comes from a single curated file under `/content/` are inlined. Pages without a backing content file (`/`, `/docs/`, `/examples/`) MUST NOT appear in the inlined section, even though they are listed in the navigation index above. The implementation gates inclusion on the presence of a content file path for the route.
+- The file MUST be auto-generated from the registered routes at startup, on the same trigger as `/llms.txt`. A new content-backed route added to the site MUST appear in both the navigation index and the inlined section without manual edits.
 
 ## Markdown companions
 
