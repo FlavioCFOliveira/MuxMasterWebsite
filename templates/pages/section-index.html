@@ -10,6 +10,11 @@
     <article>
       <h1 class="text-3xl font-bold tracking-tight">{{.Body.Heading}}</h1>
       <p class="mt-4 text-zinc-600 dark:text-zinc-400">{{.Body.Description}}</p>
+      {{if .Body.IntroHTML}}
+      <div class="prose prose-zinc mt-6 max-w-none dark:prose-invert">
+        {{safeHTML .Body.IntroHTML}}
+      </div>
+      {{end}}
 
       <ul class="mt-8 grid gap-3 sm:grid-cols-2">
         {{range .Body.Items}}

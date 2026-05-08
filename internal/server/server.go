@@ -14,6 +14,7 @@ import (
 	mwm "github.com/FlavioCFOliveira/MuxMaster/middleware"
 
 	"github.com/FlavioCFOliveira/MuxMasterWebsite/internal/config"
+	"github.com/FlavioCFOliveira/MuxMasterWebsite/internal/content"
 	"github.com/FlavioCFOliveira/MuxMasterWebsite/internal/render"
 )
 
@@ -27,15 +28,16 @@ type Server struct {
 	cfg        *config.Config
 	logger     *slog.Logger
 	renderer   *render.Renderer
+	loader     *content.Loader
 	version    string
 	staticDir  string
 	buildTime  time.Time
 	httpServer *http.Server
 }
 
-// New constructs the server. templatesDir, staticDir, and version are required
-// by the renderer and the page chrome.
-func New(cfg *config.Config, logger *slog.Logger, version, templatesDir, staticDir string) (*Server, error) {
+// New constructs the server. templatesDir, staticDir, the loader, and the
+// resolved version label are required by the renderer and the page chrome.
+func New(cfg *config.Config, logger *slog.Logger, loader *content.Loader, version, templatesDir, staticDir string) (*Server, error) {
 	r, err := render.New(templatesDir, staticDir)
 	if err != nil {
 		return nil, fmt.Errorf("server: %w", err)
@@ -45,6 +47,7 @@ func New(cfg *config.Config, logger *slog.Logger, version, templatesDir, staticD
 		cfg:       cfg,
 		logger:    logger,
 		renderer:  r,
+		loader:    loader,
 		version:   version,
 		staticDir: staticDir,
 		buildTime: time.Now().UTC(),
@@ -80,12 +83,13 @@ func New(cfg *config.Config, logger *slog.Logger, version, templatesDir, staticD
 	return s, nil
 }
 
-// Prerender materialises every Category A route to bytes and stores them in
-// the renderer's prerender cache. It MUST be called once between New() and
-// Start(); calling Start() before Prerender() leaves the Category A handlers
-// pointing at an empty cache and returns 500 to clients. A failure here is
-// fatal at startup per specification/rendering-and-caching.md "static-tending"
-// — a broken Category A pre-render is not a runtime degradation.
+// Prerender materialises every public route to bytes and stores them on the
+// renderer. It MUST be called once between New() and Start().
+//
+// A failure here is fatal at startup per
+// specification/rendering-and-caching.md "static-tending": a broken
+// pre-render is not a runtime degradation. The same URL must return the
+// same bytes for the lifetime of the process.
 func (s *Server) Prerender() error {
 	deps := render.Deps{
 		Routes:    routeInfos(),
@@ -98,15 +102,24 @@ func (s *Server) Prerender() error {
 
 	recipes := []render.Recipe{
 		render.LandingRecipe(LandingDescription, ogImagePath, productionRobots),
-		render.DocsIndexRecipe(LandingDescription, ogImagePath, productionRobots),
-		render.ExamplesIndexRecipe(ogImagePath, productionRobots),
+		render.DocsIndexRecipe(s.loader, ogImagePath, productionRobots),
+		render.ExamplesIndexRecipe(s.loader, ogImagePath, productionRobots),
 		render.LLMsRecipe(),
-		render.LLMsFullRecipe(),
+		render.LLMsFullRecipe(s.loader, routeContentPaths()),
 		render.SitemapRecipe(),
 		render.RobotsRecipe(),
 		render.NotFoundRecipe(ogImagePath, productionRobots),
 		render.ServerErrorRecipe(ogImagePath, productionRobots),
 	}
+
+	// Doc-page recipes for every route in the route table that has a
+	// curated Markdown source. Both the HTML route and the .md companion
+	// derive from the same source (specification/content-sources.md).
+	for _, spec := range docPageSpecs() {
+		recipes = append(recipes, render.DocPageRecipe(spec, s.loader, ogImagePath, productionRobots))
+		recipes = append(recipes, render.MarkdownCompanionRecipe(spec.Path, spec.ContentPath, s.loader))
+	}
+
 	if err := s.renderer.Prerender(recipes, deps); err != nil {
 		return err
 	}

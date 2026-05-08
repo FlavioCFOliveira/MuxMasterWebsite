@@ -1,4 +1,14 @@
 // Package config loads runtime configuration from environment variables.
+//
+// The runtime binary is self-contained: every public route is rendered at
+// startup from /content/ embedded at build time. Configuration is therefore
+// limited to network and observability knobs (PORT, SITE_BASE_URL, ENV,
+// LOG_LEVEL).
+//
+// MUXMASTER_SOURCE_DIR is intentionally NOT consumed here. It is a
+// development-time and agent-time variable only, used by the content-curator
+// agent to locate the upstream working tree (specification/deployment.md).
+// Setting it in the runtime environment has no effect.
 package config
 
 import (
@@ -21,22 +31,20 @@ const (
 
 // Config holds all runtime configuration.
 type Config struct {
-	Port              int
-	SiteBaseURL       string
-	MuxMasterSourceDir string
-	LogLevel          slog.Level
-	Env               Env
+	Port        int
+	SiteBaseURL string
+	LogLevel    slog.Level
+	Env         Env
 }
 
 // Load reads configuration from the environment, applying defaults.
 // It validates required values and returns an error on misconfiguration.
 func Load() (*Config, error) {
 	cfg := &Config{
-		Port:              8080,
-		SiteBaseURL:       "http://localhost:8080",
-		MuxMasterSourceDir: "../MuxMaster",
-		LogLevel:          slog.LevelInfo,
-		Env:               EnvDevelopment,
+		Port:        8080,
+		SiteBaseURL: "http://localhost:8080",
+		LogLevel:    slog.LevelInfo,
+		Env:         EnvDevelopment,
 	}
 
 	if v := os.Getenv("PORT"); v != "" {
@@ -49,10 +57,6 @@ func Load() (*Config, error) {
 
 	if v := os.Getenv("SITE_BASE_URL"); v != "" {
 		cfg.SiteBaseURL = strings.TrimRight(v, "/")
-	}
-
-	if v := os.Getenv("MUXMASTER_SOURCE_DIR"); v != "" {
-		cfg.MuxMasterSourceDir = v
 	}
 
 	if v := os.Getenv("LOG_LEVEL"); v != "" {
@@ -83,7 +87,6 @@ func (c *Config) LogAttrs() []slog.Attr {
 	return []slog.Attr{
 		slog.Int("port", c.Port),
 		slog.String("site_base_url", c.SiteBaseURL),
-		slog.String("muxmaster_source_dir", c.MuxMasterSourceDir),
 		slog.String("log_level", c.LogLevel.String()),
 		slog.String("env", string(c.Env)),
 	}

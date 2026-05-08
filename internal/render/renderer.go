@@ -1,7 +1,6 @@
 package render
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"html/template"
@@ -15,32 +14,20 @@ import (
 	"github.com/FlavioCFOliveira/MuxMasterWebsite/internal/meta"
 )
 
-// Renderer parses the HTML templates once at startup and renders pages on
-// demand. It is safe for concurrent use.
+// Renderer parses the HTML templates once at startup and exposes the
+// prerender map populated by Prerender. It is safe for concurrent use.
 //
-// The Renderer holds two distinct caches:
-//
-//   - cache (lazy): Category B routes whose output depends on upstream files.
-//     Populated on first request, invalidated by upstream mtime changes.
-//   - prerendered (eager): Category A routes whose output is fixed for the
-//     process lifetime. Populated once during Prerender at startup; read-only
-//     thereafter.
-//
-// Invariant: a path that exists in prerendered MUST NOT also be served via
-// the lazy cache. Wire-up code is responsible for routing each path to
-// exactly one cache.
+// The site is static-tending (specification/rendering-and-caching.md): every
+// public route is materialised to bytes during startup, and per-request
+// rendering does not exist. The Renderer therefore holds a single
+// prerendered map; the lazy-cache machinery from earlier rounds has been
+// removed.
 type Renderer struct {
 	tpl     *template.Template
 	cssPath string
 
 	mu          sync.RWMutex
-	cache       map[string]cachedPage
 	prerendered map[string]Prerendered
-}
-
-type cachedPage struct {
-	body []byte
-	etag string
 }
 
 // New constructs a Renderer by parsing every .html file under templatesDir
@@ -74,7 +61,6 @@ func New(templatesDir, staticDir string) (*Renderer, error) {
 	return &Renderer{
 		tpl:         tpl,
 		cssPath:     cssPath,
-		cache:       make(map[string]cachedPage),
 		prerendered: make(map[string]Prerendered),
 	}, nil
 }
@@ -88,36 +74,10 @@ type Data struct {
 	Body any
 }
 
-// Render executes the named page template into a buffer and returns the bytes
-// together with their strong ETag. The render result is cached in-process keyed
-// by (templateName, page.Path); the cache is invalidated only on process
-// restart, which matches the spec's "no upstream filesystem watch" rule.
-func (r *Renderer) Render(name string, data Data) ([]byte, string, error) {
-	key := name + "\x00" + data.Meta.Path
-	r.mu.RLock()
-	if c, ok := r.cache[key]; ok {
-		r.mu.RUnlock()
-		return c.body, c.etag, nil
-	}
-	r.mu.RUnlock()
-
-	var buf bytes.Buffer
-	if err := r.tpl.ExecuteTemplate(&buf, name, data); err != nil {
-		return nil, "", fmt.Errorf("render: execute %s: %w", name, err)
-	}
-	body := buf.Bytes()
-	etag := ETag(body)
-
-	r.mu.Lock()
-	r.cache[key] = cachedPage{body: body, etag: etag}
-	r.mu.Unlock()
-
-	return body, etag, nil
-}
-
-// Write performs a full ETag-aware write of a rendered page.
-// It honours If-None-Match (304) and sets Content-Type, ETag, and the supplied
-// Cache-Control header.
+// Write performs a full ETag-aware write of an HTML page body. It honours
+// If-None-Match (304) and sets Content-Type, ETag, and the supplied
+// Cache-Control header. Used by handlers that compose responses outside the
+// prerender map (for example operational fallbacks).
 func (r *Renderer) Write(w http.ResponseWriter, req *http.Request, status int, body []byte, etag, cacheControl string) {
 	if MatchesIfNoneMatch(req, etag) {
 		w.Header().Set("ETag", etag)
@@ -160,7 +120,7 @@ func discoverHashedCSS(staticDir string) (string, error) {
 
 func funcMap() template.FuncMap {
 	return template.FuncMap{
-		"safeHTML": func(s string) template.HTML { return template.HTML(s) }, //nolint:gosec // input is JSON-LD/template-controlled.
+		"safeHTML": func(s string) template.HTML { return template.HTML(s) }, //nolint:gosec // input is fully trusted: rendered from /content/ at startup.
 		"json":     func(s string) template.JS { return template.JS(s) },     //nolint:gosec // pre-encoded JSON, escape handled at construction time.
 	}
 }

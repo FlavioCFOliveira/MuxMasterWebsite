@@ -8,9 +8,12 @@ import (
 	"github.com/FlavioCFOliveira/MuxMasterWebsite/internal/meta"
 )
 
-// TestRenderConcurrent exercises the render cache under concurrent access so
-// `go test -race` can spot any unsynchronised writes.
-func TestRenderConcurrent(t *testing.T) {
+// TestExecuteTemplateConcurrent exercises the parsed-template surface under
+// concurrent access so `go test -race` can spot any unsynchronised state.
+// The lazy render cache from earlier rounds was removed; recipes call
+// ExecuteTemplate at startup only, but the underlying template is read
+// concurrently when multiple recipes run during Prerender.
+func TestExecuteTemplateConcurrent(t *testing.T) {
 	t.Parallel()
 
 	r, err := New("../../templates", "../../static")
@@ -34,16 +37,13 @@ func TestRenderConcurrent(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			body, etag, err := r.Render("landing.html", Data{Meta: page})
+			body, err := r.ExecuteTemplate("landing.html", Data{Meta: page})
 			if err != nil {
-				t.Errorf("Render: %v", err)
+				t.Errorf("ExecuteTemplate: %v", err)
 				return
 			}
 			if len(body) == 0 {
 				t.Error("empty body")
-			}
-			if etag == "" {
-				t.Error("empty etag")
 			}
 		}()
 	}

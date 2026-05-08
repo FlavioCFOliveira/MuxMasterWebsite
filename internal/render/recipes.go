@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/FlavioCFOliveira/MuxMasterWebsite/internal/content"
 	"github.com/FlavioCFOliveira/MuxMasterWebsite/internal/meta"
 )
 
@@ -23,10 +24,10 @@ func LandingRecipe(landingDescription, ogImagePath string, productionRobots bool
 	}
 }
 
-// DocsIndexRecipe builds /docs/ from the route table. The page lists every
-// /docs/<section> route. The optional /content/site/docs-index.md is not
-// loaded in this round; see TODO(spec) below.
-func DocsIndexRecipe(landingDescription, ogImagePath string, productionRobots bool) Recipe {
+// DocsIndexRecipe builds /docs/ from the route table. When
+// /content/site/docs-index.md is present, its body is rendered above the
+// list of sections.
+func DocsIndexRecipe(loader *content.Loader, ogImagePath string, productionRobots bool) Recipe {
 	const path = "/docs/"
 	return Recipe{
 		Path:        path,
@@ -41,21 +42,24 @@ func DocsIndexRecipe(landingDescription, ogImagePath string, productionRobots bo
 				{Label: "Home", Href: "/"},
 				{Label: "Documentation"},
 			}
-			// TODO(spec): when Category B (Markdown rendering) lands, also load
-			// /content/site/docs-index.md when present and prepend its rendered
-			// HTML above the section list. See specification/content-sources.md.
+			intro, err := optionalIntro(loader, "site/docs-index.md")
+			if err != nil {
+				return nil, err
+			}
 			body := indexPageBody{
 				Heading:     "Documentation",
 				Description: "Eleven sections, in the order recommended for first-time readers. Every page has a Markdown companion at the same path with a .md suffix.",
 				Items:       items,
+				IntroHTML:   intro,
 			}
 			return deps.Renderer.ExecuteTemplate("section-index.html", Data{Meta: page, Body: body})
 		},
 	}
 }
 
-// ExamplesIndexRecipe builds /examples/ from the route table.
-func ExamplesIndexRecipe(ogImagePath string, productionRobots bool) Recipe {
+// ExamplesIndexRecipe builds /examples/. When /content/site/examples-index.md
+// is present, its body is rendered above the cards.
+func ExamplesIndexRecipe(loader *content.Loader, ogImagePath string, productionRobots bool) Recipe {
 	const path = "/examples/"
 	return Recipe{
 		Path:        path,
@@ -70,16 +74,37 @@ func ExamplesIndexRecipe(ogImagePath string, productionRobots bool) Recipe {
 				{Label: "Home", Href: "/"},
 				{Label: "Examples"},
 			}
-			// TODO(spec): when Category B lands, also load
-			// /content/site/examples-index.md when present and prepend it.
+			intro, err := optionalIntro(loader, "site/examples-index.md")
+			if err != nil {
+				return nil, err
+			}
 			body := indexPageBody{
 				Heading:     "Examples",
 				Description: "Eight programs from the upstream MuxMaster examples directory. Each page links to the upstream source.",
 				Items:       items,
+				IntroHTML:   intro,
 			}
 			return deps.Renderer.ExecuteTemplate("section-index.html", Data{Meta: page, Body: body})
 		},
 	}
+}
+
+// optionalIntro renders the supplied content path to HTML when present,
+// returning an empty string when absent. Errors from a present-but-broken
+// file propagate so misconfigurations are visible at startup.
+func optionalIntro(loader *content.Loader, contentPath string) (string, error) {
+	if loader == nil || !loader.Exists(contentPath) {
+		return "", nil
+	}
+	src, err := loader.Load(contentPath)
+	if err != nil {
+		return "", err
+	}
+	htmlBytes, err := MarkdownToHTML(src)
+	if err != nil {
+		return "", err
+	}
+	return string(htmlBytes), nil
 }
 
 // LLMsRecipe builds /llms.txt per https://llmstxt.org and the strict structure
@@ -95,21 +120,46 @@ func LLMsRecipe() Recipe {
 	}
 }
 
-// LLMsFullRecipe builds /llms-full.txt with the same structure as /llms.txt
-// but every link points to the .md companion of the page (per geo.md). HTML
-// equivalent is shown in parentheses for human readability.
-//
-// TODO(spec): the next round (Category B) MUST extend this recipe to inline
-// the body of every .md companion concatenated under the index, per
-// specification/rendering-and-caching.md and content-sources.md. The current
-// shape is the minimum that satisfies the llmstxt.org "full" convention as a
-// .md index until the bodies are available.
-func LLMsFullRecipe() Recipe {
+// LLMsFullRecipe builds /llms-full.txt: the same index as /llms.txt with
+// every Markdown body concatenated under it (per specification/geo.md and
+// content-sources.md). The loader is the source of every body; nothing is
+// fetched at request time.
+func LLMsFullRecipe(loader *content.Loader, routeToContent map[string]string) Recipe {
 	return Recipe{
 		Path:        "/llms-full.txt",
 		ContentType: "text/plain; charset=utf-8",
 		Build: func(deps Deps) ([]byte, error) {
-			return buildLLMs(deps, true), nil
+			out := buildLLMs(deps, true)
+			var b bytes.Buffer
+			b.Write(out)
+			b.WriteString("\n---\n\n# Full content\n\n")
+			// Walk the route table in deterministic order so the output is
+			// stable across runs (a precondition for stable ETags).
+			paths := make([]string, 0, len(deps.Routes))
+			for _, r := range deps.Routes {
+				if !r.HasMarkdown {
+					continue
+				}
+				if _, ok := routeToContent[r.Path]; !ok {
+					continue
+				}
+				paths = append(paths, r.Path)
+			}
+			sort.Strings(paths)
+			for _, p := range paths {
+				cp := routeToContent[p]
+				src, err := loader.Load(cp)
+				if err != nil {
+					return nil, err
+				}
+				fmt.Fprintf(&b, "## %s\n\n", deps.BaseURL+p)
+				b.Write(src)
+				if len(src) == 0 || src[len(src)-1] != '\n' {
+					b.WriteByte('\n')
+				}
+				b.WriteString("\n")
+			}
+			return b.Bytes(), nil
 		},
 	}
 }
@@ -242,6 +292,7 @@ type indexPageBody struct {
 	Heading     string
 	Description string
 	Items       []RouteInfo
+	IntroHTML   string // Optional pre-rendered HTML from /content/site/<index>.md.
 }
 
 // errorBody is the data passed to the error-page template.
@@ -317,14 +368,6 @@ func buildLLMs(deps Deps, full bool) []byte {
 
 	b.WriteString("## Optional\n\n")
 	b.WriteString("- [GitHub repository](https://github.com/FlavioCFOliveira/MuxMaster): canonical source for MuxMaster.\n")
-
-	if full {
-		// TODO(spec): the next round MUST concatenate the body of every .md
-		// companion below this index. Bodies depend on Category B (lazy-cache
-		// upstream Markdown reading) which is not implemented in this round.
-		// See specification/rendering-and-caching.md and content-sources.md.
-		b.WriteString("\n<!-- TODO(spec): full Markdown bodies will be concatenated here once Category B (lazy upstream Markdown) lands. -->\n")
-	}
 
 	return []byte(b.String())
 }

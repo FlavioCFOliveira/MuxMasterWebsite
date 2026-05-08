@@ -5,8 +5,55 @@ import (
 	"encoding/xml"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
+
+	"github.com/FlavioCFOliveira/MuxMasterWebsite/internal/content"
 )
+
+// fixtureLoader returns a loader rooted at an in-memory content tree that
+// mirrors the day-one /content/ corpus shape. Bodies are minimal; tests that
+// need a particular Markdown shape supply their own fixture.
+func fixtureLoader(t *testing.T) *content.Loader {
+	t.Helper()
+	files := map[string]string{
+		"changelog.md":                    "# Changelog\n\n## v1.0.1\n",
+		"api.md":                          "# API\n\n## Overview\n\nText.\n",
+		"compatibility.md":                "# Compatibility\n",
+		"security.md":                     "# Security\n",
+		"contributing.md":                 "# Contributing\n",
+		"benchmarks.md":                   "# Benchmarks\n\n## Numbers\n\nTable.\n",
+		"docs/getting-started.md":         "# Getting started\n\n## Install\n\nText.\n",
+		"docs/routing.md":                 "# Routing\n\n## Patterns\n\nText.\n\n## Priority\n\nText.\n",
+		"docs/groups.md":                  "# Groups\n",
+		"docs/middleware.md":              "# Middleware\n",
+		"docs/error-handling.md":          "# Error handling\n",
+		"docs/configuration.md":           "# Configuration\n",
+		"docs/response-helpers.md":        "# Response helpers\n",
+		"docs/performance.md":             "# Performance\n",
+		"docs/observability.md":           "# Observability\n",
+		"docs/migration.md":               "# Migration\n",
+		"docs/cookbook.md":                "# Cookbook\n",
+		"examples/rest-api.md":            "# REST API\n",
+		"examples/authn.md":               "# Authn\n",
+		"examples/jwt.md":                 "# JWT\n\n```go\nfunc main() {}\n```\n",
+		"examples/oauth2.md":              "# OAuth2\n",
+		"examples/cache.md":               "# Cache\n",
+		"examples/graceful-shutdown.md":   "# Graceful shutdown\n",
+		"examples/server-side-render.md":  "# Server-side render\n",
+		"examples/static-site.md":         "# Static site\n",
+		"release-notes/v1.0.0.md":         "# v1.0.0\n",
+	}
+	mfs := fstest.MapFS{}
+	for path, body := range files {
+		mfs[path] = &fstest.MapFile{Data: []byte(body)}
+	}
+	loader, err := content.NewLoader(mfs)
+	if err != nil {
+		t.Fatalf("NewLoader: %v", err)
+	}
+	return loader
+}
 
 // fixtureDeps returns a Deps value sufficient for exercising every recipe.
 // The renderer is constructed against the live templates and CSS bundle.
@@ -61,7 +108,7 @@ func TestLandingRecipeProducesValidHTML(t *testing.T) {
 func TestDocsIndexRecipeListsDocs(t *testing.T) {
 	t.Parallel()
 	deps := fixtureDeps(t)
-	rec := DocsIndexRecipe("desc", "/static/img/og.png", false)
+	rec := DocsIndexRecipe(fixtureLoader(t), "/static/img/og.png", false)
 	body, err := rec.Build(deps)
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -83,7 +130,7 @@ func TestDocsIndexRecipeListsDocs(t *testing.T) {
 func TestExamplesIndexRecipeListsExamples(t *testing.T) {
 	t.Parallel()
 	deps := fixtureDeps(t)
-	rec := ExamplesIndexRecipe("/static/img/og.png", false)
+	rec := ExamplesIndexRecipe(fixtureLoader(t), "/static/img/og.png", false)
 	body, err := rec.Build(deps)
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -126,7 +173,13 @@ func TestLLMsRecipeStructure(t *testing.T) {
 func TestLLMsFullRecipePointsAtMarkdown(t *testing.T) {
 	t.Parallel()
 	deps := fixtureDeps(t)
-	rec := LLMsFullRecipe()
+	loader := fixtureLoader(t)
+	mapping := map[string]string{
+		"/docs/routing": "docs/routing.md",
+		"/api":          "api.md",
+		"/examples/jwt": "examples/jwt.md",
+	}
+	rec := LLMsFullRecipe(loader, mapping)
 	body, err := rec.Build(deps)
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -135,8 +188,12 @@ func TestLLMsFullRecipePointsAtMarkdown(t *testing.T) {
 	if !strings.Contains(s, "/docs/routing.md") {
 		t.Error("/llms-full.txt must link to .md companions")
 	}
-	if !strings.Contains(s, "TODO(spec)") {
-		t.Error("/llms-full.txt must carry the TODO marker for the next round")
+	if !strings.Contains(s, "# Full content") {
+		t.Error("/llms-full.txt must carry the inlined-bodies section header")
+	}
+	// Inlined body of routing.md must appear.
+	if !strings.Contains(s, "# Routing") {
+		t.Error("/llms-full.txt must inline the body of docs/routing.md")
 	}
 }
 

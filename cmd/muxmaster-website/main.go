@@ -12,13 +12,14 @@ import (
 	"syscall"
 	"time"
 
+	root "github.com/FlavioCFOliveira/MuxMasterWebsite"
 	"github.com/FlavioCFOliveira/MuxMasterWebsite/internal/config"
 	"github.com/FlavioCFOliveira/MuxMasterWebsite/internal/content"
 	"github.com/FlavioCFOliveira/MuxMasterWebsite/internal/server"
 )
 
 // buildID is set via -ldflags="-X main.buildID=..." at compile time and is
-// used as a cache-busting suffix for the in-process render cache.
+// used as part of the build identity surfaced in startup logs.
 var buildID = "dev"
 
 func main() {
@@ -42,28 +43,39 @@ func run() error {
 	logger.LogAttrs(context.Background(), slog.LevelInfo, "configuration", cfg.LogAttrs()...)
 	logger.Info("build", "id", buildID)
 
-	if err := content.VerifyUpstream(cfg.MuxMasterSourceDir); err != nil {
+	// Resolve the embedded /content/ tree. The runtime is self-contained
+	// (specification/deployment.md): no filesystem path outside the embed
+	// is consulted.
+	contentRoot, err := root.ContentFS()
+	if err != nil {
+		return fmt.Errorf("content embed: %w", err)
+	}
+	loader, err := content.NewLoader(contentRoot)
+	if err != nil {
+		return fmt.Errorf("content loader: %w", err)
+	}
+	if err := loader.Verify(); err != nil {
 		return err
 	}
 
-	version, err := content.ReadLatestVersion(cfg.MuxMasterSourceDir)
+	version, err := loader.Version()
 	if err != nil {
 		return err
 	}
-	logger.Info("upstream version", "version", version)
+	logger.Info("content version", "version", version)
 
 	// Resolve template and static directories relative to the working
 	// directory so `go run`, `make dev`, and the Docker runtime all behave
 	// consistently. The runtime image's working directory is /srv.
 	templatesDir, staticDir := resolveAssetDirs()
 
-	srv, err := server.New(cfg, logger, version, templatesDir, staticDir)
+	srv, err := server.New(cfg, logger, loader, version, templatesDir, staticDir)
 	if err != nil {
 		return err
 	}
 
-	// Materialise every Category A route to bytes before accepting requests.
-	// A failure here is fatal — broken Category A is a startup error per the
+	// Materialise every public route to bytes before accepting requests.
+	// A failure here is fatal — broken pre-render is a startup error per the
 	// static-tending principle (specification/rendering-and-caching.md).
 	if err := srv.Prerender(); err != nil {
 		return fmt.Errorf("prerender: %w", err)

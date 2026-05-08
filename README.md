@@ -11,25 +11,20 @@ make dev                # builds the CSS once, then runs the binary with `go run
 
 The site listens on `:8080` by default. Override via `PORT`.
 
-Required environment:
+Runtime environment:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `MUXMASTER_SOURCE_DIR` | `../MuxMaster` | Upstream MuxMaster source tree (must satisfy `specification/content-sources.md`). |
 | `SITE_BASE_URL` | `http://localhost:8080` | Absolute base URL used for canonical, OG, JSON-LD, and sitemap. |
 | `PORT` | `8080` | TCP port. |
 | `LOG_LEVEL` | `info` | One of `debug`, `info`, `warn`, `error`. |
 | `ENV` | `development` | One of `development`, `staging`, `production`. |
 
+`MUXMASTER_SOURCE_DIR` is **not** a runtime variable. It is a development-time and agent-time variable consumed only by the `content-curator` agent to locate the upstream working tree. The runtime binary is self-contained: every public route is pre-rendered at startup from `/content/`, embedded into the binary at build time.
+
 ## Source of truth
 
 The contract this code satisfies lives in `specification/`. Read it before editing.
-
-This scaffold round delivers a runnable binary with the landing page wired and every other route registered as a "coming soon" placeholder. The following routes are stubs that will be filled in by later rounds (geo / seo / content):
-
-- `/llms.txt`, `/llms-full.txt`, `/sitemap.xml`, `/robots.txt` — minimal valid bodies, not yet auto-generated from the route table.
-- `/docs/*`, `/api`, `/examples/*`, `/benchmarks`, `/changelog`, `/releases/*`, `/security`, `/compatibility`, `/contributing` — render the "coming soon" template with correct `<head>` and breadcrumb.
-- `static/favicon/` is reserved; the build-time favicon generation pipeline is not yet implemented.
 
 ## Build the binary
 
@@ -41,12 +36,10 @@ make vet                # `go vet ./...`
 
 ## Docker
 
-The Dockerfile is multi-stage. The MuxMaster source tree must be supplied at build time. Recommended invocation (run from inside this repository):
+The Dockerfile is multi-stage and self-contained — `/content/` is committed in this repository and embedded into the binary at build time, so no external build context is required:
 
 ```sh
-docker build \
-  --build-context muxmaster=../MuxMaster \
-  -t muxmaster-website:dev .
+docker build -t muxmaster-website:dev .
 ```
 
-The runtime stage is `gcr.io/distroless/static-debian12:nonroot`, listens on `:8080` (h2c), and reads the upstream source tree from `MUXMASTER_SOURCE_DIR=/muxmaster`.
+The runtime stage is `gcr.io/distroless/static-debian12:nonroot` and listens on `:8080` (h2c).

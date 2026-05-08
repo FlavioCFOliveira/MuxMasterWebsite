@@ -79,7 +79,7 @@ tidy:
 	@go mod tidy
 
 docker-build:
-	@docker build --build-context muxmaster=../MuxMaster -t $(BINARY):dev .
+	@docker build -t $(BINARY):dev .
 
 clean:
 	@rm -rf $(BIN_DIR)
