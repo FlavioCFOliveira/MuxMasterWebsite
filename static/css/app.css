@@ -4,47 +4,108 @@
  * The CSS is compiled by the Tailwind v4 standalone CLI (no Node) and emitted
  * to static/css/app.<hash>.css, which the Go renderer discovers at startup.
  *
- * Sources scanned for class strings:
- *   - templates/**/*.html
- *   - content/**/*.md
- *   - any *.go that emits class strings (none today; reserved).
- *
- * TODO(spec): the cyan and yellow accent hexes are placeholders pending
- * open-questions.md item 2 -- final colours must be sampled from
- * assets/logo-muxmaster.png in the upstream MuxMaster source tree
- * (MUXMASTER_SOURCE_DIR) and ratified by the project owner.
+ * @source paths are resolved relative to the CWD of the CLI invocation
+ * (the repo root, because `make css` runs from there). Pointing at the
+ * directory rather than a glob is v4-idiomatic and avoids the "tree
+ * traversal" pitfall the parent-relative form fell into.
  */
 
 @import "tailwindcss";
 
-@source "../../templates/**/*.html";
-@source "../../content/**/*.md";
+@source "./templates";
+@source "./content";
 
+/*
+ * Brand accent tokens. Sampled from
+ * /data/dev/github.com/FlavioCFOliveira/MuxMaster/assets/logo-muxmaster.png
+ * by the tailwind-specialist (cluster modes; verified by mean of opaque
+ * pixels). The base accents are the brand identity colours and may not be
+ * WCAG-AA-safe on every surface; the *-strong tokens are the adjacent
+ * hues used for body links, CTA backgrounds, and focus outlines, where
+ * AA contrast is mandatory.
+ */
 @theme {
-  --color-accent-cyan: #29b6f6;   /* TODO(spec): replace with logo-sampled hex. */
-  --color-accent-yellow: #ffd600; /* TODO(spec): replace with logo-sampled hex. */
+  --color-accent-cyan: #28a5d7;          /* logo identity, decorative use only */
+  --color-accent-cyan-strong: #0e7490;   /* links, CTA bg, focus outline (5.36:1 vs white) */
+  --color-accent-cyan-light: #67e8f9;    /* dark-mode link / focus (13.7:1 vs zinc-950) */
+  --color-accent-yellow: #f8e026;        /* logo identity, badge bg paired with text-zinc-900 */
+  --color-accent-yellow-strong: #854d0e; /* yellow as text on light surfaces (5.84:1) */
 }
 
 /*
- * No-JS dark-mode toggle.
+ * No-JS dark-mode variant.
  *
- * The site uses :has() against a hidden <input type="checkbox" id="dark-toggle">
- * to flip the theme without JavaScript.
- *
- * Default: follow `prefers-color-scheme: dark` (Tailwind's default behaviour
- * via the `dark` variant). When the checkbox is checked, force dark.
+ * Two routes both flip the theme:
+ *   - `prefers-color-scheme: dark` from the OS, when the toggle is unchecked.
+ *   - The hidden <input type="checkbox" id="dark-toggle"> in the page
+ *     chrome, via :has() at the document root.
  *
  * Persistence across requests is out of scope for v1
  * (specification/out-of-scope.md "Persistent dark-mode preference").
  */
-@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant dark {
+  &:where(html:has(#dark-toggle:checked) *), &:where(html:has(#dark-toggle:checked)) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(html:not(:has(#dark-toggle:checked)) *), &:where(html:not(:has(#dark-toggle:checked))) {
+      @slot;
+    }
+  }
+}
 
 html:has(#dark-toggle:checked) {
   color-scheme: dark;
 }
-html:has(#dark-toggle:checked) body {
-  background-color: var(--color-zinc-950);
-  color: var(--color-zinc-100);
+@media (prefers-color-scheme: dark) {
+  html:not(:has(#dark-toggle:checked)) {
+    color-scheme: dark;
+  }
+}
+
+/*
+ * Hand-rolled typography for Markdown-rendered pages.
+ *
+ * Replaces the @tailwindcss/typography plugin, which the standalone v4 CLI
+ * cannot load (it is a Node package). The selectors below match the brand
+ * spec's heading scale and line heights line-for-line, which the plugin
+ * would not give us without re-theming.
+ */
+.markdown { max-width: min(72ch, 100%); line-height: 1.6; }
+.markdown > * + * { margin-block-start: 1.25em; }
+.markdown :where(h1, h2, h3, h4) { line-height: 1.2; font-weight: 700; scroll-margin-top: 5rem; }
+.markdown h1 { font-size: clamp(1.875rem, 1.5rem + 1.5vw, 2.5rem); margin-block-end: 0.5em; }
+.markdown h2 { font-size: clamp(1.5rem, 1.25rem + 1vw, 2rem); margin-block-start: 2em; padding-block-end: 0.3em; border-block-end: 1px solid var(--color-zinc-200); }
+.markdown h3 { font-size: clamp(1.25rem, 1.125rem + 0.5vw, 1.5rem); font-weight: 600; margin-block-start: 1.75em; }
+.markdown h4 { font-size: 1.125rem; font-weight: 600; margin-block-start: 1.5em; }
+.markdown p { color: var(--color-zinc-800); }
+.markdown :where(ul, ol) { padding-inline-start: 1.5rem; }
+.markdown ul { list-style: disc; }
+.markdown ol { list-style: decimal; }
+.markdown li + li { margin-block-start: 0.4em; }
+.markdown a { color: var(--color-accent-cyan-strong); text-decoration: underline; text-underline-offset: 0.2em; text-decoration-thickness: 1px; }
+.markdown a:hover { text-decoration-thickness: 2px; }
+.markdown :where(code):not(pre code) { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 0.9em; padding: 0.125rem 0.35rem; border-radius: 0.25rem; background: var(--color-zinc-100); }
+.markdown pre { overflow-x: auto; padding: 1rem; border-radius: 0.5rem; background: var(--color-zinc-100); font-size: 0.875rem; line-height: 1.55; }
+.markdown pre code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+.markdown blockquote { padding-inline-start: 1rem; border-inline-start: 3px solid var(--color-zinc-300); color: var(--color-zinc-600); font-style: italic; }
+.markdown :where(table) { width: 100%; border-collapse: collapse; font-size: 0.95em; }
+.markdown :where(th, td) { padding: 0.5rem 0.75rem; border-block-end: 1px solid var(--color-zinc-200); text-align: start; vertical-align: top; }
+.markdown :where(th) { font-weight: 600; background: var(--color-zinc-50); }
+.markdown :where(img) { max-width: 100%; height: auto; }
+.markdown hr { border: 0; border-block-start: 1px solid var(--color-zinc-200); margin-block: 2.5em; }
+
+/* Dark variant of the hand-rolled markdown styles. */
+@variant dark {
+  .markdown p { color: var(--color-zinc-200); }
+  .markdown h2 { border-color: var(--color-zinc-800); }
+  .markdown :where(code):not(pre code) { background: var(--color-zinc-800); color: var(--color-zinc-100); }
+  .markdown pre { background: var(--color-zinc-900); }
+  .markdown a { color: var(--color-accent-cyan-light); }
+  .markdown blockquote { border-color: var(--color-zinc-700); color: var(--color-zinc-400); }
+  .markdown :where(th, td) { border-color: var(--color-zinc-800); }
+  .markdown :where(th) { background: var(--color-zinc-900); }
+  .markdown hr { border-color: var(--color-zinc-800); }
 }
 
 /* Respect users who request reduced motion. */
