@@ -73,12 +73,16 @@ func TestMarkdownToHTMLDeterministic(t *testing.T) {
 	}
 }
 
-// TestExtractHeadings verifies the lightweight TOC-extraction agrees with
-// goldmark's auto-generated IDs.
-func TestExtractHeadings(t *testing.T) {
+// TestExtractHeadingsFromHTML verifies the HTML-side TOC extraction returns
+// every H2 and H3 in document order with the IDs goldmark actually emitted.
+func TestExtractHeadingsFromHTML(t *testing.T) {
 	t.Parallel()
 	src := []byte("# H1 ignored\n\n## Pattern Priority\n\nText.\n\n### Sub heading\n\n## Path Normalization\n")
-	got := ExtractHeadings(src)
+	rendered, err := MarkdownToHTML(src)
+	if err != nil {
+		t.Fatalf("MarkdownToHTML: %v", err)
+	}
+	got := ExtractHeadingsFromHTML(rendered)
 	want := []Heading{
 		{Level: 2, ID: "pattern-priority", Text: "Pattern Priority"},
 		{Level: 3, ID: "sub-heading", Text: "Sub heading"},
@@ -94,20 +98,52 @@ func TestExtractHeadings(t *testing.T) {
 	}
 }
 
-// TestSlugify pins the slug shape against goldmark's auto-ID output for
-// representative inputs.
-func TestSlugify(t *testing.T) {
+// TestHeadingsAndAnchorsAgree exercises the property that motivates the new
+// extraction path: the headings ExtractHeadingsFromHTML returns MUST every
+// match an `id="…"` in the rendered HTML for the SAME source. The set of
+// inputs is deliberately hostile — em-dashes, dots, slashes, asterisks,
+// non-ASCII Unicode — exactly the cases the previous slugifier got wrong.
+func TestHeadingsAndAnchorsAgree(t *testing.T) {
 	t.Parallel()
-	cases := map[string]string{
-		"Hello World":             "hello-world",
-		"Pattern Priority":        "pattern-priority",
-		"Already-Hyphenated":      "already-hyphenated",
-		"   leading and trailing ": "leading-and-trailing",
-		"Symbols: %, &, :, /":     "symbols",
+	src := []byte(`# Title
+
+## Step 1 — Hello, World
+
+Text.
+
+### Pattern Priority
+
+Text.
+
+## Path/Normalization
+
+Text.
+
+## API.Reference
+
+Text.
+
+## **Strong** heading
+
+Text.
+
+## café — special
+
+Text.
+`)
+	rendered, err := MarkdownToHTML(src)
+	if err != nil {
+		t.Fatalf("MarkdownToHTML: %v", err)
 	}
-	for in, want := range cases {
-		if got := slugify(in); got != want {
-			t.Errorf("slugify(%q) = %q, want %q", in, got, want)
+	headings := ExtractHeadingsFromHTML(rendered)
+	if len(headings) == 0 {
+		t.Fatalf("no headings extracted; rendered=%s", rendered)
+	}
+	rs := string(rendered)
+	for _, h := range headings {
+		marker := `id="` + h.ID + `"`
+		if !strings.Contains(rs, marker) {
+			t.Errorf("heading %+v has no matching %s in body", h, marker)
 		}
 	}
 }

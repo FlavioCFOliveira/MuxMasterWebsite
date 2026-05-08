@@ -74,7 +74,11 @@ func ExamplesIndexRecipe(loader *content.Loader, ogImagePath string, productionR
 		Path:        path,
 		ContentType: "text/html; charset=utf-8",
 		Build: func(deps Deps) ([]byte, error) {
-			items := filterRoutes(deps.Routes, "examples", path)
+			// Examples use a curated learning order (RouteInfo.Order),
+			// not alphabetical. The order is REST first, auth family
+			// (Authn → JWT → OAuth2) second, then operational concerns
+			// (Cache → Graceful shutdown → SSR → Static site).
+			items := filterRoutesByOrder(deps.Routes, "examples", path)
 			page := basePage(deps, path,
 				"Examples",
 				"Eight runnable MuxMaster examples covering REST APIs, authentication, JWT, OAuth2, caching, graceful shutdown, server-side rendering, and static sites.",
@@ -418,6 +422,31 @@ func filterRoutes(routes []RouteInfo, section, indexPath string) []RouteInfo {
 		out = append(out, r)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
+	return out
+}
+
+// filterRoutesByOrder is like filterRoutes but sorts by RouteInfo.Order
+// ascending, falling back to path lex order when two entries share an Order
+// value (typically because both are zero — meaning "no curated rank"). The
+// /examples/ index uses this so the cards appear in learning sequence
+// rather than alphabetical order.
+func filterRoutesByOrder(routes []RouteInfo, section, indexPath string) []RouteInfo {
+	out := make([]RouteInfo, 0, len(routes))
+	for _, r := range routes {
+		if r.Path == indexPath {
+			continue
+		}
+		if r.Section != section {
+			continue
+		}
+		out = append(out, r)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Order != out[j].Order {
+			return out[i].Order < out[j].Order
+		}
+		return out[i].Path < out[j].Path
+	})
 	return out
 }
 

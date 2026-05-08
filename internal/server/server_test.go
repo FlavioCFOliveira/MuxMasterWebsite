@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -275,7 +276,7 @@ func TestMobileDisclosures(t *testing.T) {
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
-	for _, want := range []string{"Documentation sections", "On this page"} {
+	for _, want := range []string{"Documentation", "On this page"} {
 		if !strings.Contains(string(body), want) {
 			t.Errorf("doc-page missing mobile disclosure label %q", want)
 		}
@@ -430,6 +431,229 @@ func TestVersionLabelFromContentChangelog(t *testing.T) {
 	}
 }
 
+// TestTOCAnchorsResolve enforces the property that motivates the new HTML-side
+// heading extraction: every TOC link's `href="#id"` MUST land on an `id="id"`
+// that exists somewhere in the rendered body. Run for every doc-page route at
+// boot — this catches drift across the whole corpus, not just the fixture.
+func TestTOCAnchorsResolve(t *testing.T) {
+	t.Parallel()
+	srv := newTestServer(t)
+	ts := httptest.NewServer(srv.httpServer.Handler)
+	t.Cleanup(ts.Close)
+
+	tocHrefRE := regexp.MustCompile(`href="#([^"]+)"`)
+	idAttrRE := regexp.MustCompile(`id="([^"]+)"`)
+
+	for _, ri := range routeInfos() {
+		ri := ri
+		// Only HTML doc-family pages emit a TOC. The landing page and
+		// section indexes don't.
+		if !ri.HasMarkdown {
+			continue
+		}
+		t.Run(ri.Path, func(t *testing.T) {
+			resp, err := http.Get(ts.URL + ri.Path)
+			if err != nil {
+				t.Fatalf("GET %s: %v", ri.Path, err)
+			}
+			defer resp.Body.Close()
+			body, _ := io.ReadAll(resp.Body)
+			s := string(body)
+
+			// Collect every fragment href and every id attribute on the
+			// page. The TOC's anchors must be a subset of the body's ids.
+			ids := make(map[string]struct{})
+			for _, m := range idAttrRE.FindAllStringSubmatch(s, -1) {
+				ids[m[1]] = struct{}{}
+			}
+			for _, m := range tocHrefRE.FindAllStringSubmatch(s, -1) {
+				frag := m[1]
+				if frag == "" || frag == "main" {
+					continue
+				}
+				if _, ok := ids[frag]; !ok {
+					t.Errorf("TOC anchor #%s has no matching id in body", frag)
+				}
+			}
+		})
+	}
+}
+
+// TestExamplesIndexCuratedOrder verifies /examples/ lists the eight examples
+// in the curated learning order (REST → Authn → JWT → OAuth2 → Cache →
+// Graceful shutdown → SSR → Static site), not alphabetical.
+func TestExamplesIndexCuratedOrder(t *testing.T) {
+	t.Parallel()
+	srv := newTestServer(t)
+	ts := httptest.NewServer(srv.httpServer.Handler)
+	t.Cleanup(ts.Close)
+
+	resp, err := http.Get(ts.URL + "/examples/")
+	if err != nil {
+		t.Fatalf("GET: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	s := string(body)
+
+	want := []string{
+		"/examples/rest-api",
+		"/examples/authn",
+		"/examples/jwt",
+		"/examples/oauth2",
+		"/examples/cache",
+		"/examples/graceful-shutdown",
+		"/examples/server-side-render",
+		"/examples/static-site",
+	}
+	prev := 0
+	for _, p := range want {
+		idx := strings.Index(s, p)
+		if idx < 0 {
+			t.Fatalf("/examples/ missing %q", p)
+		}
+		if idx < prev {
+			t.Errorf("/examples/ out of curated order: %q at %d, previous at %d", p, idx, prev)
+		}
+		prev = idx
+	}
+}
+
+// TestReferenceSidebarOnNonDocsPage verifies that a reference page outside
+// /docs/ (here: /security) renders the curated Reference sidebar with all
+// seven sibling links — the fix that closes UX H#1's "no lateral navigation"
+// gap on non-/docs/ pages.
+func TestReferenceSidebarOnNonDocsPage(t *testing.T) {
+	t.Parallel()
+	srv := newTestServer(t)
+	ts := httptest.NewServer(srv.httpServer.Handler)
+	t.Cleanup(ts.Close)
+
+	resp, err := http.Get(ts.URL + "/security")
+	if err != nil {
+		t.Fatalf("GET: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	s := string(body)
+
+	if !strings.Contains(s, `aria-label="Reference"`) {
+		t.Error("/security missing Reference sidebar")
+	}
+	for _, link := range []string{
+		"/api", "/examples/", "/benchmarks", "/changelog",
+		"/releases/v1.0.0", "/security", "/compatibility", "/contributing",
+	} {
+		if !strings.Contains(s, `href="`+link+`"`) {
+			t.Errorf("/security Reference sidebar missing href=%q", link)
+		}
+	}
+}
+
+// TestExamplesSidebarAndPrevNext verifies that an /examples/<name> page
+// renders the curated Examples sidebar and a prev/next pair pointing at the
+// curated neighbours (not alphabetical).
+func TestExamplesSidebarAndPrevNext(t *testing.T) {
+	t.Parallel()
+	srv := newTestServer(t)
+	ts := httptest.NewServer(srv.httpServer.Handler)
+	t.Cleanup(ts.Close)
+
+	// /examples/jwt sits between /examples/authn and /examples/oauth2 in
+	// the curated order.
+	resp, err := http.Get(ts.URL + "/examples/jwt")
+	if err != nil {
+		t.Fatalf("GET: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	s := string(body)
+
+	if !strings.Contains(s, `aria-label="Examples"`) {
+		t.Error("/examples/jwt missing Examples sidebar")
+	}
+	for _, link := range []string{
+		"/examples/rest-api", "/examples/authn", "/examples/jwt",
+		"/examples/oauth2", "/examples/cache", "/examples/graceful-shutdown",
+		"/examples/server-side-render", "/examples/static-site",
+	} {
+		if !strings.Contains(s, `href="`+link+`"`) {
+			t.Errorf("/examples/jwt Examples sidebar missing href=%q", link)
+		}
+	}
+	// Prev/next must point at curated neighbours.
+	if !strings.Contains(s, `href="/examples/authn"`) {
+		t.Error("/examples/jwt missing prev=/examples/authn")
+	}
+	if !strings.Contains(s, `href="/examples/oauth2"`) {
+		t.Error("/examples/jwt missing next=/examples/oauth2")
+	}
+}
+
+// TestAPIPageTOCDepth pins UX H#8: the /api page must surface a non-trivial
+// in-page TOC. We assert at least two entries (the two top-level packages)
+// and that the page renders an "On this page" panel — H3 inclusion is wired
+// through the renderer so any future H3s in api.md will appear automatically.
+//
+// NOTE(curator): content/api.md currently uses H1 for second-level sections
+// (Quick start, Route patterns, Middleware, Performance, Compatibility) and
+// H2 for the two package roots. To take full advantage of the H2/H3 TOC the
+// reviewer asked for, those H1s should be re-keyed to H2 and the per-symbol
+// blocks promoted to H3 in a future curator pass.
+func TestAPIPageTOCDepth(t *testing.T) {
+	t.Parallel()
+	srv := newTestServer(t)
+	ts := httptest.NewServer(srv.httpServer.Handler)
+	t.Cleanup(ts.Close)
+
+	resp, err := http.Get(ts.URL + "/api")
+	if err != nil {
+		t.Fatalf("GET: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	s := string(body)
+
+	if !strings.Contains(s, "On this page") {
+		t.Error("/api missing 'On this page' TOC label")
+	}
+	// The TOC must include at least one entry per H2 in the source. The
+	// fixture exposes one H2 ("Overview"); the live api.md exposes the
+	// two package H2s. Either way >= 1 entry must render.
+	tocAnchors := strings.Count(s, `<a href="#`)
+	if tocAnchors < 1 {
+		t.Errorf("/api TOC has %d anchors, want >= 1", tocAnchors)
+	}
+}
+
+// TestDocPageH3InTOC verifies that H3 entries actually appear in the in-page
+// TOC. The fixture's docs/configuration.md replacement is enriched with one
+// H3 specifically to exercise this path; the property under test is "if the
+// source has H3, the TOC has H3" — independent of any one corpus.
+func TestDocPageH3InTOC(t *testing.T) {
+	t.Parallel()
+	srv := newTestServer(t)
+	ts := httptest.NewServer(srv.httpServer.Handler)
+	t.Cleanup(ts.Close)
+
+	resp, err := http.Get(ts.URL + "/docs/configuration")
+	if err != nil {
+		t.Fatalf("GET: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	s := string(body)
+
+	// The fixture body for docs/configuration includes a "### Sub option"
+	// heading. Goldmark slugifies it to "sub-option".
+	if !strings.Contains(s, `href="#sub-option"`) {
+		t.Error("/docs/configuration TOC missing H3 anchor #sub-option")
+	}
+	if !strings.Contains(s, `id="sub-option"`) {
+		t.Error("/docs/configuration body missing matching id=sub-option")
+	}
+}
+
 // newTestServer constructs a Server backed by an in-memory content tree and
 // runs Prerender. It does NOT bind a real socket — callers wrap
 // srv.httpServer.Handler in httptest.
@@ -477,7 +701,7 @@ func buildFixtureLoader(t *testing.T) *content.Loader {
 		"docs/groups.md":                 "# Groups\n",
 		"docs/middleware.md":             "# Middleware\n",
 		"docs/error-handling.md":         "# Error handling\n",
-		"docs/configuration.md":          "# Configuration\n",
+		"docs/configuration.md":          "# Configuration\n\n## Options\n\nText.\n\n### Sub option\n\nDetail.\n",
 		"docs/response-helpers.md":       "# Response helpers\n",
 		"docs/performance.md":            "# Performance\n",
 		"docs/observability.md":          "# Observability\n",

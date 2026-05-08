@@ -7,11 +7,12 @@
   {{template "header" .Meta}}
   <div class="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:grid lg:grid-cols-[16rem_minmax(0,1fr)_16rem] lg:gap-8">
     {{if .Body.ShowSidebar}}
-      {{/* Mobile disclosure for the documentation section list. The same
-           Body.SidebarItems slice is reused; nothing is duplicated server-side. */}}
+      {{/* Mobile disclosure for the section list. The label is driven by
+           Body.SidebarTitle so the same template serves Documentation,
+           Reference, and Examples without per-section duplication. */}}
       <details class="mb-4 rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 lg:hidden">
-        <summary class="cursor-pointer list-none px-4 py-3 font-semibold min-h-11">Documentation sections</summary>
-        <nav aria-label="Documentation sections (mobile)" class="border-t border-zinc-200 px-2 pb-2 dark:border-zinc-800">
+        <summary class="cursor-pointer list-none px-4 py-3 font-semibold min-h-11">{{.Body.SidebarTitle}}</summary>
+        <nav aria-label="{{.Body.SidebarTitle}} (mobile)" class="border-t border-zinc-200 px-2 pb-2 dark:border-zinc-800">
           <ul class="space-y-1 text-sm">
             {{range .Body.SidebarItems}}
               <li>
@@ -26,9 +27,9 @@
         </nav>
       </details>
 
-      <aside class="hidden lg:block" aria-label="Documentation sections">
+      <aside class="hidden lg:block" aria-label="{{.Body.SidebarTitle}}">
         <nav class="sticky top-4">
-          <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Documentation</p>
+          <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{{.Body.SidebarTitle}}</p>
           <ul class="mt-3 space-y-1 text-sm">
             {{range .Body.SidebarItems}}
               <li>

@@ -53,87 +53,90 @@ func MarkdownToHTML(src []byte) ([]byte, error) {
 // Heading is one entry in the in-page table of contents.
 type Heading struct {
 	Level int    // 2 or 3
-	ID    string // kebab-case anchor
+	ID    string // anchor as emitted by goldmark
 	Text  string
 }
 
-// h2h3RE matches "## heading" and "### heading" at the start of a line.
-// We extract the in-page TOC from the source Markdown rather than the
-// rendered HTML so the TOC stays cheap and template-free.
-var h2h3RE = regexp.MustCompile(`(?m)^(#{2,3})\s+(.+?)\s*$`)
+// headingHTMLRE matches the H2/H3 elements goldmark emits with
+// parser.WithAutoHeadingID. The renderer's output for an auto-ID heading is
+// always a single line of the form `<h2 id="…">text</h2>` (or h3) — no
+// nested elements, no attribute reordering, and the id comes first because
+// goldmark writes it before any class or other attribute.
+//
+// Why this path (vs. parsing the source Markdown): the previous slugifier
+// approximated goldmark's identifier algorithm and drifted on inputs that
+// included em-dashes, dots, slashes, asterisks, and Unicode. Extracting from
+// the *rendered* HTML guarantees that every TOC entry's `href="#id"` matches
+// an `id="id"` that actually exists in the body — the two cannot disagree
+// because they come from the same string.
+//
+// The text capture stops at the first `<` so any inline elements goldmark
+// generated inside the heading (e.g. `<code>`) are stripped from the TOC
+// label without us needing a full HTML parser; the call site post-processes
+// the captured text with stripInlineTags for that case.
+var headingHTMLRE = regexp.MustCompile(`<h([23])\s+id="([^"]+)"[^>]*>(.*?)</h[23]>`)
 
-// inlineFormattingRE strips inline Markdown formatting markers (`**`, `__`,
-// `*`, `_`, backticks) from a heading's display text. Anchors are still
-// computed from the unstripped text so they match goldmark's
-// WithAutoHeadingID output.
-var inlineFormattingRE = regexp.MustCompile("[`*_]+")
+// inlineTagRE matches simple inline tags goldmark may emit inside a heading
+// (most commonly <code>…</code>). The replace strips the tags and keeps the
+// inner text, leaving entities such as &amp; intact for the TOC label.
+var inlineTagRE = regexp.MustCompile(`<[^>]+>`)
 
-// inlineLinkRE collapses `[label](url)` into `label`. Headings rarely
-// contain links; this is a defensive simplification.
-var inlineLinkRE = regexp.MustCompile(`\[([^\]]*)\]\([^)]*\)`)
-
-// ExtractHeadings returns every H2 and H3 heading in the supplied source,
-// in document order. The IDs are computed with the same algorithm goldmark
-// uses for parser.WithAutoHeadingID so the TOC anchor matches the rendered
-// HTML.
-func ExtractHeadings(src []byte) []Heading {
-	matches := h2h3RE.FindAllSubmatch(src, -1)
+// ExtractHeadingsFromHTML returns every H2 and H3 heading present in the
+// supplied rendered HTML, in document order. The IDs are read directly from
+// the HTML the page will serve, so the TOC anchor cannot drift from the
+// rendered output.
+func ExtractHeadingsFromHTML(htmlBody []byte) []Heading {
+	matches := headingHTMLRE.FindAllSubmatch(htmlBody, -1)
 	if len(matches) == 0 {
 		return nil
 	}
 	out := make([]Heading, 0, len(matches))
-	seen := make(map[string]int, len(matches))
 	for _, m := range matches {
-		level := len(m[1])
-		if level != 2 && level != 3 {
+		level := 0
+		switch m[1][0] {
+		case '2':
+			level = 2
+		case '3':
+			level = 3
+		default:
 			continue
 		}
-		raw := string(m[2])
-		text := inlineLinkRE.ReplaceAllString(raw, "$1")
-		text = inlineFormattingRE.ReplaceAllString(text, "")
+		id := string(m[2])
+		text := stripInlineTags(string(m[3]))
+		text = decodeBasicEntities(text)
 		text = strings.TrimSpace(text)
-		if text == "" {
+		if id == "" || text == "" {
 			continue
-		}
-		id := slugify(text)
-		if id == "" {
-			continue
-		}
-		// Disambiguate duplicate slugs the same way goldmark does:
-		// append "-N" for the Nth duplicate (1-indexed after the first).
-		if n, ok := seen[id]; ok {
-			seen[id] = n + 1
-			id = fmt.Sprintf("%s-%d", id, n)
-		} else {
-			seen[id] = 1
 		}
 		out = append(out, Heading{Level: level, ID: id, Text: text})
 	}
 	return out
 }
 
-// slugify converts heading text to the kebab-case anchor format goldmark
-// emits with parser.WithAutoHeadingID. The algorithm: lowercase, replace
-// any run of non-[a-z0-9] runes with a single dash, trim leading and
-// trailing dashes. Unicode characters outside ASCII are dropped, matching
-// goldmark's default identifier generator.
-func slugify(s string) string {
-	var b strings.Builder
-	b.Grow(len(s))
-	prevDash := true // suppress leading dash
-	for _, r := range strings.ToLower(s) {
-		switch {
-		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
-			b.WriteRune(r)
-			prevDash = false
-		default:
-			if !prevDash {
-				b.WriteByte('-')
-				prevDash = true
-			}
-		}
+// stripInlineTags removes any HTML tag from s, keeping the inner text. Used
+// to flatten inline elements (<code>, <em>, <strong>) inside a heading down
+// to plain text for the TOC label.
+func stripInlineTags(s string) string {
+	if !strings.Contains(s, "<") {
+		return s
 	}
-	out := b.String()
-	out = strings.TrimRight(out, "-")
-	return out
+	return inlineTagRE.ReplaceAllString(s, "")
+}
+
+// decodeBasicEntities decodes the small set of HTML entities goldmark may
+// emit inside a heading text run. We avoid html.UnescapeString to keep this
+// helper allocation-light and predictable.
+func decodeBasicEntities(s string) string {
+	if !strings.Contains(s, "&") {
+		return s
+	}
+	r := strings.NewReplacer(
+		"&amp;", "&",
+		"&lt;", "<",
+		"&gt;", ">",
+		"&quot;", "\"",
+		"&#39;", "'",
+		"&apos;", "'",
+	)
+	return r.Replace(s)
 }

@@ -35,12 +35,19 @@ type Recipe struct {
 // inputs (sitemap, llms.txt, llms-full.txt, docs and examples indexes).
 // Operational endpoints, text artefacts (/llms.txt, /sitemap.xml, /robots.txt),
 // and error templates MUST NOT appear in this slice.
+//
+// Order is the curated index-page ordering rank within Section: lower comes
+// first. It exists because path-lex order is wrong for /examples/ (alphabet
+// vs. learning sequence). When Order is zero (the default) recipes fall
+// back to path-lex order, which is the right behaviour for the docs index
+// where the docsSidebar handles ordering elsewhere.
 type RouteInfo struct {
 	Path        string
 	Title       string
 	Description string
 	Section     string // "landing", "docs", "api", "examples", "benchmarks", "changelog", "releases", "security", "compatibility", "contributing"
 	HasMarkdown bool
+	Order       int
 }
 
 // Deps bundles the build-time inputs every recipe may consume. Keeping the

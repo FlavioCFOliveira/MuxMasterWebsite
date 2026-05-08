@@ -16,6 +16,7 @@ type docPageBody struct {
 	HTML         string // Pre-rendered HTML body; injected via safeHTML.
 	TOC          []Heading
 	ShowSidebar  bool
+	SidebarTitle string // Section heading for the sidebar (e.g. "Documentation", "Reference", "Examples").
 	SidebarItems []sidebarItem
 	HasPrevNext  bool
 	Prev         navLink
@@ -49,6 +50,38 @@ var docsSidebar = []sidebarItem{
 	{Path: "/docs/observability", Title: "Observability"},
 	{Path: "/docs/migration", Title: "Migration"},
 	{Path: "/docs/cookbook", Title: "Cookbook"},
+}
+
+// referenceSidebar is shown on every doc-family page that is not part of
+// /docs/ or /examples/. The order is curated to lead with the most-asked
+// reference (API), then collections (Examples, Benchmarks), then change
+// notes (Changelog, Release notes), then policy pages (Security,
+// Compatibility, Contributing). Pages here are siblings rather than a
+// sequence, so prev/next is intentionally not extended to this sidebar.
+var referenceSidebar = []sidebarItem{
+	{Path: "/api", Title: "API reference"},
+	{Path: "/examples/", Title: "Examples"},
+	{Path: "/benchmarks", Title: "Benchmarks"},
+	{Path: "/changelog", Title: "Changelog"},
+	{Path: "/releases/v1.0.0", Title: "Release notes — v1.0.0"},
+	{Path: "/security", Title: "Security"},
+	{Path: "/compatibility", Title: "Compatibility"},
+	{Path: "/contributing", Title: "Contributing"},
+}
+
+// examplesSidebar is shown on every /examples/<name> page. The order is the
+// curated learning order from the specification (REST first, auth family
+// second, then operational concerns), and also drives the prev/next chain
+// across example pages.
+var examplesSidebar = []sidebarItem{
+	{Path: "/examples/rest-api", Title: "REST API"},
+	{Path: "/examples/authn", Title: "Authentication"},
+	{Path: "/examples/jwt", Title: "JWT"},
+	{Path: "/examples/oauth2", Title: "OAuth2"},
+	{Path: "/examples/cache", Title: "Cache"},
+	{Path: "/examples/graceful-shutdown", Title: "Graceful shutdown"},
+	{Path: "/examples/server-side-render", Title: "Server-side render"},
+	{Path: "/examples/static-site", Title: "Static site"},
 }
 
 // DocPageSpec describes one Markdown-backed long-form page. The same
@@ -101,17 +134,36 @@ func DocPageRecipe(spec DocPageSpec, loader *content.Loader, ogImagePath string,
 			}
 
 			body := docPageBody{
-				Title:        spec.Title,
-				HTML:         string(htmlBody),
-				TOC:          ExtractHeadings(src),
+				Title: spec.Title,
+				HTML:  string(htmlBody),
+				// Extract anchors from the rendered HTML rather than the
+				// source Markdown so the TOC's href="#…" cannot drift
+				// from the body's id="…". They come from the same string.
+				TOC:          ExtractHeadingsFromHTML(htmlBody),
 				LastModified: lastMod,
 			}
 
-			if spec.Section == "docs" {
+			switch spec.Section {
+			case "docs":
 				body.ShowSidebar = true
+				body.SidebarTitle = "Documentation"
 				body.SidebarItems = docsSidebar
 				body.HasPrevNext = true
-				body.Prev, body.Next = prevNextFor(spec.Path)
+				body.Prev, body.Next = prevNextIn(docsSidebar, spec.Path)
+			case "examples":
+				body.ShowSidebar = true
+				body.SidebarTitle = "Examples"
+				body.SidebarItems = examplesSidebar
+				body.HasPrevNext = true
+				body.Prev, body.Next = prevNextIn(examplesSidebar, spec.Path)
+			case "api", "benchmarks", "changelog", "releases", "security", "compatibility", "contributing":
+				// Reference pages are independent siblings, not a sequence —
+				// the sidebar provides the lateral navigation but prev/next
+				// is intentionally suppressed to avoid implying a reading
+				// order across unrelated pages.
+				body.ShowSidebar = true
+				body.SidebarTitle = "Reference"
+				body.SidebarItems = referenceSidebar
 			}
 
 			// JSON-LD: TechArticle + BreadcrumbList for every doc-family page.
@@ -225,12 +277,13 @@ func breadcrumbsForDoc(spec DocPageSpec) []meta.Breadcrumb {
 	}
 }
 
-// prevNextFor returns the prev and next neighbours within /docs/ in the
-// order defined by docsSidebar. /docs/getting-started has no prev;
-// /docs/cookbook has no next.
-func prevNextFor(path string) (navLink, navLink) {
+// prevNextIn returns the prev and next neighbours of path within the
+// supplied sidebar slice, in the slice's order. The first item has no prev;
+// the last item has no next. Returns empty navLinks when path is not in the
+// slice (defensive — should not happen for well-formed routes).
+func prevNextIn(sidebar []sidebarItem, path string) (navLink, navLink) {
 	idx := -1
-	for i, it := range docsSidebar {
+	for i, it := range sidebar {
 		if it.Path == path {
 			idx = i
 			break
@@ -241,10 +294,10 @@ func prevNextFor(path string) (navLink, navLink) {
 	}
 	var prev, next navLink
 	if idx > 0 {
-		prev = navLink{Path: docsSidebar[idx-1].Path, Title: docsSidebar[idx-1].Title}
+		prev = navLink{Path: sidebar[idx-1].Path, Title: sidebar[idx-1].Title}
 	}
-	if idx < len(docsSidebar)-1 {
-		next = navLink{Path: docsSidebar[idx+1].Path, Title: docsSidebar[idx+1].Title}
+	if idx < len(sidebar)-1 {
+		next = navLink{Path: sidebar[idx+1].Path, Title: sidebar[idx+1].Title}
 	}
 	return prev, next
 }
