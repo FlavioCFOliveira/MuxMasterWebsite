@@ -1,9 +1,11 @@
 # Public API
 
-Auto-generated from `go doc`. Do not edit by hand —
-regenerate with: `make api`.
+The public API of MuxMaster: every exported type, function, method, and field, with the signatures and short behavioural notes the compiler sees. The package implements an `http.Handler`-compatible HTTP router built on a radix tree, plus typed parameter accessors, response helpers, and an introspection API.
 
-See [COMPATIBILITY.md](./COMPATIBILITY.md) for the SemVer tier policy.
+For the SemVer tier policy that governs which symbols below are stable, see the [Compatibility](/compatibility) page.
+
+<!-- This page is regenerated from `go doc` during the curator-driven sync workflow defined in /specification/content-sources.md. Do not edit by hand. -->
+
 
 ## github.com/FlavioCFOliveira/MuxMaster
 
@@ -50,9 +52,9 @@ See the SECURITY.md "Pre vs Use security boundary" section for the full matrix.
 
 On AMD Ryzen 9 5900HX (Go 1.26.2):
 
-  - Static route: ~27 ns / 0 alloc
-  - 1-param route: ~128 ns / 1 alloc / 416 B
-  - HandleFast 1-p: ~54 ns / 1 alloc / 32 B (parity with httprouter)
+  - Static route: 25 ns / 0 alloc
+  - 1-param route: 112 ns / 1 alloc / 416 B
+  - HandleFast 1-p: 49 ns / 1 alloc / 32 B (parity with httprouter)
 
 HandleFast routes bypass the requestCtx allocation by passing Params directly as
 the third handler argument; they trade off stdlib middleware compatibility for

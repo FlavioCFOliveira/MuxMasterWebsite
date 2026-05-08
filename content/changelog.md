@@ -5,8 +5,6 @@ All notable changes to this project will be documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
 ## [1.0.1] - 2026-05-08
 
 Patch release. No functional, behavioural, or API changes — the public surface,

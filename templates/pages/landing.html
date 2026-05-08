@@ -68,7 +68,7 @@ func main() {
     mux := muxmaster.New()
 
     mux.GET("/users/:id", func(w http.ResponseWriter, r *http.Request) {
-        id, _ := muxmaster.PathParam(r).Int("id")
+        id, _ := muxmaster.ParamsFromContext(r.Context()).Int("id")
         // ...
         _, _ = w.Write([]byte(http.StatusText(http.StatusOK)))
         _ = id
