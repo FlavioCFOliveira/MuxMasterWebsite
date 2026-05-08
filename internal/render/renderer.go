@@ -17,12 +17,25 @@ import (
 
 // Renderer parses the HTML templates once at startup and renders pages on
 // demand. It is safe for concurrent use.
+//
+// The Renderer holds two distinct caches:
+//
+//   - cache (lazy): Category B routes whose output depends on upstream files.
+//     Populated on first request, invalidated by upstream mtime changes.
+//   - prerendered (eager): Category A routes whose output is fixed for the
+//     process lifetime. Populated once during Prerender at startup; read-only
+//     thereafter.
+//
+// Invariant: a path that exists in prerendered MUST NOT also be served via
+// the lazy cache. Wire-up code is responsible for routing each path to
+// exactly one cache.
 type Renderer struct {
 	tpl     *template.Template
 	cssPath string
 
-	mu    sync.RWMutex
-	cache map[string]cachedPage
+	mu          sync.RWMutex
+	cache       map[string]cachedPage
+	prerendered map[string]Prerendered
 }
 
 type cachedPage struct {
@@ -59,9 +72,10 @@ func New(templatesDir, staticDir string) (*Renderer, error) {
 	}
 
 	return &Renderer{
-		tpl:     tpl,
-		cssPath: cssPath,
-		cache:   make(map[string]cachedPage),
+		tpl:         tpl,
+		cssPath:     cssPath,
+		cache:       make(map[string]cachedPage),
+		prerendered: make(map[string]Prerendered),
 	}, nil
 }
 

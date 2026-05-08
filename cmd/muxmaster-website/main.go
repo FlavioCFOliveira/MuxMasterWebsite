@@ -62,6 +62,13 @@ func run() error {
 		return err
 	}
 
+	// Materialise every Category A route to bytes before accepting requests.
+	// A failure here is fatal — broken Category A is a startup error per the
+	// static-tending principle (specification/rendering-and-caching.md).
+	if err := srv.Prerender(); err != nil {
+		return fmt.Errorf("prerender: %w", err)
+	}
+
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- srv.Start()

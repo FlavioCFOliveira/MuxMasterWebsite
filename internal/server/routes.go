@@ -2,8 +2,11 @@ package server
 
 import (
 	"net/http"
+	"strings"
 
 	muxm "github.com/FlavioCFOliveira/MuxMaster"
+
+	"github.com/FlavioCFOliveira/MuxMasterWebsite/internal/render"
 )
 
 // route describes one entry in the day-one route table from
@@ -16,6 +19,59 @@ type route struct {
 	upstreamURL string
 	hasMarkdown bool
 	cache       string
+}
+
+// routeInfos returns every HTML route for use by the prerender recipes
+// (sitemap.xml, llms.txt, llms-full.txt, docs/examples indexes). The landing
+// page is included; operational endpoints, text artefacts, and error
+// templates are not. Markdown companions are not enumerated here — they
+// derive from HasMarkdown.
+func routeInfos() []render.RouteInfo {
+	const landingDesc = "MuxMaster is a high-performance, zero-dependency HTTP router for Go. Radix-tree O(k) lookups, zero allocations on static routes, and 100% net/http compatibility."
+	out := []render.RouteInfo{
+		{Path: "/", Title: "MuxMaster", Description: landingDesc, Section: "landing", HasMarkdown: false},
+	}
+	for _, r := range docRoutes() {
+		out = append(out, render.RouteInfo{
+			Path:        r.path,
+			Title:       r.title,
+			Description: r.description,
+			Section:     sectionForPath(r.path),
+			HasMarkdown: r.hasMarkdown,
+		})
+	}
+	return out
+}
+
+// sectionForPath maps a path to the bucket name used by recipes (routes.go is
+// the authoritative source). The pre-rendered index pages /docs/ and
+// /examples/ belong to their own section so they appear at the top of their
+// llms.txt group.
+func sectionForPath(p string) string {
+	switch {
+	case p == "/":
+		return "landing"
+	case p == "/api" || p == "/api.md":
+		return "api"
+	case strings.HasPrefix(p, "/docs"):
+		return "docs"
+	case strings.HasPrefix(p, "/examples"):
+		return "examples"
+	case strings.HasPrefix(p, "/benchmarks"):
+		return "benchmarks"
+	case strings.HasPrefix(p, "/changelog"):
+		return "changelog"
+	case strings.HasPrefix(p, "/releases"):
+		return "releases"
+	case strings.HasPrefix(p, "/security"):
+		return "security"
+	case strings.HasPrefix(p, "/compatibility"):
+		return "compatibility"
+	case strings.HasPrefix(p, "/contributing"):
+		return "contributing"
+	default:
+		return ""
+	}
 }
 
 // docRoutes returns the route table. Order matches the spec sitemap.
@@ -67,21 +123,39 @@ func getHead(m *muxm.Mux, path string, h http.HandlerFunc) {
 }
 
 // registerRoutes attaches every site route to the supplied *mux.Mux.
+//
+// Category A routes (landing, /docs/, /examples/, /llms.txt, /llms-full.txt,
+// /sitemap.xml, /robots.txt, /404, /500) are wired to handlers that read from
+// the prerender cache populated by Server.Prerender. They MUST NOT execute
+// html/template at request time. Category B routes still use the placeholder
+// coming-soon handlers in this round; the next round (live upstream Markdown)
+// replaces them.
 func (s *Server) registerRoutes(m *muxm.Mux) {
 	// Operational endpoints first.
 	getHead(m, "/healthz", s.healthzHandler())
 
-	// Top-level text artefacts.
-	getHead(m, "/robots.txt", s.robotsHandler())
-	getHead(m, "/sitemap.xml", s.sitemapHandler())
-	getHead(m, "/llms.txt", s.llmsHandler(false))
-	getHead(m, "/llms-full.txt", s.llmsHandler(true))
+	// Top-level text artefacts (Category A).
+	getHead(m, "/robots.txt", s.renderer.ServePrerendered("/robots.txt", cacheControlText, http.StatusOK))
+	getHead(m, "/sitemap.xml", s.renderer.ServePrerendered("/sitemap.xml", cacheControlSitemap, http.StatusOK))
+	getHead(m, "/llms.txt", s.renderer.ServePrerendered("/llms.txt", cacheControlText, http.StatusOK))
+	getHead(m, "/llms-full.txt", s.renderer.ServePrerendered("/llms-full.txt", cacheControlText, http.StatusOK))
 
-	// Landing.
-	getHead(m, "/", s.landingHandler())
+	// Landing (Category A).
+	getHead(m, "/", s.renderer.ServePrerendered("/", cacheControlLanding, http.StatusOK))
 
-	// Documentation, API, examples, and the rest.
+	// Section indexes (Category A).
+	getHead(m, "/docs/", s.renderer.ServePrerendered("/docs/", cacheControlLanding, http.StatusOK))
+	getHead(m, "/examples/", s.renderer.ServePrerendered("/examples/", cacheControlLanding, http.StatusOK))
+
+	// Category B routes — still placeholders in this round.
 	for _, r := range docRoutes() {
+		// /docs/ and /examples/ are Category A and registered above.
+		if r.path == "/docs/" || r.path == "/examples/" {
+			if r.hasMarkdown {
+				getHead(m, r.path+".md", s.markdownStubHandler(r.title, r.upstreamURL))
+			}
+			continue
+		}
 		htmlH := s.comingSoonHandler(r.title, r.description, r.upstreamURL, r.cache)
 		getHead(m, r.path, htmlH)
 		if r.hasMarkdown {
@@ -98,8 +172,9 @@ func (s *Server) registerRoutes(m *muxm.Mux) {
 	m.HandleFunc(http.MethodGet, "/static/*filepath", staticHandler)
 	m.HandleFunc(http.MethodHead, "/static/*filepath", staticHandler)
 
-	// Branded 404.
-	m.NotFound = s.notFoundHandler()
+	// Branded 404 served from the prerender cache. The serve helper applies
+	// status 404 and the Cache-Control: no-store header per spec.
+	m.NotFound = s.notFoundFromPrerender()
 }
 
 // staticCacheHandler serves files from staticDir, applying per-path

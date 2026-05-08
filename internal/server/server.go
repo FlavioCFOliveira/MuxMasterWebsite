@@ -17,6 +17,10 @@ import (
 	"github.com/FlavioCFOliveira/MuxMasterWebsite/internal/render"
 )
 
+// ogImagePath is the relative path of the Open Graph image. Resolved to an
+// absolute URL by basePage in render/recipes.go using SITE_BASE_URL.
+const ogImagePath = "/static/img/og-image.png"
+
 // Server bundles the rendered router with its dependencies for graceful
 // shutdown.
 type Server struct {
@@ -25,6 +29,7 @@ type Server struct {
 	renderer   *render.Renderer
 	version    string
 	staticDir  string
+	buildTime  time.Time
 	httpServer *http.Server
 }
 
@@ -42,6 +47,7 @@ func New(cfg *config.Config, logger *slog.Logger, version, templatesDir, staticD
 		renderer:  r,
 		version:   version,
 		staticDir: staticDir,
+		buildTime: time.Now().UTC(),
 	}
 
 	m := muxm.New()
@@ -72,6 +78,43 @@ func New(cfg *config.Config, logger *slog.Logger, version, templatesDir, staticD
 	}
 
 	return s, nil
+}
+
+// Prerender materialises every Category A route to bytes and stores them in
+// the renderer's prerender cache. It MUST be called once between New() and
+// Start(); calling Start() before Prerender() leaves the Category A handlers
+// pointing at an empty cache and returns 500 to clients. A failure here is
+// fatal at startup per specification/rendering-and-caching.md "static-tending"
+// — a broken Category A pre-render is not a runtime degradation.
+func (s *Server) Prerender() error {
+	deps := render.Deps{
+		Routes:    routeInfos(),
+		Version:   s.version,
+		BaseURL:   s.cfg.SiteBaseURL,
+		BuildTime: s.buildTime,
+		Renderer:  s.renderer,
+	}
+	productionRobots := s.isProduction()
+
+	recipes := []render.Recipe{
+		render.LandingRecipe(LandingDescription, ogImagePath, productionRobots),
+		render.DocsIndexRecipe(LandingDescription, ogImagePath, productionRobots),
+		render.ExamplesIndexRecipe(ogImagePath, productionRobots),
+		render.LLMsRecipe(),
+		render.LLMsFullRecipe(),
+		render.SitemapRecipe(),
+		render.RobotsRecipe(),
+		render.NotFoundRecipe(ogImagePath, productionRobots),
+		render.ServerErrorRecipe(ogImagePath, productionRobots),
+	}
+	if err := s.renderer.Prerender(recipes, deps); err != nil {
+		return err
+	}
+	for _, p := range s.renderer.PrerenderedPaths() {
+		pre, _ := s.renderer.Prerendered(p)
+		s.logger.Info("prerendered", "path", p, "bytes", len(pre.Body))
+	}
+	return nil
 }
 
 // Start begins serving and blocks until the underlying http.Server returns.

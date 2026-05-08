@@ -17,26 +17,6 @@ const (
 	cacheControlNoStore   = "no-store"
 )
 
-// pageData merges the per-page metadata with the global chrome inputs.
-type pageData struct {
-	Meta meta.Page
-	// Body is populated by templates that need page-specific content.
-	Body any
-}
-
-// landingHandler renders the home page.
-func (s *Server) landingHandler() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		page := s.pageMeta("/", "", landingDescription, "website")
-		body, etag, err := s.renderer.Render("landing.html", render.Data{Meta: page})
-		if err != nil {
-			s.serverError(w, r, err)
-			return
-		}
-		s.renderer.Write(w, r, http.StatusOK, body, etag, cacheControlLanding)
-	}
-}
-
 // comingSoonHandler renders the placeholder template for any route the
 // content rounds have not filled in yet.
 func (s *Server) comingSoonHandler(title, description, upstreamURL, cacheControl string) http.HandlerFunc {
@@ -86,109 +66,50 @@ func (s *Server) healthzHandler() http.HandlerFunc {
 	}
 }
 
-// robotsHandler returns a minimal valid robots.txt. Filled in fully by the
-// SEO and GEO specialists in a later round.
-func (s *Server) robotsHandler() http.HandlerFunc {
-	body := []byte("User-agent: *\nAllow: /\nDisallow: /healthz\n\n" +
-		"Sitemap: " + s.cfg.SiteBaseURL + "/sitemap.xml\n")
-	etag := render.ETag(body)
+// notFoundFromPrerender returns the branded 404 handler. The body is read
+// from the prerender cache at request time (registration order is route
+// registration first, prerender second); the handler overrides the status
+// code to 404 and Cache-Control to no-store per spec.
+func (s *Server) notFoundFromPrerender() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if render.MatchesIfNoneMatch(r, etag) {
-			w.Header().Set("ETag", etag)
-			w.Header().Set("Cache-Control", cacheControlText)
-			w.WriteHeader(http.StatusNotModified)
+		pre, ok := s.renderer.Prerendered("/404")
+		if !ok {
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			w.Header().Set("Cache-Control", cacheControlNoStore)
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte("404 Not Found\n"))
 			return
 		}
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Header().Set("ETag", etag)
-		w.Header().Set("Cache-Control", cacheControlText)
-		_, _ = w.Write(body)
-	}
-}
-
-// llmsHandler is the day-one stub for /llms.txt. The content rounds replace
-// this with a route-table-derived listing.
-func (s *Server) llmsHandler(full bool) http.HandlerFunc {
-	suffix := ""
-	if full {
-		suffix = "-full"
-	}
-	body := []byte("# MuxMaster\n\n" +
-		"MuxMaster is a high-performance, zero-dependency HTTP router for Go. " +
-		"This file (/llms" + suffix + ".txt) is a stub during initial scaffolding " +
-		"and will be replaced by an auto-generated index of canonical URLs.\n\n" +
-		"## Source\n\n- https://github.com/FlavioCFOliveira/MuxMaster\n")
-	etag := render.ETag(body)
-	return func(w http.ResponseWriter, r *http.Request) {
-		if render.MatchesIfNoneMatch(r, etag) {
-			w.Header().Set("ETag", etag)
-			w.Header().Set("Cache-Control", cacheControlText)
-			w.WriteHeader(http.StatusNotModified)
-			return
-		}
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Header().Set("ETag", etag)
-		w.Header().Set("Cache-Control", cacheControlText)
-		_, _ = w.Write(body)
-	}
-}
-
-// sitemapHandler returns a minimal valid sitemap. Until the canonical domain
-// is decided (open-questions.md item 1), the sitemap is empty in non-production
-// environments per specification/deployment.md "Production launch gate".
-func (s *Server) sitemapHandler() http.HandlerFunc {
-	body := []byte(`<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
-		`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` + "\n" +
-		`</urlset>` + "\n")
-	etag := render.ETag(body)
-	return func(w http.ResponseWriter, r *http.Request) {
-		if render.MatchesIfNoneMatch(r, etag) {
-			w.Header().Set("ETag", etag)
-			w.Header().Set("Cache-Control", cacheControlSitemap)
-			w.WriteHeader(http.StatusNotModified)
-			return
-		}
-		w.Header().Set("Content-Type", "application/xml; charset=utf-8")
-		w.Header().Set("ETag", etag)
-		w.Header().Set("Cache-Control", cacheControlSitemap)
-		_, _ = w.Write(body)
-	}
-}
-
-// notFoundHandler renders the branded 404 page.
-func (s *Server) notFoundHandler() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		page := s.pageMeta(r.URL.Path, "Page not found", notFoundDescription, "article")
-		page.Robots = "noindex,nofollow"
-		page.Breadcrumbs = []meta.Breadcrumb{
-			{Label: "Home", Href: "/"},
-			{Label: "Page not found"},
-		}
-		body, etag, err := s.renderer.Render("coming-soon.html", render.Data{
-			Meta: page,
-			Body: notFoundBody{},
-		})
-		if err != nil {
-			s.serverError(w, r, err)
-			return
-		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Header().Set("ETag", etag)
+		w.Header().Set("ETag", pre.ETag)
 		w.Header().Set("Cache-Control", cacheControlNoStore)
+		if render.MatchesIfNoneMatch(r, pre.ETag) {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+		w.Header().Set("Content-Type", pre.ContentType)
 		w.WriteHeader(http.StatusNotFound)
-		_, _ = w.Write(body)
+		_, _ = w.Write(pre.Body)
 	}
 }
 
+// serverError emits the prerendered /500 page. Status 500, no-store.
 func (s *Server) serverError(w http.ResponseWriter, r *http.Request, err error) {
 	s.logger.Error("render error",
 		"path", r.URL.Path,
 		"err", err.Error(),
 	)
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	pre, ok := s.renderer.Prerendered("/500")
+	if !ok {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("Cache-Control", cacheControlNoStore)
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("500 Internal Server Error\n"))
+		return
+	}
+	w.Header().Set("Content-Type", pre.ContentType)
 	w.Header().Set("Cache-Control", cacheControlNoStore)
 	w.WriteHeader(http.StatusInternalServerError)
-	_, _ = w.Write([]byte("500 Internal Server Error\n"))
+	_, _ = w.Write(pre.Body)
 }
 
 func (s *Server) pageMeta(path, title, description, ogType string) meta.Page {
@@ -211,13 +132,9 @@ func (s *Server) pageMeta(path, title, description, ogType string) meta.Page {
 	return page
 }
 
-// notFoundBody is a marker type the template can detect with `{{if ...}}`.
-type notFoundBody struct{}
-
-const (
-	landingDescription  = "MuxMaster is a high-performance, zero-dependency HTTP router for Go. Radix-tree O(k) lookups, zero allocations on static routes, and 100% net/http compatibility."
-	notFoundDescription = "The page you requested does not exist on the MuxMaster documentation site."
-)
+// LandingDescription is the canonical landing-page description used by the
+// recipes and any handler that needs it.
+const LandingDescription = "MuxMaster is a high-performance, zero-dependency HTTP router for Go. Radix-tree O(k) lookups, zero allocations on static routes, and 100% net/http compatibility."
 
 func breadcrumbsFor(p meta.Page) []meta.Breadcrumb {
 	if p.IsHome() {

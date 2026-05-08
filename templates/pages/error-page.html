@@ -1,0 +1,25 @@
+{{define "error-page.html"}}<!DOCTYPE html>
+<html lang="en">
+{{template "head" .Meta}}
+<body class="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 antialiased">
+  <input type="checkbox" id="dark-toggle" class="sr-only" aria-hidden="true" tabindex="-1">
+  <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:text-zinc-900 focus:shadow">Skip to main content</a>
+  {{template "header" .Meta}}
+  <main id="main" role="main" class="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+    {{template "breadcrumb" .Meta.Breadcrumbs}}
+    <article>
+      <p class="text-sm font-mono text-zinc-500 dark:text-zinc-400">Error {{.Body.Code}}</p>
+      <h1 class="mt-2 text-3xl font-bold tracking-tight">{{.Body.Heading}}</h1>
+      <p class="mt-4 text-zinc-600 dark:text-zinc-400">{{.Body.Message}}</p>
+      <p class="mt-6 text-sm text-zinc-500 dark:text-zinc-500">
+        Try one of these instead:
+        <a class="underline" href="/docs/">documentation</a>,
+        <a class="underline" href="/api">API reference</a>,
+        <a class="underline" href="/examples/">examples</a>.
+      </p>
+    </article>
+  </main>
+  {{template "footer" .Meta}}
+</body>
+</html>
+{{end}}
