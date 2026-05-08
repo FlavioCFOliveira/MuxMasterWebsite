@@ -18,7 +18,7 @@ dependencies, and is built on a radix tree (compressed prefix trie) that
 delivers O(k) route lookup — where k is the length of the URL path, not the
 number of registered routes.
 
-# Quick start
+### Quick start
 
     mux := muxmaster.New()
     mux.GET("/users/:id", func(w http.ResponseWriter, r *http.Request) {
@@ -27,7 +27,7 @@ number of registered routes.
     })
     http.ListenAndServe(":8080", mux)
 
-# Route patterns
+### Route patterns
 
 Static segments match literally; dynamic segments use one of three forms:
 
@@ -35,7 +35,7 @@ Static segments match literally; dynamic segments use one of three forms:
   - Regex parameter: /items/{id:[0-9]+} — Go regexp restricted match
   - Catch-all: /static/*filepath — matches the rest of the path
 
-# Middleware
+### Middleware
 
 Three orthogonal middleware scopes are supported:
 
@@ -48,7 +48,7 @@ Three orthogonal middleware scopes are supported:
 
 See the SECURITY.md "Pre vs Use security boundary" section for the full matrix.
 
-# Performance
+### Performance
 
 On AMD Ryzen 9 5900HX (Go 1.26.2):
 
@@ -60,7 +60,7 @@ HandleFast routes bypass the requestCtx allocation by passing Params directly as
 the third handler argument; they trade off stdlib middleware compatibility for
 raw throughput.
 
-# Compatibility
+### Compatibility
 
 See COMPATIBILITY.md for the SemVer scheme, tier classification of the public
 API surface, deprecation policy, and Go version policy.
