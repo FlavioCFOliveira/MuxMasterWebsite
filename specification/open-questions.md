@@ -10,7 +10,7 @@ status: live (re-read every session)
 
 This register lists every TBD the specification has carried. Items still open are marked as such; items that have been ratified are kept visible with a `RESOLVED` status, the resolution date, and the ratified value, so the resolution history is preserved. The specification's other files refer back to this register where they encounter a `TBD`. Implementation MUST NOT silently invent values for any item still marked open; resolution requires explicit ratification.
 
-**Status summary as of 2026-05-08:** five items registered; two resolved (items 3 and 4); three still open (items 1, 2, 5).
+**Status summary as of 2026-05-08:** six items registered; three resolved (items 3, 4, 6); three still open (items 1, 2, 5).
 
 ## 1. Canonical production domain
 
@@ -78,6 +78,22 @@ This register lists every TBD the specification has carried. Items still open ar
   - The blurb in `/llms.txt`.
 - **Owner.** Project owner, with `ux-specialist` and `geo-specialist` review for tone and citability.
 - **Resolution path.** Owner drafts the copy. `ux-specialist` and `geo-specialist` review. After ratification, the copy is stored at `/content/site/landing.md` and the Open Graph image is regenerated.
+
+## 6. Category vs. source mapping for `/docs/`, `/examples/`, `/benchmarks`
+
+- **Status.** RESOLVED on 2026-05-08.
+- **Ratified value.**
+  - `/docs/` is **Category A**, generated at startup from the registered route table; an optional `/content/site/docs-index.md` MAY be prepended as introductory copy.
+  - `/examples/` is **Category A**, generated at startup from the registered route table; an optional `/content/site/examples-index.md` MAY be prepended as introductory copy.
+  - `/benchmarks` is **Category B**, derived live from `${MUXMASTER_SOURCE_DIR}/README.md` under the extraction contract recorded in `content-sources.md`. The `mtime` of that README file participates in the cache key.
+- **Question.** Each of these three routes was placed in **Category B** (lazy-cache live templating) by the 2026-05-08 ratification of the static-tending architecture, but each had a purely site-original source recorded in `content-sources.md`. The static-tending principle requires Category B routes to derive from a live upstream file under `${MUXMASTER_SOURCE_DIR}` whose `mtime` is the cache-invalidation signal. With no live upstream input, these routes would be Category A. Should the source mapping change to bring them into compliance with Category B, or should the category change to A?
+- **Why was open.** The 2026-05-08 ratification did not specify whether these three routes were intended to read live upstream data. Without that intent, the categorisation and the source mapping could not both be true.
+- **Blocks (now cleared).**
+  - Implementation of `/docs/`, `/examples/`, and `/benchmarks`.
+  - Final form of the route → source mapping table in `content-sources.md`.
+  - Final form of the cache-key behaviour for these three routes.
+- **Owner.** Project owner.
+- **Resolution path.** Owner ratified the categorisation above on 2026-05-08. `specification-manager` recorded the ratified categories in the sitemap of `information-architecture.md` and the source mapping table of `content-sources.md`, and added the `/benchmarks` extraction contract (anchor `## Benchmarks`, span up to the next heading of equal or higher level, source citation linking to `https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/README.md#benchmarks`, cache key `("/benchmarks", mtime(${MUXMASTER_SOURCE_DIR}/README.md), build-id)`).
 
 ## Process for closing an open question
 

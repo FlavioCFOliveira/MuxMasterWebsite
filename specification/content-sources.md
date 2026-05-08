@@ -13,7 +13,7 @@ status: ratified
 There are two content categories on the site.
 
 1. **Upstream content.** Anything that exists in `../MuxMaster` (documentation, API reference, changelog, release notes, security, compatibility, contributing, examples). This content is **read at runtime** from the upstream tree. It is never copied or duplicated into the website repository.
-2. **Site-original content.** Anything authored specifically for the site (landing copy, page chrome, navigation labels, the Markdown of the docs index, the benchmarks article wrapper, page metadata). This content lives under `/content/site/` in the website repository.
+2. **Site-original content.** Anything authored specifically for the site (landing copy, page chrome, navigation labels, optional introductory copy for the docs and examples index pages, page metadata). This content lives under `/content/site/` in the website repository.
 
 When the same fact appears in both categories, the upstream value wins.
 
@@ -73,39 +73,64 @@ The server MUST log the missing path and exit with a non-zero status if any of t
 
 ## Public route to source-of-truth mapping
 
-The HTML and Markdown companion (`.md` suffix) of every route below render from the same Markdown source. The Markdown companion serves the source file unmodified except for a leading frontmatter block being stripped if present.
+The HTML and Markdown companion (`.md` suffix) of every route below render from the same source. The Markdown companion serves the source file unmodified except for a leading frontmatter block being stripped if present.
 
-| Route (HTML and `.md`) | Source file |
-| --- | --- |
-| `/` | `/content/site/landing.md` (site-original) |
-| `/docs/` | `/content/site/docs-index.md` (site-original; lists the eleven sections) |
-| `/docs/getting-started` | `${MUXMASTER_SOURCE_DIR}/docs/getting-started.md` |
-| `/docs/routing` | `${MUXMASTER_SOURCE_DIR}/docs/routing.md` |
-| `/docs/groups` | `${MUXMASTER_SOURCE_DIR}/docs/groups.md` |
-| `/docs/middleware` | `${MUXMASTER_SOURCE_DIR}/docs/middleware.md` |
-| `/docs/error-handling` | `${MUXMASTER_SOURCE_DIR}/docs/error-handling.md` |
-| `/docs/configuration` | `${MUXMASTER_SOURCE_DIR}/docs/configuration.md` |
-| `/docs/response-helpers` | `${MUXMASTER_SOURCE_DIR}/docs/response-helpers.md` |
-| `/docs/performance` | `${MUXMASTER_SOURCE_DIR}/docs/performance.md` |
-| `/docs/observability` | `${MUXMASTER_SOURCE_DIR}/docs/observability.md` |
-| `/docs/migration` | `${MUXMASTER_SOURCE_DIR}/docs/migration.md` |
-| `/docs/cookbook` | `${MUXMASTER_SOURCE_DIR}/docs/cookbook.md` |
-| `/api` | `${MUXMASTER_SOURCE_DIR}/api.md` |
-| `/examples/` | `/content/site/examples-index.md` (site-original) plus per-example purpose lines. |
-| `/examples/rest-api` | `${MUXMASTER_SOURCE_DIR}/examples/rest-api/main.go` (rendered as code) plus a site-authored purpose paragraph at `/content/site/examples/rest-api.md`. |
-| `/examples/authn` | Source `${MUXMASTER_SOURCE_DIR}/examples/authn/main.go`; purpose `/content/site/examples/authn.md`. |
-| `/examples/jwt` | Source `${MUXMASTER_SOURCE_DIR}/examples/jwt/main.go`; purpose `/content/site/examples/jwt.md`. |
-| `/examples/oauth2` | Source `${MUXMASTER_SOURCE_DIR}/examples/oauth2/main.go`; purpose `/content/site/examples/oauth2.md`. |
-| `/examples/cache` | Source `${MUXMASTER_SOURCE_DIR}/examples/cache/main.go`; purpose `/content/site/examples/cache.md`. |
-| `/examples/graceful-shutdown` | Source `${MUXMASTER_SOURCE_DIR}/examples/graceful-shutdown/main.go`; purpose `/content/site/examples/graceful-shutdown.md`. |
-| `/examples/server-side-render` | Source `${MUXMASTER_SOURCE_DIR}/examples/server-side-render/main.go`; purpose `/content/site/examples/server-side-render.md`. |
-| `/examples/static-site` | Source `${MUXMASTER_SOURCE_DIR}/examples/static-site/main.go`; purpose `/content/site/examples/static-site.md`. |
-| `/benchmarks` | `/content/site/benchmarks.md` (site-original wrapper) cites figures verbatim from `${MUXMASTER_SOURCE_DIR}/README.md` and `${MUXMASTER_SOURCE_DIR}/bench_test.go`. |
-| `/changelog` | `${MUXMASTER_SOURCE_DIR}/CHANGELOG.md` |
-| `/releases/v1.0.0` | `${MUXMASTER_SOURCE_DIR}/release-notes/v1.0.0-20260508.md` |
-| `/security` | `${MUXMASTER_SOURCE_DIR}/SECURITY.md` |
-| `/compatibility` | `${MUXMASTER_SOURCE_DIR}/COMPATIBILITY.md` |
-| `/contributing` | `${MUXMASTER_SOURCE_DIR}/CONTRIBUTING.md` |
+The **Category** column records the rendering category defined in `rendering-and-caching.md`: `A` for pre-rendered at startup (no live upstream input, recomputed only on process restart), `B` for lazy-cache live templating (cache key includes the source file's `mtime`, recomputed on `mtime` change). Category A routes either have no upstream source or a startup-only source; Category B routes all derive from a live upstream source under `${MUXMASTER_SOURCE_DIR}`.
+
+| Route (HTML and `.md`) | Category | Source file |
+| --- | --- | --- |
+| `/` | A | `/content/site/landing.md` (site-original) |
+| `/docs/` | A | Generated at startup from the registered route table held in process memory; no upstream input. An optional `/content/site/docs-index.md` MAY exist and, if present, MUST be loaded at startup and prepended to the generated section list as introductory copy; the page MUST render successfully when the file is absent. |
+| `/docs/getting-started` | B | `${MUXMASTER_SOURCE_DIR}/docs/getting-started.md` |
+| `/docs/routing` | B | `${MUXMASTER_SOURCE_DIR}/docs/routing.md` |
+| `/docs/groups` | B | `${MUXMASTER_SOURCE_DIR}/docs/groups.md` |
+| `/docs/middleware` | B | `${MUXMASTER_SOURCE_DIR}/docs/middleware.md` |
+| `/docs/error-handling` | B | `${MUXMASTER_SOURCE_DIR}/docs/error-handling.md` |
+| `/docs/configuration` | B | `${MUXMASTER_SOURCE_DIR}/docs/configuration.md` |
+| `/docs/response-helpers` | B | `${MUXMASTER_SOURCE_DIR}/docs/response-helpers.md` |
+| `/docs/performance` | B | `${MUXMASTER_SOURCE_DIR}/docs/performance.md` |
+| `/docs/observability` | B | `${MUXMASTER_SOURCE_DIR}/docs/observability.md` |
+| `/docs/migration` | B | `${MUXMASTER_SOURCE_DIR}/docs/migration.md` |
+| `/docs/cookbook` | B | `${MUXMASTER_SOURCE_DIR}/docs/cookbook.md` |
+| `/api` | B | `${MUXMASTER_SOURCE_DIR}/api.md` |
+| `/examples/` | A | Generated at startup from the registered route table held in process memory; no upstream input. An optional `/content/site/examples-index.md` MAY exist and, if present, MUST be loaded at startup and prepended to the generated section list as introductory copy; the page MUST render successfully when the file is absent. |
+| `/examples/rest-api` | B | `${MUXMASTER_SOURCE_DIR}/examples/rest-api/main.go` (rendered as code) plus a site-authored purpose paragraph at `/content/site/examples/rest-api.md`. |
+| `/examples/authn` | B | Source `${MUXMASTER_SOURCE_DIR}/examples/authn/main.go`; purpose `/content/site/examples/authn.md`. |
+| `/examples/jwt` | B | Source `${MUXMASTER_SOURCE_DIR}/examples/jwt/main.go`; purpose `/content/site/examples/jwt.md`. |
+| `/examples/oauth2` | B | Source `${MUXMASTER_SOURCE_DIR}/examples/oauth2/main.go`; purpose `/content/site/examples/oauth2.md`. |
+| `/examples/cache` | B | Source `${MUXMASTER_SOURCE_DIR}/examples/cache/main.go`; purpose `/content/site/examples/cache.md`. |
+| `/examples/graceful-shutdown` | B | Source `${MUXMASTER_SOURCE_DIR}/examples/graceful-shutdown/main.go`; purpose `/content/site/examples/graceful-shutdown.md`. |
+| `/examples/server-side-render` | B | Source `${MUXMASTER_SOURCE_DIR}/examples/server-side-render/main.go`; purpose `/content/site/examples/server-side-render.md`. |
+| `/examples/static-site` | B | Source `${MUXMASTER_SOURCE_DIR}/examples/static-site/main.go`; purpose `/content/site/examples/static-site.md`. |
+| `/benchmarks` | B | `${MUXMASTER_SOURCE_DIR}/README.md` (extraction contract defined below). No `/content/site/benchmarks.md` wrapper. |
+| `/changelog` | B | `${MUXMASTER_SOURCE_DIR}/CHANGELOG.md` |
+| `/releases/v1.0.0` | B | `${MUXMASTER_SOURCE_DIR}/release-notes/v1.0.0-20260508.md` |
+| `/security` | B | `${MUXMASTER_SOURCE_DIR}/SECURITY.md` |
+| `/compatibility` | B | `${MUXMASTER_SOURCE_DIR}/COMPATIBILITY.md` |
+| `/contributing` | B | `${MUXMASTER_SOURCE_DIR}/CONTRIBUTING.md` |
+| `/robots.txt` | A | Site-original; static text. |
+| `/llms.txt` | A | Site-original; built at startup from the registered route table. |
+| `/llms-full.txt` | A | Site-original; built at startup from the registered route table. |
+| `/sitemap.xml` | A | Site-original; built at startup from the registered route table. |
+| `/404` | A | Site-original error template (path under `/content/site/` to be set at implementation time). Pre-rendered to bytes at startup and emitted by the 404 handler. |
+| `/500` | A | Site-original error template (path under `/content/site/` to be set at implementation time). Pre-rendered to bytes at startup and emitted by the 500 handler. |
+
+## `/benchmarks` extraction contract
+
+The `/benchmarks` page is the only Category B route that derives from `${MUXMASTER_SOURCE_DIR}/README.md` rather than a dedicated upstream Markdown file. To eliminate implementation guesswork, the extraction contract is defined exactly as follows.
+
+1. **Upstream source file.** `${MUXMASTER_SOURCE_DIR}/README.md`.
+2. **Anchor.** The extractor MUST locate the section whose heading is the literal text `## Benchmarks` (a single Markdown heading at level 2, exactly that text, no trailing punctuation). This is the only benchmark-relevant heading present in the upstream README at MuxMaster v1.0.1; if a future version of the README introduces additional headings of equal status (for example a sibling `## Performance` section), this contract MUST be revisited before the new section is reflected on the site.
+3. **Extracted span.** Every line from the start of the heading line (inclusive) up to, but not including, the next heading of equal or higher level (`##` or `#`). Lower-level headings (`###`, `####`, etc.) inside the span are part of the extraction.
+4. **Rendering.** The extracted Markdown is rendered to HTML using the same Markdown pipeline as `/docs/*`:
+   - Fenced code blocks with language hints are preserved and syntax-highlighted accordingly.
+   - Heading IDs are emitted as kebab-case anchors derived from the heading text (so `## Benchmarks` becomes `id="benchmarks"`).
+   - Links in the source Markdown are emitted verbatim. The site MUST NOT rewrite, prefix, or proxy them.
+5. **Source citation.** The rendered page MUST include, immediately after the article body, a "Source" line containing a clickable link to:
+   - `https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/README.md#benchmarks`
+   - The fragment `#benchmarks` is the kebab-case anchor of the literal heading `## Benchmarks`.
+   - The label of the link MUST identify the upstream file and version (for example "MuxMaster README at v1.0.1, section Benchmarks"). This satisfies the integrity constraint stated in `overview.md`.
+6. **Cache key.** The cache key triple for `/benchmarks` is `("/benchmarks", mtime(${MUXMASTER_SOURCE_DIR}/README.md), build-id)`, in line with the lazy-cache live-templating rules in `rendering-and-caching.md`.
 
 ## Markdown companions
 

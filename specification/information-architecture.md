@@ -10,44 +10,48 @@ status: ratified
 
 ## Sitemap (day-one)
 
+Each route is annotated with its rendering category — `[A]` for **pre-rendered at startup**, `[B]` for **lazy-cache live templating** — as defined in `rendering-and-caching.md`. The annotation applies to both the HTML route and its `.md` companion (where one exists). Operational endpoints are marked `(op)`.
+
 ```
-/
-├── /docs/
-│   ├── /docs/getting-started
-│   ├── /docs/routing
-│   ├── /docs/groups
-│   ├── /docs/middleware
-│   ├── /docs/error-handling
-│   ├── /docs/configuration
-│   ├── /docs/response-helpers
-│   ├── /docs/performance
-│   ├── /docs/observability
-│   ├── /docs/migration
-│   └── /docs/cookbook
-├── /api
-├── /examples/
-│   ├── /examples/rest-api
-│   ├── /examples/authn
-│   ├── /examples/jwt
-│   ├── /examples/oauth2
-│   ├── /examples/cache
-│   ├── /examples/graceful-shutdown
-│   ├── /examples/server-side-render
-│   └── /examples/static-site
-├── /benchmarks
-├── /changelog
-├── /releases/v1.0.0
-├── /security
-├── /compatibility
-├── /contributing
-├── /llms.txt
-├── /llms-full.txt
-├── /robots.txt
-├── /sitemap.xml
-└── /healthz   (operational; not indexed; not in sitemap)
+/                            [A]
+├── /docs/                   [A]
+│   ├── /docs/getting-started   [B]
+│   ├── /docs/routing           [B]
+│   ├── /docs/groups            [B]
+│   ├── /docs/middleware        [B]
+│   ├── /docs/error-handling    [B]
+│   ├── /docs/configuration     [B]
+│   ├── /docs/response-helpers  [B]
+│   ├── /docs/performance       [B]
+│   ├── /docs/observability     [B]
+│   ├── /docs/migration         [B]
+│   └── /docs/cookbook          [B]
+├── /api                     [B]
+├── /examples/               [A]
+│   ├── /examples/rest-api          [B]
+│   ├── /examples/authn             [B]
+│   ├── /examples/jwt               [B]
+│   ├── /examples/oauth2            [B]
+│   ├── /examples/cache             [B]
+│   ├── /examples/graceful-shutdown [B]
+│   ├── /examples/server-side-render [B]
+│   └── /examples/static-site       [B]
+├── /benchmarks              [B]
+├── /changelog               [B]
+├── /releases/v1.0.0         [B]
+├── /security                [B]
+├── /compatibility           [B]
+├── /contributing            [B]
+├── /llms.txt                [A]
+├── /llms-full.txt           [A]
+├── /robots.txt              [A]
+├── /sitemap.xml             [A]
+└── /healthz                 (op; not indexed; not in sitemap)
 ```
 
-Every listed HTML route also has a Markdown companion (see `geo.md`) at the same path with a `.md` suffix, except `/`, `/llms.txt`, `/llms-full.txt`, `/robots.txt`, `/sitemap.xml`, `/healthz`.
+In addition to the sitemap above, the server MUST pre-render two non-navigable error templates as Category A: `/404` and `/500`. These are emitted by the corresponding error handlers and never appear in `sitemap.xml` or in navigation.
+
+Every listed HTML route also has a Markdown companion (see `geo.md`) at the same path with a `.md` suffix, except `/`, `/llms.txt`, `/llms-full.txt`, `/robots.txt`, `/sitemap.xml`, `/healthz`. The companion shares its rendering category with the HTML route.
 
 ## URL conventions
 

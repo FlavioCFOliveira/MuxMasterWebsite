@@ -10,6 +10,17 @@ status: ratified
 
 The following are deliberately **not** part of v1 of the website. Adding any of them is a scope expansion and MUST be ratified before implementation.
 
+## Per-request dynamism
+
+The site is **static-tending** (see `overview.md` and `rendering-and-caching.md`). The same URL MUST return the same bytes for the same build identity and the same upstream-source `mtime`. The following are therefore explicitly out of scope for v1:
+
+- No user-specific or personalised content. The same bytes are served to every visitor.
+- No A/B testing, experiments, bucketing, or feature flags evaluated at request time.
+- No content negotiation via `Accept` to switch between HTML and Markdown (`.md` URLs are the only Markdown entry point).
+- No request-time variation by `Accept-Language`, cookies, query strings, IP, geo, or user-agent.
+- The only request header permitted to influence response bytes is `Accept-Encoding` (for compression).
+- Server-side templates are an implementation detail of how bytes are produced, never a request-time decision the client perceives.
+
 ## Search
 
 - No on-site search index.

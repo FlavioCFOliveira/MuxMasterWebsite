@@ -31,7 +31,7 @@ The specification governs the repository at `/data/dev/github.com/FlavioCFOlivei
 1. [overview.md](./overview.md) — purpose, audience, missions, version cadence, language and integrity rules.
 2. [information-architecture.md](./information-architecture.md) — sitemap, URLs, navigation, page templates, breadcrumb and prev/next rules.
 3. [content-sources.md](./content-sources.md) — mapping of every public route to its upstream source, runtime contract for the upstream tree.
-4. [rendering-and-caching.md](./rendering-and-caching.md) — server-side rendering pipeline, render cache, HTTP cache headers, ETag and Last-Modified strategy.
+4. [rendering-and-caching.md](./rendering-and-caching.md) — static-tending architecture (Category A pre-rendered at startup, Category B lazy-cache live templating), SSR pipeline, render cache, HTTP cache headers, ETag and Last-Modified strategy.
 5. [url-and-versioning.md](./url-and-versioning.md) — URL conventions, redirects, reserved paths, version label rule.
 6. [seo.md](./seo.md) — SEO contract per page family, JSON-LD shapes, sitemap, robots, security headers, Core Web Vitals targets.
 7. [geo.md](./geo.md) — Generative Engine Optimization contract, llms.txt artefacts, Markdown companions, AI crawler allowlist.

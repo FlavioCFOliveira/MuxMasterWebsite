@@ -28,6 +28,10 @@ The site has two missions, both first-class:
 1. **Document MuxMaster faithfully.** Every factual claim on the site MUST match the upstream source in `../MuxMaster`. Where they disagree, upstream wins by definition; the site is updated to match (see `content-sources.md`).
 2. **Be a working proof of MuxMaster.** The site itself MUST be served by MuxMaster. The site source is read by integrators as a real-world reference implementation. Implementation shortcuts that would weaken the proof MUST NOT be taken (see `../CLAUDE.md` "MuxMaster as router" constraint).
 
+## Operating principle: static-tending
+
+The site is **static-tending**. The same URL returns the same bytes for the same build identity and the same upstream-source `mtime`. The server introduces no per-request dynamism beyond what client capability headers (`Accept-Encoding`) require. Server-side templates are an implementation detail of how those bytes are produced, never a request-time decision the client perceives. Live templating exists exclusively to keep documentation in sync with the upstream `../MuxMaster` source of truth, not to enable per-request variability. The two route categories that derive from this principle (pre-rendered at startup; lazy-cache live templating) are defined in `rendering-and-caching.md`.
+
 ## Version cadence
 
 - The site does not maintain its own semantic version separate from MuxMaster. It surfaces the **latest released MuxMaster version** as a plain text label in the header and footer (e.g. `v1.0.1`).
