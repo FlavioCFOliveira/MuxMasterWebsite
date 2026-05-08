@@ -6,43 +6,80 @@
   <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:text-zinc-900 focus:shadow">Skip to main content</a>
   {{template "header" .Meta}}
   <main id="main" role="main" class="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-    <section class="py-8 sm:py-12">
-      {{/* TODO(spec): exact wording is open-questions.md item 5 (landing page copy). Placeholder. */}}
-      <h1 class="text-4xl font-bold tracking-tight sm:text-5xl">A high-performance, zero-dependency HTTP router for Go.</h1>
-      <p class="mt-4 max-w-2xl text-lg text-zinc-600 dark:text-zinc-400">
-        MuxMaster is a radix-tree HTTP router with O(k) lookups, zero allocations on static routes, and 100% compatibility with <code class="font-mono">net/http</code>. Build production services on the Go standard library.
+
+    <section class="py-10 sm:py-16">
+      <h1 class="text-4xl font-bold tracking-tight sm:text-5xl">A radix-tree HTTP router for Go. Zero dependencies, O(k) lookups.</h1>
+      <p class="mt-5 max-w-2xl text-lg text-zinc-600 dark:text-zinc-400">
+        MuxMaster routes <strong>25&nbsp;ns</strong> on static paths and <strong>112&nbsp;ns</strong> on a single parameter (AMD&nbsp;Ryzen&nbsp;9&nbsp;5900HX, Go&nbsp;1.26.2), allocates <strong>zero bytes</strong> on static routes, and is <strong>100% compatible</strong> with the <code class="font-mono text-base">net/http</code> handler interface. Build production services on the Go standard library.
       </p>
-      <div class="mt-6 flex flex-wrap gap-3">
-        <a href="/docs/getting-started" class="inline-flex h-11 items-center rounded bg-cyan-600 px-4 font-semibold text-white hover:bg-cyan-700">Get started</a>
-        <a href="/api" class="inline-flex h-11 items-center rounded border border-zinc-300 px-4 font-semibold dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800">Read the API</a>
+      <div class="mt-7 flex flex-wrap gap-3">
+        <a href="/docs/getting-started" class="inline-flex h-11 items-center rounded bg-cyan-600 px-5 font-semibold text-white hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 dark:focus:ring-offset-zinc-950">Get started</a>
+        <a href="/api" class="inline-flex h-11 items-center rounded border border-zinc-300 px-5 font-semibold hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:ring-offset-2 dark:border-zinc-700 dark:hover:bg-zinc-800 dark:focus:ring-offset-zinc-950">Read the API</a>
+        <a href="https://github.com/FlavioCFOliveira/MuxMaster" rel="noopener" class="inline-flex h-11 items-center rounded border border-zinc-300 px-5 font-semibold hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:ring-offset-2 dark:border-zinc-700 dark:hover:bg-zinc-800 dark:focus:ring-offset-zinc-950">GitHub</a>
       </div>
+      <p class="mt-4 text-sm text-zinc-500 dark:text-zinc-500">Released as <span class="font-mono">{{.Meta.Version}}</span> · MIT-licensed · Requires Go&nbsp;1.26+.</p>
     </section>
 
-    <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {{/* TODO(spec): replace placeholder highlight blocks once landing copy is ratified. */}}
-      <article class="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 class="text-lg font-semibold">Zero dependencies</h2>
-        <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">The router and every middleware are implemented on the Go standard library alone.</p>
+    <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-labelledby="highlights-heading">
+      <h2 id="highlights-heading" class="sr-only">Highlights</h2>
+
+      <article class="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <h3 class="text-lg font-semibold">Zero dependencies</h3>
+        <p class="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">The router and the 19 bundled middlewares are implemented on the Go standard library alone. <code class="font-mono">go.mod</code> declares no <code class="font-mono">require</code> beyond the test fixtures.</p>
       </article>
-      <article class="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 class="text-lg font-semibold">Radix-tree performance</h2>
-        <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Static-route lookups are O(k) and allocation-free on the hot path.</p>
+
+      <article class="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <h3 class="text-lg font-semibold">Radix-tree, allocation-free hot path</h3>
+        <p class="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">Static-route lookups are <strong>25&nbsp;ns / 0 allocs</strong>; one-parameter routes are <strong>112&nbsp;ns / 1 alloc</strong> for a single 416-byte tiered request bundle. <a href="/benchmarks" class="text-cyan-700 underline dark:text-cyan-400">See the benchmarks.</a></p>
       </article>
-      <article class="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 class="text-lg font-semibold">Idiomatic API</h2>
-        <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Groups, scoped middleware, typed errors, and typed parameter helpers — without abandoning <code class="font-mono">net/http</code>.</p>
+
+      <article class="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <h3 class="text-lg font-semibold">100% <code class="font-mono">net/http</code> compatible</h3>
+        <p class="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">Handlers stay <code class="font-mono">http.Handler</code>; middleware stays <code class="font-mono">func(http.Handler) http.Handler</code>. Adopt incrementally — your existing handlers compile unchanged.</p>
       </article>
-      <article class="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 class="text-lg font-semibold">Error handling</h2>
-        <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Optional <code class="font-mono">HandlerFuncE</code> typed-error pipeline with a dedicated middleware contract.</p>
+
+      <article class="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <h3 class="text-lg font-semibold">Typed errors and parameters</h3>
+        <p class="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">Optional <code class="font-mono">HandlerFuncE</code> threads errors through middleware. <code class="font-mono">Params.Int</code>, <code class="font-mono">Params.Bool</code>, <code class="font-mono">Params.UUID</code> parse and validate path parameters in one call.</p>
       </article>
-      <article class="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 class="text-lg font-semibold">Production-ready middleware</h2>
-        <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">RequestID, Recoverer, Logger, Compress, RealIP, Timeout, Throttle, BasicAuth, JWTAuth, OAuth2Introspect, APIKey, CORS.</p>
+
+      <article class="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <h3 class="text-lg font-semibold">Production-grade middleware</h3>
+        <p class="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400"><code class="font-mono">RequestID</code>, <code class="font-mono">Recoverer</code>, <code class="font-mono">Logger</code>, <code class="font-mono">Compress</code>, <code class="font-mono">RealIP</code>, <code class="font-mono">Timeout</code>, <code class="font-mono">Throttle</code>, <code class="font-mono">BasicAuth</code>, <code class="font-mono">JWTAuth</code>, <code class="font-mono">OAuth2Introspect</code>, <code class="font-mono">APIKey</code>, <code class="font-mono">CORS</code> — all hardened and audited.</p>
+      </article>
+
+      <article class="rounded-lg border border-cyan-200 bg-cyan-50/50 p-5 dark:border-cyan-900 dark:bg-cyan-950/30">
+        <h3 class="text-lg font-semibold">Dogfooded — this site runs on MuxMaster</h3>
+        <p class="mt-2 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">Every page you read here is served by a Go binary using MuxMaster as its router, with the bundled middleware for logging, compression, request IDs, and security headers. The router is the documentation and the proof.</p>
       </article>
     </section>
 
-    <p class="mt-8">See <a href="/benchmarks" class="text-cyan-700 underline dark:text-cyan-400">the benchmarks</a> for measured numbers, or read <a href="/docs/" class="text-cyan-700 underline dark:text-cyan-400">the documentation</a>.</p>
+    <section class="mt-12 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900" aria-labelledby="quick-look-heading">
+      <h2 id="quick-look-heading" class="text-xl font-semibold">A quick look</h2>
+      <pre class="mt-4 overflow-x-auto rounded bg-zinc-950 p-4 text-sm text-zinc-100 dark:bg-zinc-950"><code class="language-go">package main
+
+import (
+    "net/http"
+
+    "github.com/FlavioCFOliveira/MuxMaster"
+)
+
+func main() {
+    mux := muxmaster.New()
+
+    mux.GET("/users/:id", func(w http.ResponseWriter, r *http.Request) {
+        id, _ := muxmaster.PathParam(r).Int("id")
+        // ...
+        _, _ = w.Write([]byte(http.StatusText(http.StatusOK)))
+        _ = id
+    })
+
+    _ = http.ListenAndServe(":8080", mux)
+}
+</code></pre>
+      <p class="mt-3 text-sm text-zinc-600 dark:text-zinc-400">Read <a href="/docs/getting-started" class="text-cyan-700 underline dark:text-cyan-400">Getting started</a> for the full walkthrough, or jump to the <a href="/api" class="text-cyan-700 underline dark:text-cyan-400">API reference</a>.</p>
+    </section>
+
   </main>
   {{template "footer" .Meta}}
 </body>
