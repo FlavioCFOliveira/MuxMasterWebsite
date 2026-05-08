@@ -2,6 +2,7 @@ package render
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/FlavioCFOliveira/MuxMasterWebsite/internal/content"
 	"github.com/FlavioCFOliveira/MuxMasterWebsite/internal/meta"
@@ -19,6 +20,7 @@ type docPageBody struct {
 	HasPrevNext  bool
 	Prev         navLink
 	Next         navLink
+	LastModified time.Time // mtime of the underlying content file; falls back to BuildTime when zero.
 }
 
 type sidebarItem struct {
@@ -90,10 +92,19 @@ func DocPageRecipe(spec DocPageSpec, loader *content.Loader, ogImagePath string,
 			page.Breadcrumbs = breadcrumbsForDoc(spec)
 			page.UpstreamURL = spec.UpstreamURL
 
+			// mtime is best-effort. Embedded files report a zero time on
+			// embed.FS; the body footer falls back to the build time so
+			// every page always shows a real "Last updated" line.
+			lastMod, _ := loader.Mtime(spec.ContentPath)
+			if lastMod.IsZero() {
+				lastMod = deps.BuildTime
+			}
+
 			body := docPageBody{
-				Title: spec.Title,
-				HTML:  string(htmlBody),
-				TOC:   ExtractHeadings(src),
+				Title:        spec.Title,
+				HTML:         string(htmlBody),
+				TOC:          ExtractHeadings(src),
+				LastModified: lastMod,
 			}
 
 			if spec.Section == "docs" {
@@ -102,6 +113,27 @@ func DocPageRecipe(spec DocPageSpec, loader *content.Loader, ogImagePath string,
 				body.HasPrevNext = true
 				body.Prev, body.Next = prevNextFor(spec.Path)
 			}
+
+			// JSON-LD: TechArticle + BreadcrumbList for every doc-family page.
+			// /api additionally emits a SoftwareSourceCode object referencing
+			// the upstream module. /docs/getting-started has step-shaped
+			// headings; the HowTo block is emitted only when the source
+			// actually contains them.
+			family := "doc-article"
+			if spec.Section == "api" {
+				family = "api"
+			}
+			var howToSrc []byte
+			if spec.Path == "/docs/getting-started" || spec.Path == "/examples/graceful-shutdown" {
+				howToSrc = src
+			}
+			page.JSONLD = BuildJSONLD(JSONLDInputs{
+				Page:         page,
+				Family:       family,
+				BuildTime:    deps.BuildTime,
+				LastModified: lastMod,
+				HowToSource:  howToSrc,
+			})
 
 			return deps.Renderer.ExecuteTemplate("doc-page.html", Data{Meta: page, Body: body})
 		},

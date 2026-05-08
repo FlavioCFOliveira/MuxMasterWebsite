@@ -200,15 +200,27 @@ func TestLLMsFullRecipePointsAtMarkdown(t *testing.T) {
 func TestSitemapRecipeConformance(t *testing.T) {
 	t.Parallel()
 	deps := fixtureDeps(t)
-	rec := SitemapRecipe()
+	rec := SitemapRecipe(fixtureLoader(t), map[string]string{
+		"/docs/routing":    "docs/routing.md",
+		"/api":             "api.md",
+		"/examples/jwt":    "examples/jwt.md",
+		"/benchmarks":      "benchmarks.md",
+		"/changelog":       "changelog.md",
+		"/releases/v1.0.0": "release-notes/v1.0.0.md",
+		"/security":        "security.md",
+		"/compatibility":   "compatibility.md",
+		"/contributing":    "contributing.md",
+	})
 	body, err := rec.Build(deps)
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
 
 	type urlEntry struct {
-		Loc     string `xml:"loc"`
-		LastMod string `xml:"lastmod"`
+		Loc        string `xml:"loc"`
+		LastMod    string `xml:"lastmod"`
+		ChangeFreq string `xml:"changefreq"`
+		Priority   string `xml:"priority"`
 	}
 	type urlSet struct {
 		Xmlns string     `xml:"xmlns,attr"`
@@ -230,6 +242,12 @@ func TestSitemapRecipeConformance(t *testing.T) {
 		}
 		if u.LastMod == "" {
 			t.Error("empty <lastmod>")
+		}
+		if u.ChangeFreq == "" {
+			t.Errorf("empty <changefreq> for %s", u.Loc)
+		}
+		if u.Priority == "" {
+			t.Errorf("empty <priority> for %s", u.Loc)
 		}
 		if !strings.HasPrefix(u.Loc, "http://localhost:8080/") {
 			t.Errorf("loc %q must use BaseURL", u.Loc)
@@ -313,7 +331,7 @@ func TestPrerenderRoundTrip(t *testing.T) {
 	deps := fixtureDeps(t)
 	recipes := []Recipe{
 		LLMsRecipe(),
-		SitemapRecipe(),
+		SitemapRecipe(fixtureLoader(t), nil),
 		RobotsRecipe(),
 	}
 	if err := deps.Renderer.Prerender(recipes, deps); err != nil {

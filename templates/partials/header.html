@@ -1,17 +1,41 @@
 {{define "header"}}<header class="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-  <div class="mx-auto flex w-full max-w-5xl items-center gap-4 px-4 py-3 sm:px-6 lg:px-8">
-    <a href="/" class="flex items-center gap-2 font-semibold" aria-label="MuxMaster home">
+  <div class="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap sm:gap-4 sm:px-6 lg:px-8">
+    <a href="/" class="inline-flex items-center gap-2 font-semibold min-h-11" aria-label="MuxMaster home">
+      <picture>
+        <img src="/static/img/logo.png" alt="" width="40" height="40" class="h-8 w-8 md:h-10 md:w-10" decoding="async">
+      </picture>
       <span class="text-lg">MuxMaster</span>
     </a>
-    <nav aria-label="Primary" class="ml-auto flex items-center gap-4 text-sm">
-      <a href="/docs/" class="hover:underline">Docs</a>
-      <a href="/api" class="hover:underline">API</a>
-      <a href="/examples/" class="hover:underline">Examples</a>
-      <a href="/benchmarks" class="hover:underline">Benchmarks</a>
-      <a href="https://github.com/FlavioCFOliveira/MuxMaster" rel="noopener" target="_blank" class="hover:underline">GitHub<span class="sr-only"> (opens in a new tab)</span></a>
+
+    {{/* Inline nav for sm and up. Below sm we use the <details> disclosure
+         further down to keep the header on a single row at 320px. */}}
+    <nav aria-label="Primary" class="ml-auto hidden items-center gap-2 text-sm sm:flex">
+      <a href="/docs/" class="inline-flex items-center min-h-11 px-2 hover:underline">Docs</a>
+      <a href="/api" class="inline-flex items-center min-h-11 px-2 hover:underline">API</a>
+      <a href="/examples/" class="inline-flex items-center min-h-11 px-2 hover:underline">Examples</a>
+      <a href="/benchmarks" class="inline-flex items-center min-h-11 px-2 hover:underline">Benchmarks</a>
+      <a href="https://github.com/FlavioCFOliveira/MuxMaster" rel="noopener" target="_blank" class="inline-flex items-center min-h-11 px-2 hover:underline">GitHub<span class="sr-only"> (opens in a new tab)</span></a>
       <span class="rounded bg-yellow-200 px-2 py-0.5 text-xs font-mono text-zinc-900" aria-label="MuxMaster version">{{.Version}}</span>
       <label for="dark-toggle" class="cursor-pointer rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700" aria-label="Toggle dark mode">Theme</label>
     </nav>
+
+    {{/* Mobile-only chrome: version + theme toggle stay visible (small),
+         the nav links collapse into a <details> disclosure. */}}
+    <div class="ml-auto flex items-center gap-2 sm:hidden">
+      <span class="rounded bg-yellow-200 px-2 py-0.5 text-xs font-mono text-zinc-900" aria-label="MuxMaster version">{{.Version}}</span>
+      <label for="dark-toggle" class="cursor-pointer rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700" aria-label="Toggle dark mode">Theme</label>
+    </div>
+
+    <details class="basis-full sm:hidden">
+      <summary class="cursor-pointer list-none px-2 py-3 font-semibold min-h-11">Menu</summary>
+      <nav aria-label="Primary (mobile)" class="flex flex-col text-sm">
+        <a href="/docs/" class="inline-flex items-center min-h-11 px-2 hover:underline">Docs</a>
+        <a href="/api" class="inline-flex items-center min-h-11 px-2 hover:underline">API</a>
+        <a href="/examples/" class="inline-flex items-center min-h-11 px-2 hover:underline">Examples</a>
+        <a href="/benchmarks" class="inline-flex items-center min-h-11 px-2 hover:underline">Benchmarks</a>
+        <a href="https://github.com/FlavioCFOliveira/MuxMaster" rel="noopener" target="_blank" class="inline-flex items-center min-h-11 px-2 hover:underline">GitHub<span class="sr-only"> (opens in a new tab)</span></a>
+      </nav>
+    </details>
   </div>
 </header>
 {{end}}

@@ -18,6 +18,7 @@ import (
 	"io/fs"
 	"regexp"
 	"sort"
+	"time"
 )
 
 // Loader is the read-only handle the renderer uses to fetch Markdown bodies
@@ -49,6 +50,21 @@ func (l *Loader) Load(path string) ([]byte, error) {
 		return nil, fmt.Errorf("content: read %s: %w", path, err)
 	}
 	return b, nil
+}
+
+// Mtime returns the modification time of the file at path. For embed.FS,
+// fs.Stat returns a zero time because an embedded file has no on-disk
+// timestamp; callers MUST treat a zero time as "use a fallback" (typically
+// the process build time). Returns an error if the path does not exist.
+func (l *Loader) Mtime(path string) (time.Time, error) {
+	if path == "" || path[0] == '/' {
+		return time.Time{}, fmt.Errorf("content: invalid path %q", path)
+	}
+	info, err := fs.Stat(l.root, path)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("content: stat %s: %w", path, err)
+	}
+	return info.ModTime(), nil
 }
 
 // Exists reports whether the supplied content path is present. Optional

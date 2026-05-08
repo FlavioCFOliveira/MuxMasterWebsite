@@ -16,7 +16,7 @@ type Page struct {
 	Title       string // <title> content, before the " — MuxMaster" suffix.
 	Description string // <meta name="description"> body, 110-160 chars.
 	Path        string // Absolute path on the site, e.g. "/docs/routing".
-	Canonical   string // Absolute canonical URL.
+	Canonical   string // Absolute canonical URL. Empty means "do not emit a canonical link" (used for noindex pages such as /404 and /500).
 	OGType      string // "website" for /, "article" otherwise.
 	OGImage     string // Absolute OG image URL.
 	Robots      string // Empty unless a noindex value is required.

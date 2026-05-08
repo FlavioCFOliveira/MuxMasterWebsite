@@ -2,11 +2,30 @@
 <html lang="en">
 {{template "head" .Meta}}
 <body class="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 antialiased">
-  <input type="checkbox" id="dark-toggle" class="sr-only" aria-hidden="true" tabindex="-1">
+  <input type="checkbox" id="dark-toggle" class="sr-only" aria-label="Toggle dark mode">
   <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:text-zinc-900 focus:shadow">Skip to main content</a>
   {{template "header" .Meta}}
   <div class="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:grid lg:grid-cols-[16rem_minmax(0,1fr)_16rem] lg:gap-8">
     {{if .Body.ShowSidebar}}
+      {{/* Mobile disclosure for the documentation section list. The same
+           Body.SidebarItems slice is reused; nothing is duplicated server-side. */}}
+      <details class="mb-4 rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 lg:hidden">
+        <summary class="cursor-pointer list-none px-4 py-3 font-semibold min-h-11">Documentation sections</summary>
+        <nav aria-label="Documentation sections (mobile)" class="border-t border-zinc-200 px-2 pb-2 dark:border-zinc-800">
+          <ul class="space-y-1 text-sm">
+            {{range .Body.SidebarItems}}
+              <li>
+                {{if eq .Path $.Meta.Path}}
+                  <a href="{{.Path}}" aria-current="page" class="inline-flex w-full items-center min-h-11 rounded px-2 font-semibold text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-zinc-800">{{.Title}}</a>
+                {{else}}
+                  <a href="{{.Path}}" class="inline-flex w-full items-center min-h-11 rounded px-2 hover:bg-zinc-100 dark:hover:bg-zinc-800">{{.Title}}</a>
+                {{end}}
+              </li>
+            {{end}}
+          </ul>
+        </nav>
+      </details>
+
       <aside class="hidden lg:block" aria-label="Documentation sections">
         <nav class="sticky top-4">
           <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Documentation</p>
@@ -14,7 +33,7 @@
             {{range .Body.SidebarItems}}
               <li>
                 {{if eq .Path $.Meta.Path}}
-                  <a href="{{.Path}}" aria-current="page" class="block rounded px-2 py-1 font-semibold text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-zinc-900">{{.Title}}</a>
+                  <a href="{{.Path}}" aria-current="page" class="block rounded px-2 py-1 font-semibold text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-zinc-900">{{.Title}}</a>
                 {{else}}
                   <a href="{{.Path}}" class="block rounded px-2 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-900">{{.Title}}</a>
                 {{end}}
@@ -29,6 +48,23 @@
 
     <main id="main" role="main" class="min-w-0">
       {{template "breadcrumb" .Meta.Breadcrumbs}}
+
+      {{if .Body.TOC}}
+        {{/* Mobile disclosure for the in-page table of contents. */}}
+        <details class="mb-6 rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 lg:hidden">
+          <summary class="cursor-pointer list-none px-4 py-3 font-semibold min-h-11">On this page</summary>
+          <nav aria-label="On this page (mobile)" class="border-t border-zinc-200 px-2 pb-2 dark:border-zinc-800">
+            <ul class="space-y-1 text-sm">
+              {{range .Body.TOC}}
+                <li class="{{if eq .Level 3}}pl-3 text-zinc-600 dark:text-zinc-400{{end}}">
+                  <a href="#{{.ID}}" class="inline-flex w-full items-center min-h-11 rounded px-2 hover:bg-zinc-100 dark:hover:bg-zinc-800">{{.Text}}</a>
+                </li>
+              {{end}}
+            </ul>
+          </nav>
+        </details>
+      {{end}}
+
       <article class="markdown">
         {{/* The single <h1> on this page comes from the Markdown source.
              Every file under /content/ has a leading H1; the route table's
@@ -41,18 +77,23 @@
         {{end}}
       </article>
 
+      <footer class="markdown-meta mt-12 border-t border-zinc-200 pt-6 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+        <p>Last updated <time datetime="{{.Body.LastModified.Format "2006-01-02"}}">{{.Body.LastModified.Format "2 January 2006"}}</time>.</p>
+        {{if .Meta.UpstreamURL}}<p class="mt-1">Source: <a href="{{.Meta.UpstreamURL}}" rel="noopener" class="text-cyan-700 underline dark:text-cyan-300">{{.Meta.UpstreamURL}}</a></p>{{end}}
+      </footer>
+
       {{if .Body.HasPrevNext}}
         <nav aria-label="Documentation section navigation" class="mt-12 flex flex-col gap-3 border-t border-zinc-200 pt-6 dark:border-zinc-800 sm:flex-row sm:justify-between">
           {{if .Body.Prev.Path}}
-            <a href="{{.Body.Prev.Path}}" class="group rounded-lg border border-zinc-200 p-4 dark:border-zinc-800 hover:border-cyan-500 dark:hover:border-cyan-400 sm:max-w-xs">
+            <a href="{{.Body.Prev.Path}}" class="group rounded-lg border border-zinc-200 p-4 dark:border-zinc-800 hover:border-cyan-700 dark:hover:border-cyan-300 sm:max-w-xs">
               <span class="block text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Previous</span>
-              <span class="mt-1 block font-semibold text-cyan-700 dark:text-cyan-400">{{.Body.Prev.Title}}</span>
+              <span class="mt-1 block font-semibold text-cyan-700 dark:text-cyan-300">{{.Body.Prev.Title}}</span>
             </a>
           {{else}}<span></span>{{end}}
           {{if .Body.Next.Path}}
-            <a href="{{.Body.Next.Path}}" class="group rounded-lg border border-zinc-200 p-4 text-right dark:border-zinc-800 hover:border-cyan-500 dark:hover:border-cyan-400 sm:max-w-xs">
+            <a href="{{.Body.Next.Path}}" class="group rounded-lg border border-zinc-200 p-4 text-right dark:border-zinc-800 hover:border-cyan-700 dark:hover:border-cyan-300 sm:max-w-xs">
               <span class="block text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Next</span>
-              <span class="mt-1 block font-semibold text-cyan-700 dark:text-cyan-400">{{.Body.Next.Title}}</span>
+              <span class="mt-1 block font-semibold text-cyan-700 dark:text-cyan-300">{{.Body.Next.Title}}</span>
             </a>
           {{end}}
         </nav>

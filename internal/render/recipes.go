@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/FlavioCFOliveira/MuxMasterWebsite/internal/content"
 	"github.com/FlavioCFOliveira/MuxMasterWebsite/internal/meta"
@@ -19,6 +20,11 @@ func LandingRecipe(landingDescription, ogImagePath string, productionRobots bool
 		ContentType: "text/html; charset=utf-8",
 		Build: func(deps Deps) ([]byte, error) {
 			page := basePage(deps, "/", "", landingDescription, "website", ogImagePath, productionRobots)
+			page.JSONLD = BuildJSONLD(JSONLDInputs{
+				Page:      page,
+				Family:    "landing",
+				BuildTime: deps.BuildTime,
+			})
 			return deps.Renderer.ExecuteTemplate("landing.html", Data{Meta: page})
 		},
 	}
@@ -52,6 +58,9 @@ func DocsIndexRecipe(loader *content.Loader, ogImagePath string, productionRobot
 				Items:       items,
 				IntroHTML:   intro,
 			}
+			page.JSONLD = BuildJSONLD(JSONLDInputs{
+				Page: page, Family: "collection", BuildTime: deps.BuildTime,
+			})
 			return deps.Renderer.ExecuteTemplate("section-index.html", Data{Meta: page, Body: body})
 		},
 	}
@@ -84,6 +93,9 @@ func ExamplesIndexRecipe(loader *content.Loader, ogImagePath string, productionR
 				Items:       items,
 				IntroHTML:   intro,
 			}
+			page.JSONLD = BuildJSONLD(JSONLDInputs{
+				Page: page, Family: "collection", BuildTime: deps.BuildTime,
+			})
 			return deps.Renderer.ExecuteTemplate("section-index.html", Data{Meta: page, Body: body})
 		},
 	}
@@ -166,27 +178,44 @@ func LLMsFullRecipe(loader *content.Loader, routeToContent map[string]string) Re
 
 // SitemapRecipe builds /sitemap.xml from the route table. Markdown companions
 // are excluded per specification (sitemap covers HTML routes only).
-func SitemapRecipe() Recipe {
+//
+// changefreq and priority are populated per route family per
+// specification/seo.md "sitemap.xml". lastmod is the ISO 8601 datetime of
+// the underlying content file's mtime, when available; otherwise the
+// process build time. Embedded files report a zero mtime under
+// embed.FS — when that happens, the build time is used as a stable
+// fallback so the value is never empty.
+func SitemapRecipe(loader contentMtimer, routeContent map[string]string) Recipe {
 	return Recipe{
 		Path:        "/sitemap.xml",
 		ContentType: "application/xml; charset=utf-8",
 		Build: func(deps Deps) ([]byte, error) {
 			type urlEntry struct {
-				XMLName xml.Name `xml:"url"`
-				Loc     string   `xml:"loc"`
-				LastMod string   `xml:"lastmod"`
+				XMLName    xml.Name `xml:"url"`
+				Loc        string   `xml:"loc"`
+				LastMod    string   `xml:"lastmod"`
+				ChangeFreq string   `xml:"changefreq"`
+				Priority   string   `xml:"priority"`
 			}
 			type urlSet struct {
 				XMLName xml.Name   `xml:"urlset"`
 				Xmlns   string     `xml:"xmlns,attr"`
 				URLs    []urlEntry `xml:"url"`
 			}
-			lastMod := deps.BuildTime.UTC().Format("2006-01-02")
+			fallback := deps.BuildTime.UTC().Format(time.RFC3339)
 			set := urlSet{Xmlns: "http://www.sitemaps.org/schemas/sitemap/0.9"}
 			for _, r := range deps.Routes {
+				lastMod := fallback
+				if cp, ok := routeContent[r.Path]; ok && loader != nil {
+					if t, err := loader.Mtime(cp); err == nil && !t.IsZero() {
+						lastMod = t.UTC().Format(time.RFC3339)
+					}
+				}
 				set.URLs = append(set.URLs, urlEntry{
-					Loc:     deps.BaseURL + r.Path,
-					LastMod: lastMod,
+					Loc:        deps.BaseURL + r.Path,
+					LastMod:    lastMod,
+					ChangeFreq: changeFreqFor(r.Path),
+					Priority:   priorityFor(r.Path),
 				})
 			}
 			var buf bytes.Buffer
@@ -200,6 +229,53 @@ func SitemapRecipe() Recipe {
 			return buf.Bytes(), nil
 		},
 	}
+}
+
+// contentMtimer is the narrow interface the sitemap recipe needs from a
+// content loader. Defining it here (rather than importing content.Loader)
+// keeps the render package free of upward dependencies and makes the
+// recipe trivial to fake in tests.
+type contentMtimer interface {
+	Mtime(path string) (time.Time, error)
+}
+
+// changeFreqFor returns the sitemap changefreq value per route family. The
+// values are taken verbatim from specification/seo.md "sitemap.xml".
+func changeFreqFor(path string) string {
+	switch {
+	case path == "/":
+		return "weekly"
+	case path == "/docs/" || path == "/examples/":
+		return "weekly"
+	case path == "/changelog":
+		return "weekly"
+	case strings.HasPrefix(path, "/releases/"):
+		return "yearly"
+	}
+	return "monthly"
+}
+
+// priorityFor returns the sitemap priority value per route family.
+func priorityFor(path string) string {
+	switch {
+	case path == "/":
+		return "1.0"
+	case path == "/docs/" || path == "/api":
+		return "0.9"
+	case path == "/examples/" || path == "/benchmarks":
+		return "0.8"
+	case strings.HasPrefix(path, "/docs/"):
+		return "0.8"
+	case strings.HasPrefix(path, "/examples/"):
+		return "0.6"
+	case path == "/changelog" || path == "/security":
+		return "0.6"
+	case strings.HasPrefix(path, "/releases/"):
+		return "0.6"
+	case path == "/compatibility" || path == "/contributing":
+		return "0.4"
+	}
+	return "0.5"
 }
 
 // RobotsRecipe builds /robots.txt from the AI-crawler allowlist defined in
@@ -251,6 +327,8 @@ func NotFoundRecipe(ogImagePath string, productionRobots bool) Recipe {
 				"article", ogImagePath, productionRobots)
 			// 404 pages are always noindex regardless of environment.
 			page.Robots = "noindex,nofollow"
+			// SEO B7: noindex pages MUST NOT carry a canonical link.
+			page.Canonical = ""
 			page.Breadcrumbs = []meta.Breadcrumb{
 				{Label: "Home", Href: "/"},
 				{Label: "Page not found"},
@@ -275,6 +353,8 @@ func ServerErrorRecipe(ogImagePath string, productionRobots bool) Recipe {
 				"The MuxMaster documentation site encountered an internal error.",
 				"article", ogImagePath, productionRobots)
 			page.Robots = "noindex,nofollow"
+			// SEO B7: noindex pages MUST NOT carry a canonical link.
+			page.Canonical = ""
 			page.Breadcrumbs = []meta.Breadcrumb{
 				{Label: "Home", Href: "/"},
 				{Label: "Server error"},

@@ -151,6 +151,161 @@ func TestSmokeFullSite(t *testing.T) {
 	}
 }
 
+// TestNormalisationRedirects verifies the URL normalisation 301s required by
+// specification/url-and-versioning.md "Redirects".
+func TestNormalisationRedirects(t *testing.T) {
+	t.Parallel()
+	srv := newTestServer(t)
+	ts := httptest.NewServer(srv.httpServer.Handler)
+	t.Cleanup(ts.Close)
+
+	client := &http.Client{
+		// Inhibit auto-follow so we can inspect the 301 directly.
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	cases := []struct {
+		name string
+		path string
+		want string
+	}{
+		{name: "index.html-root", path: "/index.html", want: "/"},
+		{name: "index.html-docs", path: "/docs/index.html", want: "/docs/"},
+		{name: "html-suffix", path: "/docs/routing.html", want: "/docs/routing"},
+		{name: "mixed-case", path: "/Docs/Routing", want: "/docs/routing"},
+		{name: "html+case", path: "/Docs/Routing.html", want: "/docs/routing"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resp, err := client.Get(ts.URL + tc.path)
+			if err != nil {
+				t.Fatalf("GET %s: %v", tc.path, err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusMovedPermanently {
+				t.Errorf("status=%d, want 301", resp.StatusCode)
+			}
+			if got := resp.Header.Get("Location"); got != tc.want {
+				t.Errorf("Location=%q, want %q", got, tc.want)
+			}
+			// Path-only Location: must not include scheme or host.
+			if loc := resp.Header.Get("Location"); strings.Contains(loc, "://") {
+				t.Errorf("Location must be path-only, got %q", loc)
+			}
+		})
+	}
+}
+
+// TestJSONLDPresence verifies the per-family JSON-LD object counts required
+// by SEO B1 + GEO B2.
+func TestJSONLDPresence(t *testing.T) {
+	t.Parallel()
+	srv := newTestServer(t)
+	ts := httptest.NewServer(srv.httpServer.Handler)
+	t.Cleanup(ts.Close)
+
+	cases := []struct {
+		path     string
+		wantMin  int
+		contains []string
+	}{
+		{path: "/", wantMin: 3, contains: []string{`"WebSite"`, `"SoftwareSourceCode"`, `"Organization"`}},
+		{path: "/docs/routing", wantMin: 2, contains: []string{`"TechArticle"`, `"BreadcrumbList"`}},
+		{path: "/docs/getting-started", wantMin: 3, contains: []string{`"TechArticle"`, `"HowTo"`}},
+		{path: "/api", wantMin: 3, contains: []string{`"TechArticle"`, `"SoftwareSourceCode"`}},
+		{path: "/docs/", wantMin: 2, contains: []string{`"CollectionPage"`, `"BreadcrumbList"`}},
+		{path: "/examples/", wantMin: 2, contains: []string{`"CollectionPage"`}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.path, func(t *testing.T) {
+			resp, err := http.Get(ts.URL + tc.path)
+			if err != nil {
+				t.Fatalf("GET %s: %v", tc.path, err)
+			}
+			defer resp.Body.Close()
+			body, _ := io.ReadAll(resp.Body)
+			n := strings.Count(string(body), `application/ld+json`)
+			if n < tc.wantMin {
+				t.Errorf("ld+json blocks=%d, want >=%d", n, tc.wantMin)
+			}
+			for _, s := range tc.contains {
+				if !strings.Contains(string(body), s) {
+					t.Errorf("missing JSON-LD marker %q", s)
+				}
+			}
+		})
+	}
+}
+
+// TestLastUpdatedFooter confirms the doc-page footer renders a Last-updated
+// line per GEO B3.
+func TestLastUpdatedFooter(t *testing.T) {
+	t.Parallel()
+	srv := newTestServer(t)
+	ts := httptest.NewServer(srv.httpServer.Handler)
+	t.Cleanup(ts.Close)
+
+	resp, err := http.Get(ts.URL + "/docs/routing")
+	if err != nil {
+		t.Fatalf("GET: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(body), "Last updated") {
+		t.Error("doc-page missing 'Last updated' line")
+	}
+	if !strings.Contains(string(body), "<time datetime=") {
+		t.Error("doc-page missing <time datetime=...> element")
+	}
+}
+
+// TestMobileDisclosures checks that mobile-only <details> blocks for the
+// sidebar and TOC render in the doc-page output (Tailwind B7).
+func TestMobileDisclosures(t *testing.T) {
+	t.Parallel()
+	srv := newTestServer(t)
+	ts := httptest.NewServer(srv.httpServer.Handler)
+	t.Cleanup(ts.Close)
+
+	resp, err := http.Get(ts.URL + "/docs/routing")
+	if err != nil {
+		t.Fatalf("GET: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	for _, want := range []string{"Documentation sections", "On this page"} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("doc-page missing mobile disclosure label %q", want)
+		}
+	}
+	// The toggle must be reachable: aria-hidden="true" and tabindex="-1"
+	// must NOT appear on the dark-toggle input.
+	if strings.Contains(string(body), `id="dark-toggle" class="sr-only" aria-hidden`) {
+		t.Error("dark-toggle still has aria-hidden — keyboard inaccessible")
+	}
+}
+
+// TestNoCanonicalOn404 verifies SEO B7: the 404 page must NOT carry a
+// canonical link.
+func TestNoCanonicalOn404(t *testing.T) {
+	t.Parallel()
+	srv := newTestServer(t)
+	ts := httptest.NewServer(srv.httpServer.Handler)
+	t.Cleanup(ts.Close)
+
+	resp, err := http.Get(ts.URL + "/no-such-page")
+	if err != nil {
+		t.Fatalf("GET: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if strings.Contains(string(body), `rel="canonical"`) {
+		t.Error("404 page must not emit a canonical link")
+	}
+}
+
 // TestSmoke404 verifies the branded 404 served from the prerender cache.
 func TestSmoke404(t *testing.T) {
 	t.Parallel()
@@ -316,7 +471,7 @@ func buildFixtureLoader(t *testing.T) *content.Loader {
 		"benchmarks.md": "# Benchmarks\n\n## Numbers\n\n" +
 			"| Route | ns/op |\n|---|---|\n| Static | 25 |\n\n" +
 			"## Source\n\nText.\n",
-		"docs/getting-started.md": "# Getting started\n\n## Install\n\nText.\n",
+		"docs/getting-started.md": "# Getting started\n\n## Install\n\nFirst install MuxMaster.\n\n## Step 1 — Hello, World\n\nWrite the simplest handler.\n\n## Step 2 — Path Parameters\n\nAdd a parametric route.\n",
 		"docs/routing.md": "# Routing\n\n## Patterns\n\nText.\n\n## Priority\n\nText.\n\n" +
 			"```go\nfunc Handler() {}\n```\n",
 		"docs/groups.md":                 "# Groups\n",

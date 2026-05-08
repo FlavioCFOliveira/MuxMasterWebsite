@@ -23,7 +23,14 @@ CSS_DIR := static/css
 GO_LDFLAGS := -s -w -X main.buildID=$(shell date -u +%Y%m%dT%H%M%SZ)
 GO_FLAGS   := -trimpath -ldflags='$(GO_LDFLAGS)'
 
-.PHONY: all build run dev test vet lint tidy css css-watch tailwind-install docker-build clean
+.PHONY: all build run dev test vet lint tidy css css-watch tailwind-install logo docker-build clean
+
+# Upstream logo source. The website vendors a single PNG copy at
+# static/img/logo.png. TODO(spec): the asset-generation pipeline will
+# additionally produce sized variants (32, 80, 192, 512), AVIF/WebP, and
+# a 1200x630 Open Graph composition; until then we serve the source PNG
+# at every size.
+UPSTREAM_LOGO := ../MuxMaster/assets/logo-muxmaster.png
 
 all: build
 
@@ -50,6 +57,22 @@ css: tailwind-install
 css-watch: tailwind-install
 	@mkdir -p $(CSS_DIR)
 	@$(TAILWIND_BIN) -i $(CSS_SRC) -o $(CSS_DIR)/app.dev.css --watch
+
+# Vendor the upstream logo into the static tree. The source is the
+# canonical 1024x1024 RGBA PNG in ../MuxMaster/assets/. Three copies are
+# produced today: header logo, OG image, favicon. TODO(spec): replace
+# with proper sized variants and a 1200x630 OG composition once the
+# asset-generation pipeline lands.
+logo:
+	@if [ ! -f "$(UPSTREAM_LOGO)" ]; then \
+		echo "missing $(UPSTREAM_LOGO); clone the MuxMaster repo next to this one" >&2; \
+		exit 1; \
+	fi
+	@mkdir -p static/img static/favicon
+	@cp $(UPSTREAM_LOGO) static/img/logo.png
+	@cp $(UPSTREAM_LOGO) static/img/og-image.png
+	@cp $(UPSTREAM_LOGO) static/favicon/favicon.png
+	@echo "vendored $(UPSTREAM_LOGO) into static/img and static/favicon"
 
 build: css
 	@mkdir -p $(BIN_DIR)

@@ -13,12 +13,19 @@ coverage.*
 /static/css/app.*.css
 
 # Logo derivatives copied from upstream MuxMaster at build time.
+# The source PNGs (logo.png, og-image.png) are committed; sized
+# variants (logo-32.png, logo-80.png, logo-192.png, logo-512.png,
+# *.webp, *.avif) are produced by the asset-generation pipeline.
 /static/img/logo-*.png
 /static/img/logo-*.webp
 /static/img/logo-*.avif
+/static/img/og-image-*.png
+/static/img/og-image-*.webp
+/static/img/og-image-*.avif
 
-# Generated favicons (build-time output).
-/static/favicon/*.png
+# Generated favicons (build-time output). The source favicon.png is
+# committed; sized variants and .ico are produced by the asset pipeline.
+/static/favicon/favicon-*.png
 /static/favicon/*.ico
 
 # IDE / OS artefacts.

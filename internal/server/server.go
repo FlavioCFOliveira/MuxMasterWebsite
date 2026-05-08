@@ -67,6 +67,11 @@ func New(cfg *config.Config, logger *slog.Logger, loader *content.Loader, versio
 	m.Pre(slogAccessLog(logger))
 	m.Pre(securityHeaders)
 	m.Pre(mwm.Compress(5))
+	// URL normalisation redirects (specification/url-and-versioning.md).
+	// Runs after security headers so a 301 still carries the same
+	// hardening as a 200, and before route matching so the canonical path
+	// is what the router sees.
+	m.Pre(normalisationRedirects)
 
 	s.registerRoutes(m)
 
@@ -106,7 +111,7 @@ func (s *Server) Prerender() error {
 		render.ExamplesIndexRecipe(s.loader, ogImagePath, productionRobots),
 		render.LLMsRecipe(),
 		render.LLMsFullRecipe(s.loader, routeContentPaths()),
-		render.SitemapRecipe(),
+		render.SitemapRecipe(s.loader, routeContentPaths()),
 		render.RobotsRecipe(),
 		render.NotFoundRecipe(ogImagePath, productionRobots),
 		render.ServerErrorRecipe(ogImagePath, productionRobots),
