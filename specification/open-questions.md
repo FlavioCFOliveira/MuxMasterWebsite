@@ -10,7 +10,7 @@ status: live (re-read every session)
 
 This register lists every TBD the specification has carried. Items still open are marked as such; items that have been ratified are kept visible with a `RESOLVED` status, the resolution date, and the ratified value, so the resolution history is preserved. The specification's other files refer back to this register where they encounter a `TBD`. Implementation MUST NOT silently invent values for any item still marked open; resolution requires explicit ratification.
 
-**Status summary as of 2026-05-08:** six items registered; three resolved (items 3, 4, 6); three still open (items 1, 2, 5).
+**Status summary as of 2026-05-08:** seven items registered; two resolved (items 3, 4); one superseded (item 6, by the 2026-05-08 content-pivot ratification); four still open (items 1, 2, 5, 7).
 
 ## 1. Canonical production domain
 
@@ -81,19 +81,28 @@ This register lists every TBD the specification has carried. Items still open ar
 
 ## 6. Category vs. source mapping for `/docs/`, `/examples/`, `/benchmarks`
 
-- **Status.** RESOLVED on 2026-05-08.
-- **Ratified value.**
-  - `/docs/` is **Category A**, generated at startup from the registered route table; an optional `/content/site/docs-index.md` MAY be prepended as introductory copy.
-  - `/examples/` is **Category A**, generated at startup from the registered route table; an optional `/content/site/examples-index.md` MAY be prepended as introductory copy.
-  - `/benchmarks` is **Category B**, derived live from `${MUXMASTER_SOURCE_DIR}/README.md` under the extraction contract recorded in `content-sources.md`. The `mtime` of that README file participates in the cache key.
-- **Question.** Each of these three routes was placed in **Category B** (lazy-cache live templating) by the 2026-05-08 ratification of the static-tending architecture, but each had a purely site-original source recorded in `content-sources.md`. The static-tending principle requires Category B routes to derive from a live upstream file under `${MUXMASTER_SOURCE_DIR}` whose `mtime` is the cache-invalidation signal. With no live upstream input, these routes would be Category A. Should the source mapping change to bring them into compliance with Category B, or should the category change to A?
-- **Why was open.** The 2026-05-08 ratification did not specify whether these three routes were intended to read live upstream data. Without that intent, the categorisation and the source mapping could not both be true.
-- **Blocks (now cleared).**
-  - Implementation of `/docs/`, `/examples/`, and `/benchmarks`.
-  - Final form of the route → source mapping table in `content-sources.md`.
-  - Final form of the cache-key behaviour for these three routes.
+- **Status.** SUPERSEDED on 2026-05-08 by the content-pivot ratification (recorded the same day; see the change log of `overview.md`, `content-sources.md`, and `rendering-and-caching.md`).
+- **Supersession note.** The Category A vs Category B distinction this question depended on no longer exists. After the 2026-05-08 pivot, every public route is pre-rendered at startup from `/content/`; there is no lazy-cache live templating, and no route reads `${MUXMASTER_SOURCE_DIR}` at runtime. The earlier resolution of this item is therefore obsolete; the current contract is recorded in `content-sources.md` (route → local-file mapping) and `rendering-and-caching.md` (single rendering category).
+- **Original ratified value (now obsolete, kept for history).**
+  - `/docs/` was Category A, generated at startup from the registered route table.
+  - `/examples/` was Category A, generated at startup from the registered route table.
+  - `/benchmarks` was Category B, derived live from `${MUXMASTER_SOURCE_DIR}/README.md` under an extraction contract.
 - **Owner.** Project owner.
-- **Resolution path.** Owner ratified the categorisation above on 2026-05-08. `specification-manager` recorded the ratified categories in the sitemap of `information-architecture.md` and the source mapping table of `content-sources.md`, and added the `/benchmarks` extraction contract (anchor `## Benchmarks`, span up to the next heading of equal or higher level, source citation linking to `https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/README.md#benchmarks`, cache key `("/benchmarks", mtime(${MUXMASTER_SOURCE_DIR}/README.md), build-id)`).
+- **Resolution path (closed).** No further action required; the pivot replaces the entire framing of the question.
+
+## 7. Format and structure of the `content-curator` agent's diff output
+
+- **Question.** When the `content-curator` agent runs a sync (see `content-sources.md` "Sync workflow"), in what shape MUST it present its proposed changes for the project owner and the gatekeepers to review? Specifically:
+  1. Is the diff a unified-diff patch, a git working-tree state, a per-file before/after listing, or a structured summary that pairs each change with the upstream commit / file / section it derives from?
+  2. Does the agent include a per-file rationale (for example, "renamed because upstream renamed")?
+  3. How are inconsistencies the curator cannot resolve surfaced — inline in the diff, in a separate block, or as a refusal to produce the diff at all?
+  4. Does the curator stage the changes in the working tree (so the project owner reviews via `git diff`), or does it present the diff in chat without writing to disk first?
+- **Why open.** The pivot ratified on 2026-05-08 introduced the curator and described its role, but did not fix the review surface the curator presents to the human reviewer. Without a fixed review shape, two consecutive syncs may be reviewed differently, undermining repeatability.
+- **Blocks.**
+  - Authoring of the `.claude/agents/content-curator.md` agent definition (a separate task; outside the scope of `/specification/`).
+  - First sync run.
+- **Owner.** Project owner, with input from the four gatekeeper agents on which review shape best fits each agent's working method.
+- **Resolution path.** Project owner proposes the review shape (or ratifies a recommendation from the curator-definition author). `specification-manager` records the ratified shape in `content-sources.md` "Sync workflow" and removes this entry.
 
 ## Process for closing an open question
 

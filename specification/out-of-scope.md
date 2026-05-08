@@ -12,7 +12,7 @@ The following are deliberately **not** part of v1 of the website. Adding any of 
 
 ## Per-request dynamism
 
-The site is **static-tending** (see `overview.md` and `rendering-and-caching.md`). The same URL MUST return the same bytes for the same build identity and the same upstream-source `mtime`. The following are therefore explicitly out of scope for v1:
+The site is **static-tending** (see `overview.md` and `rendering-and-caching.md`). Every public route is pre-rendered at startup, and the same URL MUST return the same bytes for the lifetime of the process. The following are therefore explicitly out of scope for v1:
 
 - No user-specific or personalised content. The same bytes are served to every visitor.
 - No A/B testing, experiments, bucketing, or feature flags evaluated at request time.
@@ -20,6 +20,15 @@ The site is **static-tending** (see `overview.md` and `rendering-and-caching.md`
 - No request-time variation by `Accept-Language`, cookies, query strings, IP, geo, or user-agent.
 - The only request header permitted to influence response bytes is `Accept-Encoding` (for compression).
 - Server-side templates are an implementation detail of how bytes are produced, never a request-time decision the client perceives.
+
+## Runtime upstream filesystem dependency
+
+The website does **not** read `../MuxMaster/` at request time, at startup, or at any other point during runtime. Documentation content is prepared in advance by the `content-curator` agent at development time and committed to this repository under `/content/`. The runtime binary serves only what is in this repository. The following are therefore explicitly out of scope for v1:
+
+- No runtime mount of the upstream MuxMaster tree.
+- No runtime read of any path under `../MuxMaster/`.
+- No environment variable named `MUXMASTER_SOURCE_DIR` consumed by the runtime binary. The variable exists only at development / agent time, where the `content-curator` agent uses it to locate the upstream working tree.
+- No filesystem watcher on `/content/` or anywhere else; pre-rendered bytes are recomputed only on process restart (see `rendering-and-caching.md`).
 
 ## Search
 
@@ -35,7 +44,7 @@ The site is **static-tending** (see `overview.md` and `rendering-and-caching.md`
 
 ## Audit-report mirroring
 
-- The `${MUXMASTER_SOURCE_DIR}/reports/` directory is **not** mirrored on the site.
+- The upstream `reports/` directory is **not** mirrored on the site (and is not part of `/content/`).
 - The `/security` page links to it on GitHub.
 
 ## Benchmark re-execution

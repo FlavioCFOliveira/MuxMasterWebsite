@@ -89,5 +89,5 @@ These rules apply to every page in addition to the language and tone rules in `o
 ## Cite-ability
 
 - Every page MUST include a stable canonical URL (HTML and `.md`) so that AI answer engines can cite it.
-- The page MUST include a date of last update (rendered visibly in the footer of the article body), sourced from the underlying file's mtime.
-- The page MUST include the upstream source path it derives from, when applicable, so that AI engines can attribute the original location.
+- The page MUST include a date of last update (rendered visibly in the footer of the article body), sourced from the underlying file's mtime in `/content/`.
+- The page MUST include the upstream source path it derives from, when applicable, so that AI engines can attribute the original location. For pages whose `/content/` mirror was produced by the `content-curator` agent (see `content-sources.md`), the citation points at the upstream file on GitHub.

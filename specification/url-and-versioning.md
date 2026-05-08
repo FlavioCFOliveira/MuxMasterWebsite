@@ -48,7 +48,7 @@ The following paths are reserved by the site and MUST NOT collide with documenta
 
 ## Version label rule
 
-- The site reads the latest released version from `${MUXMASTER_SOURCE_DIR}/CHANGELOG.md` at server startup.
+- The site reads the latest released version from `/content/changelog.md` at server startup. The `content-curator` agent commits this file mirrored from `../MuxMaster/CHANGELOG.md` during a sync (see `content-sources.md`).
 - Detection rule: the **first** Markdown heading of the form `## v<MAJOR>.<MINOR>.<PATCH>` (no pre-release suffix such as `-rc1`, `-beta`, `-alpha`) at the top of the changelog file.
 - The version label is rendered as plain text in the header next to the navigation and in the footer.
 - A restart is required for the label to roll forward.

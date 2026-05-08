@@ -10,48 +10,48 @@ status: ratified
 
 ## Sitemap (day-one)
 
-Each route is annotated with its rendering category — `[A]` for **pre-rendered at startup**, `[B]` for **lazy-cache live templating** — as defined in `rendering-and-caching.md`. The annotation applies to both the HTML route and its `.md` companion (where one exists). Operational endpoints are marked `(op)`.
+Every public route is pre-rendered at startup (see `rendering-and-caching.md`). Operational endpoints are marked `(op)`.
 
 ```
-/                            [A]
-├── /docs/                   [A]
-│   ├── /docs/getting-started   [B]
-│   ├── /docs/routing           [B]
-│   ├── /docs/groups            [B]
-│   ├── /docs/middleware        [B]
-│   ├── /docs/error-handling    [B]
-│   ├── /docs/configuration     [B]
-│   ├── /docs/response-helpers  [B]
-│   ├── /docs/performance       [B]
-│   ├── /docs/observability     [B]
-│   ├── /docs/migration         [B]
-│   └── /docs/cookbook          [B]
-├── /api                     [B]
-├── /examples/               [A]
-│   ├── /examples/rest-api          [B]
-│   ├── /examples/authn             [B]
-│   ├── /examples/jwt               [B]
-│   ├── /examples/oauth2            [B]
-│   ├── /examples/cache             [B]
-│   ├── /examples/graceful-shutdown [B]
-│   ├── /examples/server-side-render [B]
-│   └── /examples/static-site       [B]
-├── /benchmarks              [B]
-├── /changelog               [B]
-├── /releases/v1.0.0         [B]
-├── /security                [B]
-├── /compatibility           [B]
-├── /contributing            [B]
-├── /llms.txt                [A]
-├── /llms-full.txt           [A]
-├── /robots.txt              [A]
-├── /sitemap.xml             [A]
+/
+├── /docs/
+│   ├── /docs/getting-started
+│   ├── /docs/routing
+│   ├── /docs/groups
+│   ├── /docs/middleware
+│   ├── /docs/error-handling
+│   ├── /docs/configuration
+│   ├── /docs/response-helpers
+│   ├── /docs/performance
+│   ├── /docs/observability
+│   ├── /docs/migration
+│   └── /docs/cookbook
+├── /api
+├── /examples/
+│   ├── /examples/rest-api
+│   ├── /examples/authn
+│   ├── /examples/jwt
+│   ├── /examples/oauth2
+│   ├── /examples/cache
+│   ├── /examples/graceful-shutdown
+│   ├── /examples/server-side-render
+│   └── /examples/static-site
+├── /benchmarks
+├── /changelog
+├── /releases/v1.0.0
+├── /security
+├── /compatibility
+├── /contributing
+├── /llms.txt
+├── /llms-full.txt
+├── /robots.txt
+├── /sitemap.xml
 └── /healthz                 (op; not indexed; not in sitemap)
 ```
 
-In addition to the sitemap above, the server MUST pre-render two non-navigable error templates as Category A: `/404` and `/500`. These are emitted by the corresponding error handlers and never appear in `sitemap.xml` or in navigation.
+In addition to the sitemap above, the server MUST pre-render two non-navigable error templates: `/404` and `/500`. These are emitted by the corresponding error handlers and never appear in `sitemap.xml` or in navigation.
 
-Every listed HTML route also has a Markdown companion (see `geo.md`) at the same path with a `.md` suffix, except `/`, `/llms.txt`, `/llms-full.txt`, `/robots.txt`, `/sitemap.xml`, `/healthz`. The companion shares its rendering category with the HTML route.
+Every listed HTML route also has a Markdown companion (see `geo.md`) at the same path with a `.md` suffix, except `/`, `/llms.txt`, `/llms-full.txt`, `/robots.txt`, `/sitemap.xml`, `/healthz`.
 
 ## URL conventions
 
@@ -138,12 +138,12 @@ The following templates exist. Each template has a single, declared purpose. All
 1. **landing** (`/`) — value proposition, primary CTA to `/docs/getting-started`, secondary CTA to `/api`, three to five highlight blocks (zero dependencies, performance, idiomatic API, error handling, middleware), link to `/benchmarks`. No sidebar.
 2. **doc-page** (`/docs/<section>`) — left sidebar, breadcrumb, in-page TOC, article body rendered from a Markdown source, prev/next block. JSON-LD `TechArticle` + `BreadcrumbList`.
 3. **doc-index** (`/docs/`) — eleven cards (one per sub-section) with title and one-line description. JSON-LD `BreadcrumbList`.
-4. **api-page** (`/api`) — single long article rendered from `../MuxMaster/api.md`, with sticky in-page TOC. JSON-LD `TechArticle` + `SoftwareSourceCode` (referencing the upstream module). No sidebar.
-5. **example-index** (`/examples/`) — eight cards (one per upstream example) with title, one-line purpose statement, link to the example page, and link to the upstream directory. JSON-LD `BreadcrumbList`.
-6. **example-page** (`/examples/<name>`) — title, one-paragraph purpose, syntax-highlighted source of the example's primary file (typically `main.go`), and a link to the upstream directory containing the rest of the files. The site does not execute or sandbox the example. JSON-LD `TechArticle`.
-7. **benchmarks** (`/benchmarks`) — table of benchmark numbers quoted verbatim from upstream, with the source file path and line cited next to each row. JSON-LD `TechArticle` + `Dataset` (where the table is the dataset).
-8. **changelog** (`/changelog`) — full upstream `CHANGELOG.md` rendered as a single long page, with one `<h2>` per version. JSON-LD `TechArticle`.
-9. **release-notes** (`/releases/v1.0.0`) — single long article rendered from `../MuxMaster/release-notes/v1.0.0-20260508.md`. JSON-LD `TechArticle`.
+4. **api-page** (`/api`) — single long article rendered from `/content/api.md`, with sticky in-page TOC. JSON-LD `TechArticle` + `SoftwareSourceCode` (referencing the upstream module). No sidebar.
+5. **example-index** (`/examples/`) — eight cards (one per example mirrored into `/content/examples/`) with title, one-line purpose statement, link to the example page, and link to the upstream directory. JSON-LD `BreadcrumbList`.
+6. **example-page** (`/examples/<name>`) — title, one-paragraph purpose, syntax-highlighted embedded source of the example's primary file (typically `main.go`, mirrored into `/content/examples/<name>.md` by the `content-curator` agent), and a "Source" link to the upstream directory containing the rest of the files. The site does not execute or sandbox the example. JSON-LD `TechArticle`.
+7. **benchmarks** (`/benchmarks`) — table of benchmark numbers quoted verbatim from upstream (mirrored into `/content/benchmarks.md` by the curator agent), with a source citation linking to the upstream README. JSON-LD `TechArticle` + `Dataset` (where the table is the dataset).
+8. **changelog** (`/changelog`) — full mirrored `/content/changelog.md` rendered as a single long page, with one `<h2>` per version. JSON-LD `TechArticle`.
+9. **release-notes** (`/releases/v1.0.0`) — single long article rendered from `/content/release-notes/v1.0.0.md`. JSON-LD `TechArticle`.
 10. **generic-text-page** (`/security`, `/compatibility`, `/contributing`) — breadcrumb, single article body. JSON-LD `TechArticle`.
 
 ## Language attribute

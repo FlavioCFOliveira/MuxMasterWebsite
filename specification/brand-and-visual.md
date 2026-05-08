@@ -16,7 +16,7 @@ status: ratified (TBD on exact accent hexes)
 
 ## Logo
 
-- Source of truth: `${MUXMASTER_SOURCE_DIR}/assets/logo-muxmaster.png` (1024 × 1024 PNG, RGBA, mascot Gopher).
+- Canonical source: `assets/logo-muxmaster.png` in the upstream MuxMaster repository (1024 × 1024 PNG, RGBA, mascot Gopher). The PNG is committed into this repository at build-time-accessible location (path defined by the build pipeline), so the build does not require the upstream working tree at build time. The website does **not** read the logo from the upstream tree at runtime.
 - The header MUST display the logo to the left of the navigation, sized at 32 × 32 CSS px on small viewports and 40 × 40 CSS px on `md` and above.
 - The logo image MUST be served from `/assets/<hash>/logo.<size>.png` with long-cache headers (see `rendering-and-caching.md`).
 - SVG variant and horizontal-lockup variant are out of scope for v1 (see `out-of-scope.md`).
@@ -73,7 +73,7 @@ status: ratified (TBD on exact accent hexes)
 
 ## Asset generation (build-time)
 
-A build-time script MUST generate the following from `${MUXMASTER_SOURCE_DIR}/assets/logo-muxmaster.png`:
+A build-time script MUST generate the following from the canonical logo PNG bundled with the repository (sourced from the upstream MuxMaster `assets/logo-muxmaster.png`):
 
 | Asset | Use |
 | --- | --- |

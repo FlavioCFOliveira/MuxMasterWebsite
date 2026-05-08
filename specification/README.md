@@ -28,24 +28,24 @@ The specification governs the repository at `/data/dev/github.com/FlavioCFOlivei
 
 ## Files in this specification
 
-1. [overview.md](./overview.md) — purpose, audience, missions, version cadence, language and integrity rules.
+1. [overview.md](./overview.md) — purpose, audience, missions, static-tending operating principle, version cadence, language and integrity rules.
 2. [information-architecture.md](./information-architecture.md) — sitemap, URLs, navigation, page templates, breadcrumb and prev/next rules.
-3. [content-sources.md](./content-sources.md) — mapping of every public route to its upstream source, runtime contract for the upstream tree.
-4. [rendering-and-caching.md](./rendering-and-caching.md) — static-tending architecture (Category A pre-rendered at startup, Category B lazy-cache live templating), SSR pipeline, render cache, HTTP cache headers, ETag and Last-Modified strategy.
-5. [url-and-versioning.md](./url-and-versioning.md) — URL conventions, redirects, reserved paths, version label rule.
+3. [content-sources.md](./content-sources.md) — `/content/` repository layout, route → local-file mapping, examples-file shape, benchmark citation rule, sync workflow performed by the `content-curator` agent.
+4. [rendering-and-caching.md](./rendering-and-caching.md) — static-tending architecture (every public route pre-rendered at startup; recompute trigger is process restart), SSR pipeline, in-process render store, HTTP cache headers, ETag and Last-Modified strategy.
+5. [url-and-versioning.md](./url-and-versioning.md) — URL conventions, redirects, reserved paths, version label rule (read from `/content/changelog.md`).
 6. [seo.md](./seo.md) — SEO contract per page family, JSON-LD shapes, sitemap, robots, security headers, Core Web Vitals targets.
 7. [geo.md](./geo.md) — Generative Engine Optimization contract, llms.txt artefacts, Markdown companions, AI crawler allowlist.
 8. [accessibility-and-standards.md](./accessibility-and-standards.md) — WCAG 2.2 AA contract, semantics, keyboard, focus, contrast, reduced motion.
 9. [mobile-first-and-responsive.md](./mobile-first-and-responsive.md) — breakpoint strategy, fluid layout primitives, touch targets, responsive images.
 10. [brand-and-visual.md](./brand-and-visual.md) — logo, palette, dark mode, type, code-block style, asset generation.
-11. [deployment.md](./deployment.md) — Docker model, runtime contract, environment variables, reverse-proxy expectations, health endpoint, logs.
-12. [agents-and-gates.md](./agents-and-gates.md) — gatekeeper agents and their ownership areas; final-gate rule for ux-specialist.
-13. [out-of-scope.md](./out-of-scope.md) — what v1 of the site explicitly does not do.
+11. [deployment.md](./deployment.md) — Docker model, self-contained runtime image, environment variables (no `MUXMASTER_SOURCE_DIR` at runtime), reverse-proxy expectations, health endpoint, logs.
+12. [agents-and-gates.md](./agents-and-gates.md) — four gatekeepers (seo, geo, tailwind, ux), the `content-curator` author agent, ownership areas, final-gate rule for ux-specialist.
+13. [out-of-scope.md](./out-of-scope.md) — what v1 of the site explicitly does not do, including runtime upstream filesystem dependency.
 14. [open-questions.md](./open-questions.md) — register of TBD items with owners, blocking impact, and resolution path.
 
 ## Ratification status
 
-The decisions captured in this initial specification were agreed with the owner on 2026-05-08. The items listed in `open-questions.md` are explicitly not yet ratified; no implementation decision may close them silently.
+The decisions captured in this initial specification were agreed with the owner on 2026-05-08. A subsequent pivot ratified the same day moved all upstream content from runtime read of `../MuxMaster/` to a development-time sync into `/content/` performed by the new `content-curator` agent; the affected files (`overview.md`, `content-sources.md`, `rendering-and-caching.md`, `information-architecture.md`, `agents-and-gates.md`, `deployment.md`, `out-of-scope.md`, `open-questions.md`, `url-and-versioning.md`, `brand-and-visual.md`, `seo.md`, `geo.md`) were updated in the same change. The items listed in `open-questions.md` are explicitly not yet ratified; no implementation decision may close them silently.
 
 ## Related external references
 

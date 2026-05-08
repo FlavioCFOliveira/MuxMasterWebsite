@@ -1,6 +1,6 @@
 ---
 title: Agents and gatekeeping
-purpose: Record the gatekeeper agents, their ownership areas, and the final-gate rule for ux-specialist.
+purpose: Record the coordinator agents — four gatekeepers and one content curator — their ownership areas, and the final-gate rule for ux-specialist.
 owners: specification-manager.
 last-updated: 2026-05-08
 status: ratified
@@ -8,7 +8,10 @@ status: ratified
 
 # Agents and gatekeeping
 
-The project ships dedicated subagents under `.claude/agents/` (defined in `../CLAUDE.md`). They are gatekeepers, not optional helpers. Each agent issues `APPROVED`, `APPROVED WITH CHANGES`, or `REJECTED` verdicts on a proposed change. Blocking fixes from any agent MUST be applied before merge.
+The project ships dedicated subagents under `.claude/agents/` (defined in `../CLAUDE.md`). The coordination model has two roles:
+
+- **Gatekeepers** review proposed changes and issue `APPROVED`, `APPROVED WITH CHANGES`, or `REJECTED` verdicts. Blocking fixes from any gatekeeper MUST be applied before merge. There are four gatekeepers: `seo-specialist`, `geo-specialist`, `tailwind-specialist`, and `ux-specialist`.
+- **Authors** produce changes for the gatekeepers and the project owner to review. There is one author: `content-curator`. Authors do not issue verdicts.
 
 ## Agents and ownership areas
 
@@ -71,9 +74,27 @@ User Experience and usability holistic coordinator. **Invoked last**, after the 
 
 `ux-specialist` does not edit code. It produces holistic verdicts with exact rewrite proposals routed to the main session or to a peer agent. A `ux-specialist` REJECTED blocks merge even when the three peer agents have approved.
 
+### content-curator (author, not gatekeeper)
+
+Authoring agent responsible for keeping `/content/` in sync with the upstream `../MuxMaster` source of truth. **Not** a gatekeeper — it does not issue `APPROVED` / `REJECTED` verdicts on proposed changes; it produces them. Owns:
+
+- Reading `../MuxMaster/` via the environment variable `MUXMASTER_SOURCE_DIR` (development-time / agent-time only — this variable is **not** read by the runtime binary).
+- Writing Markdown files under `/content/` (and only under `/content/`) per the layout and per-file shape defined in `content-sources.md`.
+- Producing a diff for the project owner and the gatekeepers to review. The agent MUST NOT auto-commit.
+- Flagging any inconsistency it cannot resolve (for example, a new upstream document with no corresponding page template, or a `## Benchmarks` section that has been renamed or removed upstream) instead of silently dropping or transforming content.
+
+The agent MUST NOT:
+
+- Read or write Go source code, templates, static assets, or any path outside `/content/`.
+- Modify the runtime binary, the build pipeline, or the deployment configuration.
+- Make editorial decisions that change facts (it transforms format and structure; it does not paraphrase numbers, signatures, or behaviour claims).
+
+The agent definition file is `.claude/agents/content-curator.md` (authored separately from this specification).
+
 ## Invocation order
 
-- The first three agents (`seo-specialist`, `geo-specialist`, `tailwind-specialist`) are technical-surface specialists. They MAY be invoked in any order, often in parallel.
+- `content-curator` is invoked when a content sync is requested (see `content-sources.md`). It produces a diff under `/content/` and the diff then enters the gatekeeper review path. The curator runs before any gatekeeper is consulted on the resulting change.
+- Among the four gatekeepers: the first three (`seo-specialist`, `geo-specialist`, `tailwind-specialist`) are technical-surface specialists. They MAY be invoked in any order, often in parallel.
 - `ux-specialist` MUST be invoked **last**, after the other three have completed their reviews and any blocking fixes have been applied. Its job is to read the post-fix state of the change as an integrated user experience.
 
 ## Disputes

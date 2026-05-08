@@ -17,8 +17,9 @@ The site is shipped as a Docker image built with a multi-stage Dockerfile.
 - Base image: an official Go toolchain image matching MuxMaster's minimum (Go 1.26 or newer).
 - Installs the **Tailwind CSS v4 standalone CLI binary** (downloaded for the target architecture).
 - Compiles the CSS bundle from the project's templates and source files (see `brand-and-visual.md`).
-- Generates favicons and the Open Graph image from `${MUXMASTER_SOURCE_DIR}/assets/logo-muxmaster.png`.
+- Generates favicons and the Open Graph image from the canonical logo PNG bundled with the repository (sourced from the upstream MuxMaster repository at `assets/logo-muxmaster.png` — see `brand-and-visual.md`).
 - Compiles the Go binary as a static, position-independent executable (`CGO_ENABLED=0`). The output binary is named `muxmaster-website`.
+- The builder stage does **not** require the upstream `../MuxMaster` tree at build time. Content under `/content/` is committed to this repository by the `content-curator` agent (see `content-sources.md`); it is part of the repository's source, not a build-time external dependency.
 
 ### Runtime stage
 
@@ -26,29 +27,32 @@ The site is shipped as a Docker image built with a multi-stage Dockerfile.
 - Contains:
   - The compiled site binary (named `muxmaster-website`).
   - The compiled static assets (CSS bundle, favicons, OG image, hashed logo derivatives).
-  - The site-original content tree (`/content/site/`).
-  - The upstream MuxMaster source tree (copied from a known commit), or the directory is mounted at runtime.
+  - The full `/content/` tree as committed in this repository (mirrored upstream content plus site-original content).
 - Runs as a non-root user.
 - Exposes port `8080` (cleartext HTTP/1.1 and h2c HTTP/2).
+- The runtime image is **self-contained**. It does not require any external filesystem mount, the upstream `../MuxMaster` tree, or any other directory beyond what the builder stage produced. Every public route is pre-rendered at startup from `/content/` (see `rendering-and-caching.md`).
 
-### Upstream tree delivery
+### Content delivery
 
-Two acceptable patterns; the deployment chooses one and the chosen pattern MUST be documented in the deploy runbook:
+Content is part of the repository under `/content/` and is therefore embedded in the runtime image automatically when the builder stage runs from a clean checkout. There is no runtime upstream-tree mount, no read-only volume, and no separate content rollout path. A new MuxMaster release reaches production through the following sequence:
 
-1. **Baked-in.** The build copies `${MUXMASTER_SOURCE_DIR}` into the runtime image at a fixed path (e.g. `/srv/muxmaster`). The image is rebuilt for each MuxMaster release that the site adopts.
-2. **Volume-mounted.** The runtime mounts a read-only volume containing the upstream tree at `${MUXMASTER_SOURCE_DIR}`. The volume is updated independently of image rollouts.
+1. The `content-curator` agent runs at development time against `${MUXMASTER_SOURCE_DIR}` and proposes a diff under `/content/` (see `content-sources.md`).
+2. The diff is reviewed and committed to this repository.
+3. A new image is built; the new content is baked in.
+4. The image is rolled out; the running process is restarted.
 
-In both patterns, the directory MUST satisfy the contract in `content-sources.md`.
+`MUXMASTER_SOURCE_DIR` is therefore a **development-time and agent-time** variable only, used by the curator agent to locate the upstream working tree. It MUST NOT appear in the runtime image or in the production environment.
 
 ## Runtime environment variables
 
 | Variable | Purpose | Default | Required |
 | --- | --- | --- | --- |
-| `MUXMASTER_SOURCE_DIR` | Path to the upstream MuxMaster source tree. | `../MuxMaster` (development); the absolute path baked into or mounted in the runtime image (production). | Yes |
 | `SITE_BASE_URL` | Absolute base URL of the site, used for canonical, OG, JSON-LD, sitemap, and llms.txt. | `http://localhost:8080` | Yes |
 | `LOG_LEVEL` | One of `debug`, `info`, `warn`, `error`. | `info` | No |
 | `PORT` | TCP port to bind. | `8080` | No |
 | `ENV` | One of `development`, `staging`, `production`. Controls whether `noindex` is forced when `SITE_BASE_URL` is not the canonical domain. | `development` | No |
+
+`MUXMASTER_SOURCE_DIR` is **not** a runtime variable. It is consumed only by the `content-curator` agent at development time (see `content-sources.md`).
 
 The server MUST log all environment-variable values at startup (`info` level) except for any future secret. None are secret on day one.
 
@@ -66,7 +70,7 @@ The container MUST trust the proxy's `X-Forwarded-*` headers only when configure
 
 ## Health endpoint
 
-- `GET /healthz` MUST return `200 OK` with body `ok\n` and `Content-Type: text/plain; charset=utf-8` once the server has finished startup checks (required upstream files present, templates parsed, CSS bundle resolved, version label read).
+- `GET /healthz` MUST return `200 OK` with body `ok\n` and `Content-Type: text/plain; charset=utf-8` once the server has finished startup checks (required files under `/content/` present, templates parsed, CSS bundle resolved, version label read, every public route pre-rendered to bytes).
 - Before startup checks complete, `GET /healthz` MUST return `503 Service Unavailable`.
 - `Cache-Control: no-store` on this route.
 - The route is excluded from `sitemap.xml`, `robots.txt`, `llms.txt`, and `llms-full.txt`.

@@ -57,7 +57,7 @@ All `@id` URIs MUST use the canonical absolute URL of the page.
 
 - The server MUST generate `/sitemap.xml` from the registered route list at startup.
 - Excluded from the sitemap: `/healthz`, `/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/llms-full.txt`, all `.md` companions, all `/assets/...` paths.
-- Each entry includes `<loc>` (absolute URL on the canonical domain), `<lastmod>` (the source file's mtime in W3C datetime format), `<changefreq>` (`monthly` for documentation, `weekly` for `/changelog` and `/`), and `<priority>` (1.0 for `/`, 0.8 for `/docs/`, `/api`, `/examples/`, 0.6 for `/docs/<section>`, `/examples/<name>`, `/benchmarks`, 0.4 for the rest).
+- Each entry includes `<loc>` (absolute URL on the canonical domain), `<lastmod>` (the mtime of the underlying file in `/content/` in W3C datetime format; for routes whose source is the registered route table rather than a single file — `/`, `/docs/`, `/examples/` — `<lastmod>` MUST be the process start time), `<changefreq>` (`monthly` for documentation, `weekly` for `/changelog` and `/`), and `<priority>` (1.0 for `/`, 0.8 for `/docs/`, `/api`, `/examples/`, 0.6 for `/docs/<section>`, `/examples/<name>`, `/benchmarks`, 0.4 for the rest).
 
 ## robots.txt (search-engine portion)
 
