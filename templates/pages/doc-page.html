@@ -30,9 +30,12 @@
     <main id="main" role="main" class="min-w-0">
       {{template "breadcrumb" .Meta.Breadcrumbs}}
       <article class="prose prose-zinc max-w-none dark:prose-invert">
-        <h1 class="text-3xl font-bold tracking-tight">{{.Body.Title}}</h1>
+        {{/* The single <h1> on this page comes from the Markdown source.
+             Every file under /content/ has a leading H1; the route table's
+             Title is used only for <title>, breadcrumbs, and navigation
+             chrome. This keeps "exactly one <h1> per page" per the spec. */}}
         {{if .Body.HTML}}
-          <div class="markdown-body mt-6">
+          <div class="markdown-body">
             {{safeHTML .Body.HTML}}
           </div>
         {{end}}
