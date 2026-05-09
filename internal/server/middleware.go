@@ -95,11 +95,16 @@ func securityHeaders(next http.Handler) http.Handler {
 			"accelerometer=(), camera=(), geolocation=(), gyroscope=(), "+
 				"microphone=(), payment=(), usb=()")
 		h.Set("X-Frame-Options", "DENY")
-		h.Set("Cross-Origin-Opener-Policy", "same-origin")
-		h.Set("Cross-Origin-Resource-Policy", "same-origin")
 
-		// Only emit HSTS when the request was already HTTPS at the proxy edge.
+		// COOP, CORP and HSTS are only meaningful on a "secure context" —
+		// browsers ignore them on plain-HTTP origins and Chromium logs a
+		// console warning ("the URL's origin was untrustworthy") that
+		// Lighthouse counts as a Best-Practices failure. Gate them on the
+		// edge being HTTPS so dev over HTTP is silent and production over
+		// HTTPS still gets the protection.
 		if https {
+			h.Set("Cross-Origin-Opener-Policy", "same-origin")
+			h.Set("Cross-Origin-Resource-Policy", "same-origin")
 			h.Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
 		}
 		next.ServeHTTP(w, r)

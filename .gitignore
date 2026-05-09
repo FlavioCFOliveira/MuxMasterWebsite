@@ -12,20 +12,23 @@ coverage.*
 # Generated CSS bundle (hashed, build artefact). Keep app.css source.
 /static/css/app.*.css
 
-# Logo derivatives copied from upstream MuxMaster at build time.
-# The source PNGs (logo.png, og-image.png) are committed; sized
-# variants (logo-32.png, logo-80.png, logo-192.png, logo-512.png,
-# *.webp, *.avif) are produced by the asset-generation pipeline.
+# Image artefacts produced by `make assets` from the canonical
+# static/img/logo.png source. The source PNG is committed; every
+# derivative (sized header logos, favicons, apple-touch-icons, the
+# 1200x630 OG composition) is regenerated deterministically at build
+# time and never committed.
 /static/img/logo-*.png
 /static/img/logo-*.webp
 /static/img/logo-*.avif
+/static/img/og-image.png
 /static/img/og-image-*.png
 /static/img/og-image-*.webp
 /static/img/og-image-*.avif
 
-# Generated favicons (build-time output). The source favicon.png is
-# committed; sized variants and .ico are produced by the asset pipeline.
+# Generated favicons (build-time output of `make assets`).
+/static/favicon/favicon.png
 /static/favicon/favicon-*.png
+/static/favicon/apple-touch-icon-*.png
 /static/favicon/*.ico
 
 # IDE / OS artefacts.
