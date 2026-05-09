@@ -77,11 +77,18 @@ func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
 		// Conservative starter CSP. Inline scripts and styles are forbidden.
-		h.Set("Content-Security-Policy",
-			"default-src 'self'; img-src 'self' data:; style-src 'self'; "+
-				"script-src 'self'; font-src 'self'; connect-src 'self'; "+
-				"frame-ancestors 'none'; base-uri 'self'; form-action 'self'; "+
-				"upgrade-insecure-requests")
+		// `upgrade-insecure-requests` is appended only when the request is
+		// already HTTPS at the edge — otherwise the browser would auto-upgrade
+		// every sub-resource (CSS, images, fonts) and break the page when the
+		// origin only speaks plain HTTP (e.g. dev on a non-localhost hostname).
+		https := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
+		csp := "default-src 'self'; img-src 'self' data:; style-src 'self'; " +
+			"script-src 'self'; font-src 'self'; connect-src 'self'; " +
+			"frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		if https {
+			csp += "; upgrade-insecure-requests"
+		}
+		h.Set("Content-Security-Policy", csp)
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		h.Set("Permissions-Policy",
@@ -92,7 +99,7 @@ func securityHeaders(next http.Handler) http.Handler {
 		h.Set("Cross-Origin-Resource-Policy", "same-origin")
 
 		// Only emit HSTS when the request was already HTTPS at the proxy edge.
-		if r.Header.Get("X-Forwarded-Proto") == "https" || r.TLS != nil {
+		if https {
 			h.Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
 		}
 		next.ServeHTTP(w, r)
