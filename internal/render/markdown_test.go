@@ -50,8 +50,11 @@ func TestMarkdownToHTMLGFMTables(t *testing.T) {
 	if !strings.Contains(s, "<table>") {
 		t.Errorf("expected <table>; got %s", s)
 	}
-	if !strings.Contains(s, "<th>A</th>") {
-		t.Errorf("expected <th>A</th>; got %s", s)
+	// Goldmark emits <th>A</th>; the addTableHeaderScope post-process
+	// adds scope="col" so screen readers can navigate header rows
+	// (spec/accessibility-and-standards.md, rmp #56).
+	if !strings.Contains(s, `<th scope="col">A</th>`) {
+		t.Errorf(`expected <th scope="col">A</th>; got %s`, s)
 	}
 }
 

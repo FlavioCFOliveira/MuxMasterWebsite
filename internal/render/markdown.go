@@ -52,7 +52,22 @@ func MarkdownToHTML(src []byte) ([]byte, error) {
 	if err := markdownEngine.Convert(src, &buf); err != nil {
 		return nil, fmt.Errorf("markdown: convert: %w", err)
 	}
-	return buf.Bytes(), nil
+	return addTableHeaderScope(buf.Bytes()), nil
+}
+
+// thOpenRE matches a <th> opening tag without a scope attribute. Goldmark
+// emits <th> only inside <thead> (the first row of a GFM table); body
+// cells use <td>. So a global add-scope pass is safe.
+var thOpenRE = regexp.MustCompile(`<th(\s|>)`)
+
+// addTableHeaderScope post-processes Goldmark's output to add scope="col"
+// to every <th> opening tag. spec/accessibility-and-standards.md requires
+// the scope attribute on data-table headers for screen-reader navigation;
+// Goldmark does not emit it natively. Existing scope attributes are
+// preserved (the regex matches only <th> followed by whitespace or the
+// closing >, never a scope= already present).
+func addTableHeaderScope(html []byte) []byte {
+	return thOpenRE.ReplaceAll(html, []byte(`<th scope="col"$1`))
 }
 
 // Heading is one entry in the in-page table of contents.
