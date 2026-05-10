@@ -288,6 +288,9 @@ func buildArticleJSONLD(in JSONLDInputs) []string {
 	if dts := buildDefinedTermSetJSONLD(in); dts != "" {
 		out = append(out, dts)
 	}
+	if codes := buildCodeSnippetsJSONLD(in); len(codes) > 0 {
+		out = append(out, codes...)
+	}
 	return out
 }
 
@@ -545,6 +548,85 @@ func buildDefinedTermSetJSONLD(in JSONLDInputs) string {
 		Name:           in.Page.Title + " — defined terms",
 		HasDefinedTerm: terms,
 	})
+}
+
+// goCodeBlockRE matches every Goldmark-rendered Go code block. The
+// pattern is anchored on language-go so non-Go fences (bash, json,
+// http) do not produce noisy Code emissions.
+var goCodeBlockRE = regexp.MustCompile(`(?is)<pre><code class="language-go">(.*?)</code></pre>`)
+
+// anchoredHeadingRE matches a heading with an id attribute. The scanner
+// uses these anchors as the name of the Code snippet they precede.
+var anchoredHeadingRE = regexp.MustCompile(`(?is)<(h[2-6])\b[^>]*\bid="([^"]+)"[^>]*>(.*?)</h[2-6]>`)
+
+// buildCodeSnippetsJSONLD scans the rendered HTML for Go code blocks
+// that follow an anchored heading and emits one Code block per snippet.
+// Snippets without a preceding anchored heading are skipped — the
+// schema requires a stable, citable anchor (spec/structured-data.md
+// § Auxiliary schemas).
+func buildCodeSnippetsJSONLD(in JSONLDInputs) []string {
+	if len(in.RenderedHTML) == 0 {
+		return nil
+	}
+	type code struct {
+		Context             string `json:"@context"`
+		Type                string `json:"@type"`
+		ID                  string `json:"@id"`
+		Name                string `json:"name"`
+		ProgrammingLanguage string `json:"programmingLanguage"`
+		CodeSampleType      string `json:"codeSampleType"`
+		Text                string `json:"text"`
+	}
+	headings := anchoredHeadingRE.FindAllSubmatchIndex(in.RenderedHTML, -1)
+	if len(headings) == 0 {
+		return nil
+	}
+	codeBlocks := goCodeBlockRE.FindAllSubmatchIndex(in.RenderedHTML, -1)
+	canonical := in.Page.Canonical
+	var out []string
+	for _, cb := range codeBlocks {
+		// Find the most recent heading anchor that precedes this code
+		// block. If no anchored heading precedes it, skip — citing an
+		// unnamed snippet violates the auxiliary-schema contract.
+		var anchorID, headingText string
+		for _, h := range headings {
+			if h[0] >= cb[0] {
+				break
+			}
+			anchorID = string(in.RenderedHTML[h[4]:h[5]])
+			headingText = faqPlainText(in.RenderedHTML[h[6]:h[7]])
+		}
+		if anchorID == "" {
+			continue
+		}
+		text := decodeHTMLEntitiesPreserveText(string(in.RenderedHTML[cb[2]:cb[3]]))
+		if text == "" {
+			continue
+		}
+		out = append(out, mustJSON(code{
+			Context:             schema,
+			Type:                "Code",
+			ID:                  canonical + "#code-" + anchorID,
+			Name:                headingText,
+			ProgrammingLanguage: "Go",
+			CodeSampleType:      "code snippet",
+			Text:                text,
+		}))
+	}
+	return out
+}
+
+// decodeHTMLEntitiesPreserveText converts HTML entities back to their
+// literal characters so the Code.text field is the verbatim Go source
+// (per spec/structured-data.md § Code: "as it appears inside <pre><code>,
+// post-Markdown-render, no line numbers"). Tags inside the snippet are
+// left intact because Go source contains no HTML-shaped tokens after
+// Goldmark's escaping pass beyond the entities listed in htmlEntities.
+func decodeHTMLEntitiesPreserveText(s string) string {
+	for ent, repl := range htmlEntities {
+		s = strings.ReplaceAll(s, ent, repl)
+	}
+	return s
 }
 
 // faqHeadingOpenRE matches the opening tag of an in-section question
