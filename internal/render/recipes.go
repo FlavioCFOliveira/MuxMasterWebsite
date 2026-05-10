@@ -267,25 +267,25 @@ func changeFreqFor(path string) string {
 
 // priorityFor returns the sitemap priority value per route family.
 func priorityFor(path string) string {
+	// Per specification/seo.md § sitemap.xml priority table:
+	//   1.0 — /
+	//   0.8 — /docs/, /api, /examples/
+	//   0.6 — /docs/<section>, /examples/<name>, /benchmarks
+	//   0.4 — /changelog, /releases/*, /security, /compatibility,
+	//         /contributing, anything else
 	switch {
 	case path == "/":
 		return "1.0"
-	case path == "/docs/" || path == "/api":
-		return "0.9"
-	case path == "/examples/" || path == "/benchmarks":
+	case path == "/docs/" || path == "/api" || path == "/examples/":
 		return "0.8"
+	case path == "/benchmarks":
+		return "0.6"
 	case strings.HasPrefix(path, "/docs/"):
-		return "0.8"
+		return "0.6"
 	case strings.HasPrefix(path, "/examples/"):
 		return "0.6"
-	case path == "/changelog" || path == "/security":
-		return "0.6"
-	case strings.HasPrefix(path, "/releases/"):
-		return "0.6"
-	case path == "/compatibility" || path == "/contributing":
-		return "0.4"
 	}
-	return "0.5"
+	return "0.4"
 }
 
 // RobotsRecipe builds /robots.txt from the AI-crawler allowlist defined in
