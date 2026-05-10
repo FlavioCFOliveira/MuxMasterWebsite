@@ -2,7 +2,7 @@
 title: Specification index
 purpose: Single entry point and table of contents for the MuxMaster website functional specification.
 owners: specification-manager (sole writer); seo-specialist, geo-specialist, tailwind-specialist, ux-specialist (review).
-last-updated: 2026-05-08
+last-updated: 2026-05-10
 status: ratified (initial)
 ---
 
@@ -34,14 +34,15 @@ The specification governs the repository at `/data/dev/github.com/FlavioCFOlivei
 4. [rendering-and-caching.md](./rendering-and-caching.md) — static-tending architecture (every public route pre-rendered at startup; recompute trigger is process restart), SSR pipeline, in-process render store, HTTP cache headers, ETag and Last-Modified strategy.
 5. [url-and-versioning.md](./url-and-versioning.md) — URL conventions, redirects, reserved paths, version label rule (read from `/content/changelog.md`).
 6. [seo.md](./seo.md) — SEO contract per page family, JSON-LD shapes, sitemap, robots, security headers, Core Web Vitals targets.
-7. [geo.md](./geo.md) — Generative Engine Optimization contract, llms.txt artefacts, Markdown companions, AI crawler allowlist.
-8. [accessibility-and-standards.md](./accessibility-and-standards.md) — WCAG 2.2 AA contract, semantics, keyboard, focus, contrast, reduced motion.
-9. [mobile-first-and-responsive.md](./mobile-first-and-responsive.md) — breakpoint strategy, fluid layout primitives, touch targets, responsive images.
-10. [brand-and-visual.md](./brand-and-visual.md) — logo, palette, dark mode, type, code-block style, asset generation.
-11. [deployment.md](./deployment.md) — Docker model, self-contained runtime image, environment variables (no `MUXMASTER_SOURCE_DIR` at runtime), reverse-proxy expectations, health endpoint, logs.
-12. [agents-and-gates.md](./agents-and-gates.md) — four gatekeepers (seo, geo, tailwind, ux), the `content-curator` author agent, ownership areas, final-gate rule for ux-specialist.
-13. [out-of-scope.md](./out-of-scope.md) — what v1 of the site explicitly does not do, including runtime upstream filesystem dependency.
-14. [open-questions.md](./open-questions.md) — register of TBD items with owners, blocking impact, and resolution path.
+7. [geo.md](./geo.md) — Generative Engine Optimization contract, llms.txt artefacts, Markdown companions, AI crawler allowlist, Question-Oriented Content strategy (conversational Q→A chains).
+8. [structured-data.md](./structured-data.md) — Structured Data Doctrine: the unified JSON-LD contract (master schema-by-page-family table, reified entity graph, per-type field expectations, auxiliary schemas, blocking CI validation gate). Co-owned by `seo-specialist` and `geo-specialist`.
+9. [accessibility-and-standards.md](./accessibility-and-standards.md) — WCAG 2.2 AA contract, semantics, keyboard, focus, contrast, reduced motion.
+10. [mobile-first-and-responsive.md](./mobile-first-and-responsive.md) — breakpoint strategy, fluid layout primitives, touch targets, responsive images.
+11. [brand-and-visual.md](./brand-and-visual.md) — logo, palette, dark mode, type, code-block style, asset generation.
+12. [deployment.md](./deployment.md) — Docker model, self-contained runtime image, environment variables (no `MUXMASTER_SOURCE_DIR` at runtime), reverse-proxy expectations, health endpoint, logs.
+13. [agents-and-gates.md](./agents-and-gates.md) — four gatekeepers (seo, geo, tailwind, ux), the `content-curator` author agent, ownership areas, final-gate rule for ux-specialist.
+14. [out-of-scope.md](./out-of-scope.md) — what v1 of the site explicitly does not do, including runtime upstream filesystem dependency.
+15. [open-questions.md](./open-questions.md) — register of TBD items with owners, blocking impact, and resolution path.
 
 ## Ratification status
 

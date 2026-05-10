@@ -2,7 +2,7 @@
 title: SEO contract
 purpose: Define the search-engine optimisation contract for every page family — head metadata, structured data, sitemap, robots, security headers, and Core Web Vitals targets.
 owners: seo-specialist (final review); review by ux-specialist (anchor-text descriptiveness), geo-specialist (structured-data overlap with GEO).
-last-updated: 2026-05-08
+last-updated: 2026-05-10
 status: ratified
 ---
 
@@ -34,24 +34,7 @@ Pages that MUST NOT be indexed (until the canonical domain is decided, or becaus
 
 ## JSON-LD structured data
 
-JSON-LD blocks MUST appear inside `<head>` or at the end of `<body>`, in `<script type="application/ld+json">` tags. One graph per page, separate scripts per type acceptable.
-
-| Page family | Required JSON-LD |
-| --- | --- |
-| `/` | `WebSite` (with `name`, `url`, `inLanguage`, `publisher`), `SoftwareSourceCode` (referencing the upstream module — `name: "MuxMaster"`, `programmingLanguage: "Go"`, `codeRepository: "https://github.com/FlavioCFOliveira/MuxMaster"`, `license: "https://opensource.org/licenses/MIT"`), `Organization` (publisher, with logo). |
-| `/docs/<section>` | `TechArticle`, `BreadcrumbList`. |
-| `/docs/` | `BreadcrumbList`, `CollectionPage`. |
-| `/api` | `TechArticle`, `SoftwareSourceCode`, `BreadcrumbList`. |
-| `/examples/` | `BreadcrumbList`, `CollectionPage`. |
-| `/examples/<name>` | `TechArticle`, `BreadcrumbList`, optional `HowTo` if the example is structured as ordered steps. |
-| `/benchmarks` | `TechArticle`, `BreadcrumbList`, `Dataset` (the benchmark table). |
-| `/changelog` | `TechArticle`, `BreadcrumbList`. |
-| `/releases/<v>` | `TechArticle`, `BreadcrumbList`. |
-| `/security`, `/compatibility`, `/contributing` | `TechArticle`, `BreadcrumbList`. |
-
-`FAQPage` MUST be added to any page that contains an explicit Q→A block of at least three pairs, in addition to the table above.
-
-All `@id` URIs MUST use the canonical absolute URL of the page.
+The master schema-by-page-family table, the entity graph (the four reified nodes referenced by `@id` from every page), the per-type field expectations, the auxiliary schemas (`APIReference`, `DefinedTerm`/`DefinedTermSet`, `Code`), and the blocking CI validation gate are defined in `structured-data.md`. SEO's specific concern in that contract is **rich-result eligibility**: search-engine result pages render breadcrumb trails, FAQ accordions, How-To carousels, code-repository panels, and dataset summaries when the JSON-LD is well-formed and complete. See `structured-data.md` for the master table, the field-completeness rules, and the validation gate.
 
 ## sitemap.xml
 

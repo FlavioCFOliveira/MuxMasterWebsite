@@ -2,7 +2,7 @@
 title: Agents and gatekeeping
 purpose: Record the coordinator agents — four gatekeepers and one content curator — their ownership areas, and the final-gate rule for ux-specialist.
 owners: specification-manager.
-last-updated: 2026-05-08
+last-updated: 2026-05-10
 status: ratified
 ---
 
@@ -22,6 +22,7 @@ Final review authority on traditional SEO, Core Web Vitals, web standards, and a
 - `<head>` metadata: title, description, canonical, Open Graph, Twitter Card.
 - `sitemap.xml` and the search-engine portion of `robots.txt`.
 - JSON-LD for rich results (`TechArticle`, `BreadcrumbList`, `SoftwareSourceCode`, `Organization`, `Dataset`, `CollectionPage`, `FAQPage` overlap with `geo.md`).
+- Co-ownership of `specification/structured-data.md` for rich-result-eligibility concerns (master schema table, per-type field expectations, validation gate). Co-owned with `geo-specialist`; both must approve any change to that file.
 - HTTP semantics: status codes, redirects, caching, compression.
 - Security headers.
 - Image, font, and asset performance budget.
@@ -36,7 +37,9 @@ Final review authority on Generative Engine Optimization. Owns:
 - Markdown companion representations (`.md` URLs) and their content equivalence with the HTML representations.
 - The AI-crawler portion of `robots.txt` (`GPTBot`, `ClaudeBot`/`anthropic-ai`, `PerplexityBot`, `Google-Extended`, `Applebot-Extended`, `CCBot`, and so on, as enumerated in `geo.md`).
 - Content shape: definition-first sentences, self-contained paragraphs, concrete numbers, inline citations.
+- Question-Oriented Content: conversational Q→A chains, per-page minimums, `<section data-conversation="…">` wrappers, and the rejection of keyword-density techniques (see `geo.md`, `## Question-Oriented Content`).
 - Comparison tables and `FAQPage` / `HowTo` JSON-LD.
+- Co-ownership of `specification/structured-data.md` for AI-ingestion-accuracy concerns (entity graph stability, `@id` and `sameAs` reuse across pages, attribution of facts to a single entity graph). Co-owned with `seo-specialist`; both must approve any change to that file.
 
 Blocks merge when the GEO contract in `geo.md` is not met.
 

@@ -2,7 +2,7 @@
 title: GEO contract
 purpose: Define the Generative Engine Optimization contract — llms.txt artefacts, Markdown companions, AI crawler allowlist, FAQPage and HowTo structured data, and content-shape rules.
 owners: geo-specialist (final review); review by seo-specialist (structured-data overlap), ux-specialist (content-shape and tone).
-last-updated: 2026-05-08
+last-updated: 2026-05-10
 status: ratified
 ---
 
@@ -78,9 +78,66 @@ The allowlist MUST be re-evaluated at least once per release of the site. Remova
 
 ## FAQPage and HowTo structured data
 
-- Pages with three or more explicit Q→A pairs (a `<h2>` or `<h3>` phrased as a question, immediately followed by a paragraph answer) MUST emit a JSON-LD `FAQPage` block listing those pairs.
+- Pages with three or more explicit Q→A pairs (a `<h2>` or `<h3>` phrased as a question, immediately followed by a paragraph answer) MUST emit a JSON-LD `FAQPage` block listing those pairs. Q→A pairs are not optional on docs, guides, examples, and API/reference pages: their presence and minimum counts are mandated by `## Question-Oriented Content` below.
 - Pages with an ordered, named list of steps (typically the Getting Started page and some examples) MUST emit a JSON-LD `HowTo` block listing those steps.
 - Both blocks MUST live alongside the SEO JSON-LD blocks defined in `seo.md`. Duplicate facts in two blocks are acceptable.
+
+Field-level rules and the validation gate are defined in `specification/structured-data.md`.
+
+## Question-Oriented Content
+
+### Purpose
+
+The site structures its content to answer real user questions — both direct, single-sentence questions and complex, multi-step questions — by simulating conversational flows between a reader and the documentation. This strategy is used in deliberate preference over loose keyword targeting, because generative engines cite answer-shaped paragraphs more reliably than keyword-stuffed prose, and human readers locate information faster when it is framed as the question they were already asking.
+
+### Conversational chain
+
+A conversational chain is a sequence of the form `Q → A → follow-up Q → A → follow-up Q → A`, with the following constraints:
+
+- Each `Q` MUST be a complete interrogative sentence (ending with a question mark) and self-contained — readable on its own, without depending on the surrounding prose for its subject.
+- The lead `Q` (the first question in the chain) MUST be direct and answerable in one sentence.
+- Each `A` MUST start with a direct, complete answer in one sentence before any elaboration. Code, lists, or longer explanation MAY follow that opening sentence within the same answer block.
+- Every follow-up `Q` MUST share the lead question's intent and deepen it (a clarification, a corner case, a related operation on the same subject). A question that introduces a new topic is NOT a follow-up; it MUST start a new chain.
+- A chain has exactly one lead question. The minimum viable chain is one lead and two follow-ups (three Q→A pairs in total).
+
+### Per-page minimums
+
+The following minimums apply to content pages:
+
+- **Docs and guides** (`/docs/*`) and **examples** (`/examples/*`): MUST contain at least **one conversational chain** with **at least three Q→A pairs** in total (one lead plus at least two follow-ups).
+- **API and reference** (`/api`): MUST contain **at least one Q→A pair per documented endpoint, type, or topic**. Follow-ups are not mandatory on this page family, but the lead-question rules above still apply.
+- **Exempt pages** (no minimum enforced): `/` (landing), `/changelog`, `/releases/*`, `/security`, `/compatibility`, `/contributing`. These pages MAY use Q→A where it fits naturally, but no count is required.
+
+### HTML structure
+
+Each chain MUST be emitted in the page's HTML as:
+
+- A `<section data-conversation="<slug>">` wrapper around the entire chain. The `<slug>` MUST be unique within the page, written in kebab-case, and stable across edits — it is the citation anchor that human readers and AI engines may link to.
+- The lead question and every follow-up question MUST use the same heading level. On a typical page where the `<h1>` is the page title and `<h2>` opens the section that contains the chain, every question in the chain MUST be `<h3>`.
+- Each answer MUST follow its question and SHOULD be a `<p>` element. An answer MAY use `<ol>`, `<ul>`, `<pre>`, or `<table>` after the opening sentence where the content is naturally an ordered list, an unordered list, code, or tabular data.
+- Pages with multiple chains MUST place each chain in its own `<section data-conversation="…">` wrapper. Chains MUST NOT be nested.
+
+### JSON-LD coupling
+
+- Every `Question` from every chain on the page MUST be flattened into the page's single `FAQPage` block, as a single `mainEntity` array. Exactly one `FAQPage` block is emitted per page.
+- The JSON-LD does NOT distinguish lead questions from follow-up questions. The conversational grouping is preserved only in the HTML, via the `data-conversation` wrappers.
+- This applies whenever the page contains at least three Q→A pairs in total across all its chains, consistent with the threshold in `## FAQPage and HowTo structured data` above.
+
+All JSON-LD constraints (entity graph, field completeness, validation gate) are defined in `specification/structured-data.md`.
+
+### Non-goals
+
+The following techniques are NOT used by this site and MUST NOT be introduced:
+
+- Keyword density targets, keyword repetition, or any form of keyword stuffing.
+- Brand-term repetition for ranking purposes.
+- Synonym variation for the purpose of matching search-query phrasings.
+
+Content is optimised for the question it answers, not for the words it contains.
+
+### Compliance window
+
+This contract is forward-looking. Existing pages MUST be brought into compliance during the next content-curation pass. New pages MUST comply on first write.
 
 ## Content-shape rules
 
@@ -91,7 +148,7 @@ These rules apply to every page in addition to the language and tone rules in `o
 - **Concrete numbers.** Replace "fast" with measured numbers, "small" with byte counts, "supported" with versions. Cite the source file and line for any number that could be checked (the benchmarks page is the model).
 - **Inline citations.** When the site quotes upstream code or numbers, the citation appears inline as a relative reference (e.g. "from `mux.go`") and as a link to the upstream file on GitHub.
 - **No marketing voice.** No comparisons against named competitors unless a benchmark or fact supports the claim.
-- **Q-shaped FAQs.** Where a page contains an FAQ, each question MUST be phrased as a complete interrogative sentence and the answer MUST start with a direct, complete answer in one sentence before any elaboration.
+- **Q-shaped FAQs.** Where a page contains an FAQ, each question MUST be phrased as a complete interrogative sentence and the answer MUST start with a direct, complete answer in one sentence before any elaboration. See `## Question-Oriented Content` above for the conversational chain structure and the per-page minimums that govern when Q→A content is required.
 
 ## Cite-ability
 

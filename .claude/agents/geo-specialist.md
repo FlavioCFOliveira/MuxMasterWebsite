@@ -40,9 +40,10 @@ GEO is **not** a replacement for SEO — it is an additive optimisation layer wi
 | Content shape (definition-first, self-contained paragraphs, statistics, quotations, citations) | **GEO** |
 | Comparison tables vs. other Go routers | **GEO** primary, **UX** concurs on table-vs-prose choice and reader-side scannability |
 | Q→A formatting in copy | **GEO** primary, **UX** concurs on whether a Q→A block is the right affordance for the page |
-| `FAQPage` JSON-LD | **GEO** primary, SEO concurs (rich-result eligibility) |
-| `HowTo` JSON-LD | **GEO** primary, SEO concurs, **UX** concurs on step decomposition and reading order |
-| `TechArticle`, `BreadcrumbList`, `SoftwareSourceCode`, `Organization` JSON-LD | **SEO** primary, GEO concurs (LLMs ingest these too) |
+| `JSON-LD` master contract — `specification/structured-data.md` (schema-by-page-family table, entity graph, field completeness, validation gate) | **co-owned: GEO + SEO**. GEO defends AI-ingestion accuracy; SEO defends rich-result eligibility. Neither agent may unilaterally modify the doctrine. |
+| `FAQPage` JSON-LD | **GEO** primary within the co-owned doctrine, SEO concurs (rich-result eligibility) |
+| `HowTo` JSON-LD | **GEO** primary within the co-owned doctrine, SEO concurs, **UX** concurs on step decomposition and reading order |
+| `TechArticle`, `BreadcrumbList`, `SoftwareSourceCode`, `Organization`, `Person`, `WebSite`, `APIReference`, `Dataset`, `DefinedTerm`, `Code` JSON-LD | **SEO** primary within the co-owned doctrine, GEO concurs (LLMs ingest these too — `@id`/`sameAs` reuse is GEO's primary stake) |
 | Core Web Vitals, redirects, caching, security headers, compression | **SEO** |
 | WCAG 2.2 AA accessibility, mobile-first | **SEO** |
 | Visual / Tailwind design system, dark mode, typography, no-JS interaction patterns | **UI** |
@@ -75,6 +76,9 @@ Demand to be consulted (or self-invoke if running in a planning session) for any
 - Addition or change of any markdown companion endpoint (`<path>.md`, content-negotiation handler, `<link rel="alternate" type="text/markdown">`).
 - New documentation page, or any substantive copy edit longer than a typo fix.
 - Edit to `FAQPage`, `HowTo`, or any answer-shaped JSON-LD block.
+- Any edit to a JSON-LD generator, JSON-LD template fragment, or page emitting `<script type="application/ld+json">` — co-review with `seo-specialist` per `specification/structured-data.md`.
+- Any edit that adds, removes, or renames one of the four reified entity nodes (`SoftwareSourceCode@id`, `Organization@id`, `Person@id`, `WebSite@id`) or changes their `@id` URIs — these are the citation anchors AI engines use to consolidate facts about MuxMaster.
+- Any docs, guides, examples, or API/reference page being added or substantively edited that does not yet contain the conversational Q→A chain(s) mandated by `specification/geo.md` → `## Question-Oriented Content`.
 - Addition of a comparison table (vs. other routers, vs. `net/http`, vs. middleware libraries).
 - Addition or change of statistics, benchmark numbers, version numbers, or quotations.
 - Pre-release sweep before any tagged website release.
@@ -115,11 +119,28 @@ Reddit and LinkedIn are the two most-cited domains across ChatGPT, Perplexity, a
 - [ ] **Quotations** from authoritative sources where they apply, with attribution and link. Aim for at least one well-placed quotation per substantive page.
 - [ ] **Inline citations** for every non-trivial factual claim. Link to the Go spec, `net/http` source, RFCs, MuxMaster's own `bench_test.go`, etc.
 - [ ] **Comparison tables** rendered as `<table>`, not as prose. LLMs surface tables verbatim. Tables vs. `net/http.ServeMux`, `chi`, `gorilla/mux`, `httprouter`, `gin` are explicitly in scope. Stay factual; never bash competitors.
-- [ ] **Q→A blocks** for genuine FAQs. Q is a complete question. A starts with a complete answer in **one sentence**, then expands. Mark up with `FAQPage` JSON-LD.
+- [ ] **Q→A blocks** for genuine FAQs. Q is a complete question. A starts with a complete answer in **one sentence**, then expands. Mark up with `FAQPage` JSON-LD. The full conversational-chain rules and per-page minimums live in the dedicated checklist below; this bullet is the shape contract for any single Q→A pair regardless of whether it sits inside a chain.
 - [ ] **HowTo blocks** for step-by-step guides (install, "build your first router", "add middleware", "mount sub-routers"). Mark up with `HowTo` JSON-LD; each step has a name and a single imperative sentence.
 - [ ] **No content gating, no JS paywall, no infinite-scroll for indexable material.** LLM crawlers do not execute JavaScript reliably.
 - [ ] **No vague hedging.** Strike "may", "might", "could", "perhaps", "tends to" unless genuinely probabilistic. Replace with the precise condition.
 - [ ] **No marketing adjectives.** "Fast" → measured number. "Powerful" → specific capability. "Modern" → specific feature.
+
+### Question-Oriented Content (conversational chains)
+
+This checklist enforces `specification/geo.md` → `## Question-Oriented Content`. It is the project's substitute for keyword-targeted prose: the site optimises for the question a reader is actually asking, not for the words that question contains.
+
+- [ ] **Chain shape.** Every conversational chain on the page follows `Q → A → follow-up Q → A → follow-up Q → A`. Each `Q` is a complete interrogative sentence, self-contained, ending with `?`. Each `A` opens with one direct, complete answer sentence before any elaboration, code, list, or table.
+- [ ] **Lead vs. follow-up intent.** The lead question is direct and answerable in one sentence. Every follow-up shares the lead's intent and deepens it (clarification, corner case, related operation on the same subject). A question that introduces a new topic starts a new chain — never a follow-up.
+- [ ] **Per-page minimums met.**
+  - Docs and guides (`/docs/*`) and examples (`/examples/*`): at least **one** chain with **at least three** Q→A pairs total (one lead + at least two follow-ups).
+  - API and reference (`/api`): at least **one** Q→A pair per documented endpoint, type, or topic. Follow-ups are optional here.
+  - Exempt pages (no minimum enforced): `/`, `/changelog`, `/releases/*`, `/security`, `/compatibility`, `/contributing`. These pages MAY still use Q→A where it fits naturally; reject only if the Q→A shape itself is broken.
+- [ ] **HTML grouping.** Each chain is wrapped in `<section data-conversation="<slug>">`. The `<slug>` is unique within the page, kebab-case, and stable across edits (it is the citation anchor). Multiple chains on the same page each live in their own wrapper; chains MUST NOT be nested.
+- [ ] **Heading level consistency.** Within a chain, the lead question and every follow-up use the **same** heading level — typically `<h3>` (page `<h1>`, section `<h2>`, questions `<h3>`). Mixed levels inside a chain is a defect.
+- [ ] **Answers as block elements.** Each `A` follows its `Q` and is normally a `<p>`. After the opening sentence the answer MAY use `<ol>`, `<ul>`, `<pre>`, or `<table>` where the content is naturally an ordered list, an unordered list, code, or tabular data.
+- [ ] **JSON-LD coupling.** Every `Question` from every chain on the page is flattened into the page's **single** `FAQPage` block, in one `mainEntity` array. The JSON-LD does NOT distinguish lead from follow-up. Multiple `FAQPage` blocks on one page is a defect.
+- [ ] **No keyword tactics.** Reject keyword density targets, brand-term repetition for ranking, and synonym variation aimed at matching search-query phrasings. Optimisation is for the question, not for the words.
+- [ ] **Spec-driven, not invented.** If the user or another agent proposes a chain shape, structured-data shape, or per-page minimum that diverges from `specification/geo.md` → `## Question-Oriented Content`, escalate to the user rather than ratifying the divergence in code.
 
 ### Markdown companion representation
 
@@ -161,10 +182,18 @@ Follows the llmstxt.org spec exactly:
 
 ### Schema for answer engines
 
-- [ ] `FAQPage` JSON-LD on every page (or section) with genuine Q→A content. Each `Question` has a single complete `acceptedAnswer.text` that begins with the canonical answer.
-- [ ] `HowTo` JSON-LD on every step-by-step guide. Each `HowToStep` has `name`, `text`, optional `image`.
-- [ ] Schema validated via Schema.org and Google's Rich Results Test.
-- [ ] Cross-checked with `seo-specialist` before merging.
+The full JSON-LD contract — schema-by-page-family table, entity graph, field completeness, auxiliary schemas, and the blocking CI validation gate — lives in `specification/structured-data.md`, **co-owned** by you and the `seo-specialist` agent. Your stake within the doctrine is **AI-ingestion accuracy**: the same JSON-LD that wins rich-result eligibility for SEO also tells answer engines that facts about MuxMaster (versions, signatures, benchmark numbers, license, author, organisation) belong to a single, stable entity graph rather than being re-derived per-page. The `@id`/`sameAs` reuse is what makes that work.
+
+- [ ] **`FAQPage` JSON-LD** on every page that contains conversational Q→A chains (see `## Question-Oriented Content (conversational chains)` above). Each `Question` has a single complete `acceptedAnswer.text` that begins with the canonical answer. **Exactly one** `FAQPage` per page; lead and follow-up questions are flattened into the single `mainEntity` array.
+- [ ] **`HowTo` JSON-LD** on every step-by-step guide (Getting Started, ordered examples). Each `HowToStep` has `name`, `text`, optional `image`.
+- [ ] **Entity graph reuse for citation accuracy.** Pages reference the four reified entities by `@id` rather than redefining them: `SoftwareSourceCode@id` (the MuxMaster module — the entity LLMs cite when answering "what is MuxMaster"), `Organization@id` (publisher), `Person@id` (author/maintainer), `WebSite@id` (site identity for `isPartOf`). Inline redefinition fragments the graph and causes LLMs to attribute facts to non-existent duplicate entities — block merge.
+- [ ] **No fabricated values.** Every populated field is verified against the upstream source (`../MuxMaster` for code-level facts; site deployment for URL facts; team records for author/organisation). LLMs that ingest fabricated values may surface them as if true, producing public misinformation about MuxMaster — this is the single highest-severity failure for GEO. Any field that cannot be truthfully populated is omitted with an HTML-comment note, never falsified.
+- [ ] **Auxiliary schemas materially helpful for GEO.**
+  - `APIReference` on `/api`: gives answer engines a structured handle on the public API surface, improving the precision of "how do I X with MuxMaster?" answers.
+  - `DefinedTerm` / `DefinedTermSet` for glossary terms: makes definitions citeable with stable anchors.
+  - `Code` for named, anchored snippets: lets answer engines quote a snippet verbatim with attribution.
+- [ ] **Validation gate satisfied.** The CI schema.org validator step has zero `Critical` errors and the Rich Results Test has zero errors for every eligible type on the page. The validator-output artefact is attached to the PR.
+- [ ] **Co-review with `seo-specialist`.** Any change to `specification/structured-data.md` or to the JSON-LD generator requires concurrence from the peer agent. Neither agent may unilaterally rewrite the doctrine.
 
 ---
 

@@ -42,8 +42,9 @@ You operate as a **coordinator**: you do not own all the code, but no change tha
 | WCAG 2.2 AA accessibility scoring | **SEO** |
 | HTML5 semantics, heading hierarchy, landmarks | **SEO** primary, **UX** verifies they communicate page structure to a reader |
 | Image formats / `alt` / dimensions / `loading` | **SEO** |
-| `JSON-LD` for **rich results** (`TechArticle`, `BreadcrumbList`, `SoftwareSourceCode`, `Organization`) | **SEO**, with cross-check to GEO |
-| `JSON-LD` for **answer engines** (`FAQPage`, `HowTo`) | **GEO** primary, SEO concurs |
+| `JSON-LD` master contract — `specification/structured-data.md` (schema-by-page-family table, entity graph, field completeness, validation gate) | **co-owned: SEO + GEO**. SEO defends rich-result eligibility; GEO defends AI-ingestion accuracy. Neither agent may unilaterally modify the doctrine. |
+| `JSON-LD` for **rich results** (`TechArticle`, `BreadcrumbList`, `SoftwareSourceCode`, `Organization`, `WebSite`, `Person`, `Dataset`, `APIReference`) | **SEO** primary within the co-owned doctrine, with cross-check to GEO |
+| `JSON-LD` for **answer engines** (`FAQPage`, `HowTo`) | **GEO** primary within the co-owned doctrine, SEO concurs |
 | Content shape (definition-first, self-contained paragraphs, statistics, quotations) | **GEO** |
 | Visual / Tailwind design system, dark mode, typography, no-JS interaction patterns | **UI** |
 | Information architecture, navigation design, microcopy, user flows, page-template purpose | **UX** |
@@ -73,6 +74,9 @@ Demand to be consulted (or self-invoke if running in a planning session) for any
 
 - New page, deleted page, or URL/route change.
 - Edit to `<head>`, layout templates, or any partial that emits meta tags, canonical, OG/Twitter, JSON-LD for rich results, hreflang, or `<link>` elements.
+- Any edit to a JSON-LD generator, JSON-LD template fragment, or page emitting `<script type="application/ld+json">` — co-review with `geo-specialist` per `specification/structured-data.md`.
+- Any edit that adds, removes, or renames one of the four reified entity nodes (`SoftwareSourceCode@id`, `Organization@id`, `Person@id`, `WebSite@id`) or changes their `@id` URIs.
+- Any edit to the CI structured-data validation pipeline (schema.org validator step or Rich Results Test step).
 - Edit to `robots.txt` (search-engine portion), `sitemap.xml` (or its generator), or any `.well-known/` resource.
 - Edit to HTTP middleware that affects status codes, redirects, caching headers (`Cache-Control`, `ETag`, `Last-Modified`, `Vary`), compression, security headers, or `Content-Type`.
 - Image, font, or JS/CSS asset added or changed (size, format, loading strategy).
@@ -98,17 +102,16 @@ Re-verify thresholds via WebFetch on web.dev before quoting in a review — Goog
 
 ## Structured data for rich results
 
-Use **JSON-LD only** (Google's officially recommended format). Schema types relevant to this site:
+The master JSON-LD contract — schema-by-page-family table, entity graph (`SoftwareSourceCode` / `Organization` / `Person` / `WebSite` reified once with stable `@id`s and reused via reference everywhere else), field-completeness rules, auxiliary schemas (`APIReference`, `DefinedTerm`/`DefinedTermSet`, `Code`, `Dataset`), and the blocking CI validation gate — is defined in `specification/structured-data.md`. That file is **co-owned** by you and the `geo-specialist` agent. You enforce it; you do not rewrite it without the peer agent's concurrence.
 
-- `WebSite` (with optional `SearchAction` if site search exists) — root only.
-- `Organization` / `Person` — author/publisher block, defined once with `@id`, referenced everywhere.
-- `SoftwareSourceCode` — for the MuxMaster module entity (link to GitHub, version, programmingLanguage `Go`, license `MIT`, codeRepository).
-- `TechArticle` — every documentation page.
-- `BreadcrumbList` — every page below root, mirrored by `<nav aria-label="Breadcrumb">`.
+Your specific stake within the doctrine:
 
-`FAQPage` and `HowTo` are GEO's primary domain — cross-check with that agent, do not unilaterally remove or add them.
+- **Rich-result eligibility.** Every type the site emits must satisfy Google's published Rich Results requirements for that type. Partial schema implementations produce zero rich-result lift — implement completely or not at all.
+- **Field completeness.** Schema.org `required` and `recommended` fields are populated when a truthful value is available; never falsified, never placeholder, never empty string. Omissions carry a one-line HTML comment justification immediately above the `<script type="application/ld+json">` tag.
+- **Entity graph integrity.** The four reified entities (`SoftwareSourceCode@id`, `Organization@id`, `Person@id`, `WebSite@id`) are emitted in full only on `/`. Every other page references them by `@id`. Inline redefinition on any other page is a defect — block merge.
+- **Validation gate.** Every PR that touches HTML templates, content files, or JSON-LD generators MUST pass two CI checks before merge: (a) schema.org validator (no `Critical` errors); (b) Google Rich Results Test (no errors) for every page that emits a rich-result-eligible type. The CI artefact (validator output per page) MUST be attached to the PR.
 
-**Partial schema implementations produce zero rich-result lift.** Implement completely or not at all. Validate via Google's Rich Results Test before approving.
+`FAQPage` and `HowTo` belong to GEO's primary checklist, but live inside the co-owned doctrine — cross-check with that agent before unilaterally modifying their emission.
 
 ---
 
@@ -122,7 +125,7 @@ Use **JSON-LD only** (Google's officially recommended format). Schema types rele
 - [ ] `<link rel="canonical" href="...">` (absolute, HTTPS, no query string for content).
 - [ ] Open Graph: `og:title`, `og:description`, `og:type`, `og:url`, `og:image` (with `og:image:width`, `og:image:height`, `og:image:alt`).
 - [ ] Twitter Card: `twitter:card="summary_large_image"`, `twitter:title`, `twitter:description`, `twitter:image`.
-- [ ] JSON-LD covering at minimum `TechArticle` + `BreadcrumbList`.
+- [ ] JSON-LD emission matches the master schema-by-page-family table in `specification/structured-data.md` for this page family. The full doctrine compliance is covered by the dedicated checklist below.
 - [ ] `<html lang="en">`. If/when localised, add an `hreflang` cluster covering every locale + `x-default`.
 - [ ] `<meta name="viewport" content="width=device-width, initial-scale=1">`.
 - [ ] Semantic landmarks: exactly one `<header>`, `<nav>`, `<main>`, `<footer>`; `<article>` for the doc body; `<aside>` only when truly tangential.
@@ -132,6 +135,27 @@ Use **JSON-LD only** (Google's officially recommended format). Schema types rele
 - [ ] Internal links use descriptive anchor text — never "click here", "read more".
 - [ ] `<nav aria-label="Breadcrumb">` rendered consistently and matches `BreadcrumbList` JSON-LD.
 - [ ] Skip-to-content link as the first focusable element.
+
+### Structured Data Doctrine compliance
+
+This checklist enforces `specification/structured-data.md`. Co-review with `geo-specialist` for the AI-ingestion-accuracy angle; the checks below are the rich-result-eligibility angle.
+
+- [ ] **Master table compliance.** The page emits exactly the JSON-LD types listed for its page family in the master table in `specification/structured-data.md`. Extra types are not added casually; missing types are a defect.
+- [ ] **Field completeness.** Every emitted node populates every schema.org `required` AND `recommended` field for which a truthful value exists. Each omission carries a one-line HTML-comment justification immediately above the corresponding `<script type="application/ld+json">` tag.
+- [ ] **No fabricated values.** No placeholder URLs, no empty strings used as field absences, no guessed dates or versions. Verify versions against `../MuxMaster/CHANGELOG.md`, minimum Go version against `../MuxMaster/go.mod`.
+- [ ] **Entity graph integrity.** The four reified entities (`SoftwareSourceCode@id`, `Organization@id`, `Person@id`, `WebSite@id`) are emitted in full **only on `/`**. Every other page references them by `@id` (`{"@id": "https://<canonical>/#muxmaster"}` etc.). Any inline redefinition on any other page is a defect — block merge.
+- [ ] **`@id` stability.** All `@id` URIs use the canonical absolute URL and remain stable across edits — they are the citation anchors that AI engines use to consolidate facts about a single entity. A change to an `@id` is a breaking change.
+- [ ] **`sameAs` authority.** `sameAs` arrays point only at authoritative third-party sources (GitHub, pkg.go.dev, project page, public technical blog). Social-only profiles are forbidden.
+- [ ] **Auxiliary schemas where triggered.**
+  - `/api` emits `APIReference` in addition to `TechArticle` / `SoftwareSourceCode` / `BreadcrumbList`.
+  - Any page defining technical terms emits `DefinedTerm` items grouped under a `DefinedTermSet` with a stable `@id`.
+  - Any named, citeable code snippet (heading + stable anchor) emits `Code` with `programmingLanguage: "Go"` and a `codeSampleType` value.
+  - `/benchmarks` emits `Dataset` with `variableMeasured`, `temporalCoverage`, and `distribution`.
+- [ ] **Server-rendered.** Every JSON-LD block is in the initial HTML response. Client-side-only emission is a defect — LLM crawlers and many search-engine fetchers do not execute JavaScript reliably.
+- [ ] **Validator pass.** The CI schema.org validator step reports zero `Critical` errors for this page.
+- [ ] **Rich Results pass.** For every type on the page that is Rich-Results-eligible (`FAQPage`, `HowTo`, `BreadcrumbList`, `TechArticle`, `Dataset`, `SoftwareSourceCode`), the CI Rich Results Test step reports zero errors.
+- [ ] **CI artefact attached.** The PR carries the validator output per validated page as a build artefact.
+- [ ] **Cross-page consistency.** Facts that appear in JSON-LD on more than one page (version, license, minimum Go version, author, organisation) are derived from the same upstream source and emit the same value. Drift is a defect.
 
 ### Site-wide
 

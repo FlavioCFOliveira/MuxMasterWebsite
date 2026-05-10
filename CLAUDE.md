@@ -12,6 +12,12 @@ MuxMaster is a high-performance, zero-dependency HTTP router for Go (radix tree,
 
 - **Logo:** the canonical project logo lives in the upstream MuxMaster repository at https://github.com/FlavioCFOliveira/MuxMaster/blob/main/assets/logo-muxmaster.png (raw: https://raw.githubusercontent.com/FlavioCFOliveira/MuxMaster/main/assets/logo-muxmaster.png). Use this as the source of truth for any logo usage on the site (header, favicon source, Open Graph image base, etc.).
 
+## Roadmap
+
+**Name:** muxmasterwebsite
+
+All technical roadmap work for this project (sprints, tasks, backlog, audit) lives in the `muxmasterwebsite` roadmap, managed via the `rmp` (Groadmap) CLI. Use the `roadmap-manager` skill for any roadmap operation.
+
 ## Default Ignorance Principle
 
 **This is the founding rule of how you operate in this repository. Every other rule in this file — Collaboration rules, Workflow, the non-negotiable constraints, agent boundaries — derives from it. When any other rule is silent, this one applies. When any other rule conflicts with this one, this one wins.**
