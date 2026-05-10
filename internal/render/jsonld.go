@@ -49,6 +49,8 @@ func BuildJSONLD(in JSONLDInputs) []meta.JSONLDBlock {
 		jsons = buildCollectionJSONLD(in)
 	case "api":
 		jsons = buildAPIJSONLD(in)
+	case "benchmarks":
+		jsons = buildBenchmarksJSONLD(in)
 	default:
 		return nil
 	}
@@ -362,6 +364,66 @@ func buildAPIJSONLD(in JSONLDInputs) []string {
 		About:                 idRef{ID: jsonSoftwareID(base)},
 	}
 	return append(out, mustJSON(apiRef))
+}
+
+// benchmarks graph: TechArticle + BreadcrumbList + Dataset. The Dataset
+// surfaces the benchmark numbers as citeable measurements for AI
+// ingestion and Google's Dataset rich result.
+func buildBenchmarksJSONLD(in JSONLDInputs) []string {
+	out := buildArticleJSONLD(in)
+	base := in.Page.BaseURL
+	canonical := in.Page.Canonical
+	type distribution struct {
+		Type           string `json:"@type"`
+		EncodingFormat string `json:"encodingFormat"`
+		ContentURL     string `json:"contentUrl"`
+	}
+	type variable struct {
+		Type        string `json:"@type"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		UnitText    string `json:"unitText"`
+	}
+	dataset := struct {
+		Context          string         `json:"@context"`
+		Type             string         `json:"@type"`
+		ID               string         `json:"@id"`
+		Name             string         `json:"name"`
+		Description      string         `json:"description"`
+		URL              string         `json:"url"`
+		InLanguage       string         `json:"inLanguage"`
+		License          string         `json:"license"`
+		Creator          idRef          `json:"creator"`
+		TemporalCoverage string         `json:"temporalCoverage,omitempty"`
+		VariableMeasured []variable     `json:"variableMeasured"`
+		Distribution     []distribution `json:"distribution"`
+	}{
+		Context:     schema,
+		Type:        "Dataset",
+		ID:          canonical + "#dataset",
+		Name:        in.Page.Title,
+		Description: in.Page.Description,
+		URL:         canonical,
+		InLanguage:  "en",
+		License:     "https://opensource.org/licenses/MIT",
+		Creator:     idRef{ID: jsonOrgID(base)},
+		// temporalCoverage is omitted (omitempty) until the benchmark
+		// report's date range is threaded through Page; truthful value
+		// not yet available, never fabricated.
+		VariableMeasured: []variable{
+			{Type: "PropertyValue", Name: "ns/op", Description: "Nanoseconds per operation; lower is better.", UnitText: "ns"},
+			{Type: "PropertyValue", Name: "B/op", Description: "Bytes allocated per operation; lower is better.", UnitText: "B"},
+			{Type: "PropertyValue", Name: "allocs/op", Description: "Heap allocations per operation; lower is better.", UnitText: "allocations"},
+		},
+		Distribution: []distribution{
+			{
+				Type:           "DataDownload",
+				EncodingFormat: "text/x-go",
+				ContentURL:     "https://github.com/FlavioCFOliveira/MuxMaster/blob/main/bench_test.go",
+			},
+		},
+	}
+	return append(out, mustJSON(dataset))
 }
 
 // idRef is the JSON-LD "{@id: ...}" shorthand used to reference another

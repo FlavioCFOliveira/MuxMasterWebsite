@@ -178,8 +178,11 @@ func DocPageRecipe(spec DocPageSpec, loader *content.Loader, ogImagePath string,
 			// headings; the HowTo block is emitted only when the source
 			// actually contains them.
 			family := "doc-article"
-			if spec.Section == "api" {
+			switch spec.Section {
+			case "api":
 				family = "api"
+			case "benchmarks":
+				family = "benchmarks"
 			}
 			var howToSrc []byte
 			if spec.Path == "/docs/getting-started" || spec.Path == "/examples/graceful-shutdown" {
