@@ -189,16 +189,14 @@ func DocPageRecipe(spec DocPageSpec, loader *content.Loader, ogImagePath string,
 			case "benchmarks":
 				family = "benchmarks"
 			}
-			// HowTo is emitted only for pages whose body is genuinely
-			// structured as `## Step N — name` headings. /docs/getting-
-			// started follows that shape; the graceful-shutdown example
-			// does not (its body is prose around a single program), so it
-			// is intentionally absent from this list. Emitting an empty
-			// HowTo block from a non-step body is a defect (rmp #48).
-			var howToSrc []byte
-			if spec.Path == "/docs/getting-started" {
-				howToSrc = src
-			}
+			// HowTo emission is data-driven (per spec/geo.md § Example
+			// walkthrough shape and § FAQPage and HowTo structured data):
+			// the renderer feeds every doc-page source into the HowTo
+			// emitter, which produces a block only when the body
+			// genuinely contains a contiguous `## Step N — <name>`
+			// sequence. Pages without that shape produce zero bytes and
+			// no HowTo block is emitted.
+			howToSrc := src
 			page.JSONLD = BuildJSONLD(JSONLDInputs{
 				Page:         page,
 				Family:       family,
