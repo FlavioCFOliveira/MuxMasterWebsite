@@ -14,14 +14,14 @@ The same JSON-LD blocks emitted by this site serve two distinct goals at once. F
 
 ## Master schema table
 
-The following table maps each page family to the JSON-LD types it MUST emit. The `Notes` column lists the entity nodes that are referenced by `@id` rather than redefined inline (see `## Entity graph` below).
+The following table maps each page family to the JSON-LD types it MUST emit. Whenever one of the four reified entities (`SoftwareSourceCode`, `Organization`, `Person`, `WebSite`) appears in the `Required JSON-LD` column outside `/`, the cell MUST be read as **"reference by `@id`, do not redefine inline"**. The annotation `(by @id)` is appended to such cells to make this explicit, and the `Notes` column states which slot on the page-level type the reference fills (see `## Entity graph` and `## Non-negotiables` below).
 
 | Page family | Required JSON-LD | Notes |
 | --- | --- | --- |
 | `/` | `WebSite`, `SoftwareSourceCode`, `Organization`, `Person` | The four reified entity nodes are emitted **in full** on this page only. Every other page references them by `@id`. |
 | `/docs/<section>` | `TechArticle`, `BreadcrumbList` | `TechArticle.author` references `Person@id`; `TechArticle.publisher` references `Organization@id`; `TechArticle.isPartOf` references `WebSite@id`. |
 | `/docs/` | `CollectionPage`, `BreadcrumbList` | `CollectionPage.isPartOf` references `WebSite@id`; `CollectionPage.publisher` references `Organization@id`. |
-| `/api` | `TechArticle`, `SoftwareSourceCode`, `APIReference`, `BreadcrumbList` | `SoftwareSourceCode` is referenced by `@id` (the MuxMaster module node). `APIReference` is the auxiliary schema mandated for this page family — see `## Auxiliary schemas`. |
+| `/api` | `TechArticle`, `SoftwareSourceCode` (by `@id`), `APIReference`, `BreadcrumbList` | `SoftwareSourceCode` is referenced by `@id` (the MuxMaster module node) — this row MUST NOT cause inline redefinition of the entity on `/api`. `APIReference` is the auxiliary schema mandated for this page family — see `## Auxiliary schemas`. |
 | `/examples/` | `CollectionPage`, `BreadcrumbList` | Same entity references as `/docs/`. |
 | `/examples/<name>` | `TechArticle`, `BreadcrumbList`; `HowTo` when the example is structured as ordered, named steps | When `HowTo` is emitted, every step's named code block also emits `Code` (see `## Auxiliary schemas`). |
 | `/benchmarks` | `TechArticle`, `BreadcrumbList`, `Dataset` | `Dataset.creator` references `Organization@id`; `Dataset.distribution` links to the upstream raw report file. |
