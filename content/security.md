@@ -559,3 +559,7 @@ unbounded memory growth under IP-churn attacks. See
 `/reports/dos-resilience-tester/harness/s9_dos_test.go` for the
 evidence and `MSR-2026-0068` for the cooperative refs-decrement fix
 that ensures the table drains correctly when timed-out requests release.
+
+## Upstream source
+
+The security-sensitive defaults discussed above (Pre/Use ordering for `Recoverer` and `RealIP`, `RequireExpiry` on `JWTAuth`, the OAuth2 endpoint contract, the conditional-GET handling) are implemented across [`mux.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/mux.go), [`handler.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/handler.go), and [`response.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/response.go) in the upstream repository.

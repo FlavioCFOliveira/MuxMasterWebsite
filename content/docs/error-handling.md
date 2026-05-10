@@ -318,3 +318,7 @@ errors.Is(he, base) // true — unwraps through the HTTPError wrapper
 - [Response Helpers](response-helpers.md) — JSON, XML, Text helpers
 - [Middleware](middleware.md) — Recoverer middleware
 - [Cookbook](cookbook.md) — error handling patterns for production APIs
+
+## Upstream source
+
+`HandlerFuncE`, the default `ErrorHandler`, and the JSON / Text / XML helpers used for error rendering live in [`handler.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/handler.go) and [`response.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/response.go) in the upstream repository.

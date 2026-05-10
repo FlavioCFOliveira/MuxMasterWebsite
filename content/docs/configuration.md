@@ -281,3 +281,7 @@ mux.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 - [Routing](routing.md) — trailing slash and path normalization in more detail
 - [Error Handling](error-handling.md) — custom error handler patterns
 - [Middleware](middleware.md) — CleanPath and StripSlashes as alternatives to redirect-based normalization
+
+## Upstream source
+
+The `Mux` struct, its option functions, and the trailing-slash and path-cleaning semantics referenced above are implemented in [`mux.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/mux.go) in the upstream repository.

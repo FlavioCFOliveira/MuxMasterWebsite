@@ -275,3 +275,7 @@ yields to context cancellation.
 - [`SECURITY.md`](../SECURITY.md) — operator-required defaults
   (`http.Server` timeouts, `RealIP` trusted CIDRs, `JWTAuth`
   `RequireExpiry`, OAuth2 HTTPS endpoint).
+
+## Upstream source
+
+The introspection API (`Routes()`, `Stats()`, conflict reporting) is implemented in [`introspection.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/introspection.go) in the upstream repository.

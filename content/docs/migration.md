@@ -359,3 +359,7 @@ mux.RedirectTrailingSlash = false
 - [Middleware](middleware.md) — built-in and custom middleware
 - [Groups](groups.md) — organizing routes with groups and sub-routers
 - [Configuration](configuration.md) — all router options
+
+## Upstream source
+
+The authoritative list of MuxMaster releases, breaking changes, and deprecations referenced above lives in [`CHANGELOG.md`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/CHANGELOG.md) in the upstream repository.

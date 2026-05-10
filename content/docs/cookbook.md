@@ -576,3 +576,7 @@ order.RegisterRoutes(api, orderService)
 - [Middleware](middleware.md) — all built-in middleware
 - [Error Handling](error-handling.md) — centralized error patterns
 - [Groups](groups.md) — organizing routes
+
+## Upstream source
+
+Every recipe in this cookbook traces back to a runnable program in the upstream [`examples/`](https://github.com/FlavioCFOliveira/MuxMaster/tree/v1.0.1/examples) directory.

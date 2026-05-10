@@ -148,3 +148,7 @@ The helpers are a convenience for the common case; they do not restrict your opt
 
 - [Error Handling](error-handling.md) — `HandlerFuncE` and `ErrorHandler`
 - [Getting Started](getting-started.md#step-5----json-responses) — JSON responses in context
+
+## Upstream source
+
+The `JSON`, `Text`, `XML`, `Stream`, and conditional-GET helpers covered above are implemented in [`response.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/response.go) in the upstream repository.

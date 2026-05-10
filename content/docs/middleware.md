@@ -416,3 +416,7 @@ env := r.Context().Value("appEnv").(string)
 - [Groups](groups.md) — applying middleware to a subset of routes
 - [Error Handling](error-handling.md) — error-returning handlers
 - [Cookbook](cookbook.md) — middleware composition patterns
+
+## Upstream source
+
+The middleware chain composition and the `Use` / `Pre` ordering described above are implemented in [`handler.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/handler.go) in the upstream repository.

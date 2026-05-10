@@ -255,3 +255,7 @@ mux.Mount("/payment", paymentService)
 - [Middleware](middleware.md) — middleware scopes and composition
 - [Routing](routing.md) — pattern syntax and conflict resolution
 - [Cookbook](cookbook.md) — application structure recipes
+
+## Upstream source
+
+The `Group`, `With`, `Route`, and `Mount` idioms are implemented in [`group.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/group.go) in the upstream repository.

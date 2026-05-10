@@ -237,3 +237,7 @@ mux.Pre(middleware.CleanPath)
 - [Middleware](middleware.md) — applying middleware globally or per route
 - [Groups](groups.md) — organizing routes into groups
 - [Configuration](configuration.md) — all router options and their defaults
+
+## Upstream source
+
+The radix-tree router and pattern semantics described above are implemented in [`mux.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/mux.go) and [`tree.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/tree.go) in the upstream repository.

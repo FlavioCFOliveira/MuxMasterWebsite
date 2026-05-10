@@ -166,3 +166,7 @@ gorilla/mux uses regular-expression matching and was archived in 2022. It is typ
 
 - [Migration Guide](migration.md) — replacing httprouter, chi, or gorilla/mux
 - [Routing](routing.md) — how the radix tree resolves patterns
+
+## Upstream source
+
+The benchmark harness is in [`bench_test.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/bench_test.go) in the upstream repository; rerun with `go test -run=^$ -bench . -benchmem` to reproduce the numbers cited above.
