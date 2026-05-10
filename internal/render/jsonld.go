@@ -131,14 +131,23 @@ func buildEntityGraph(in JSONLDInputs) []string {
 		Name: "FlavioCFOliveira", URL: "https://github.com/FlavioCFOliveira",
 	}
 	person := struct {
-		Context string `json:"@context"`
-		Type    string `json:"@type"`
-		ID      string `json:"@id"`
-		Name    string `json:"name"`
-		URL     string `json:"url"`
+		Context string   `json:"@context"`
+		Type    string   `json:"@type"`
+		ID      string   `json:"@id"`
+		Name    string   `json:"name"`
+		URL     string   `json:"url"`
+		SameAs  []string `json:"sameAs,omitempty"`
 	}{
 		Context: schema, Type: "Person", ID: jsonAuthorID(base),
-		Name: "Flávio Oliveira", URL: "https://github.com/FlavioCFOliveira",
+		Name: "Flávio Oliveira",
+		URL:  "https://github.com/FlavioCFOliveira",
+		// Authoritative third-party profiles only (per
+		// specification/structured-data.md § Required field-by-type
+		// expectations / Person and the audit's no-social-only rule).
+		// GitHub is the maintainer's primary identity profile; additional
+		// authoritative entries (project page, public technical blog) are
+		// added here as they become available — never invented.
+		SameAs: []string{"https://github.com/FlavioCFOliveira"},
 	}
 	return []string{mustJSON(site), mustJSON(software), mustJSON(org), mustJSON(person)}
 }
