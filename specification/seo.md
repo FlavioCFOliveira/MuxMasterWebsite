@@ -40,7 +40,15 @@ The master schema-by-page-family table, the entity graph (the four reified nodes
 
 - The server MUST generate `/sitemap.xml` from the registered route list at startup.
 - Excluded from the sitemap: `/healthz`, `/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/llms-full.txt`, all `.md` companions, all `/assets/...` paths.
-- Each entry includes `<loc>` (absolute URL on the canonical domain), `<lastmod>` (the mtime of the underlying file in `/content/` in W3C datetime format; for routes whose source is the registered route table rather than a single file — `/`, `/docs/`, `/examples/` — `<lastmod>` MUST be the process start time), `<changefreq>` (`monthly` for documentation, `weekly` for `/changelog` and `/`), and `<priority>` (1.0 for `/`, 0.8 for `/docs/`, `/api`, `/examples/`, 0.6 for `/docs/<section>`, `/examples/<name>`, `/benchmarks`, 0.4 for the rest).
+- Each entry includes `<loc>` (absolute URL on the canonical domain), `<lastmod>` (the mtime of the underlying file in `/content/` in W3C datetime format; for routes whose source is the registered route table rather than a single file — `/`, `/docs/`, `/examples/` — `<lastmod>` MUST be the process start time), `<changefreq>`, and `<priority>`. The `<priority>` value is `1.0` for `/`, `0.8` for `/docs/`, `/api`, `/examples/`, `0.6` for `/docs/<section>`, `/examples/<name>`, `/benchmarks`, and `0.4` for the rest.
+- The `<changefreq>` value is governed by the cadence at which the page's primary content is expected to change, not by the page's importance:
+
+| Page family | `<changefreq>` | Rationale |
+| --- | --- | --- |
+| `/` | `weekly` | The hero, headline benchmarks, and "what's new" panel may shift between releases. |
+| `/changelog` | `weekly` | Updated on every release of MuxMaster. |
+| `/docs/` and `/examples/` | `monthly` | These are stable section indexes — the cards listed do not churn often, only when a new doc or example is added. |
+| All other documentation pages (`/docs/<section>`, `/examples/<name>`, `/api`, `/benchmarks`, `/security`, `/compatibility`, `/contributing`, `/releases/<v>`) | `monthly` | Documentation cadence; corrections and clarifications land at most monthly. |
 
 ## robots.txt (search-engine portion)
 
