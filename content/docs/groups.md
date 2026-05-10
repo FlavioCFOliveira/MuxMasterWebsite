@@ -259,3 +259,21 @@ mux.Mount("/payment", paymentService)
 ## Upstream source
 
 The `Group`, `With`, `Route`, and `Mount` idioms are implemented in [`group.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/group.go) in the upstream repository.
+
+## Common questions
+
+<section data-conversation="groups-patterns">
+
+### How do I group routes that share a path prefix?
+
+Call `m.Group("/api/v1")` to obtain a group; routes registered on the group inherit the prefix. The group exposes the same `GET`, `POST`, `Use`, and `Group` methods as the top-level mux, so nested groups follow naturally.
+
+### How do I apply middleware to only the routes inside a group?
+
+Call `g.Use(middleware)` on the group. The middleware runs only for routes registered on that group (and any sub-groups it spawns); routes outside the group are unaffected. This is the canonical way to scope authentication or logging to a subset of the API.
+
+### Can I mount one router inside another?
+
+Yes — `m.Mount("/admin", admin)` registers every route from the `admin` mux under the `/admin` prefix, including its middleware chain. Mounting is the preferred composition for sub-applications that have their own lifecycle (init, shutdown) or their own dependency injection.
+
+</section>

@@ -285,3 +285,21 @@ mux.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 ## Upstream source
 
 The `Mux` struct, its option functions, and the trailing-slash and path-cleaning semantics referenced above are implemented in [`mux.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/mux.go) in the upstream repository.
+
+## Common questions
+
+<section data-conversation="configuration-patterns">
+
+### How do I configure MuxMaster's trailing-slash policy?
+
+Pass `mux.WithStrictSlash(false)` (or set `Config.StrictSlash` to `false`) so the router treats `/foo` and `/foo/` as the same route. The default is `true`, which serves a 301 redirect from one form to the other to keep search-engine signals concentrated on a single canonical URL.
+
+### How do I customise the not-found response?
+
+Set `mux.Config.NotFoundHandler` to any `http.Handler` (or pass `mux.WithNotFoundHandler` at construction). The handler runs when no registered pattern matches the request URL; it sees the original request unchanged and is responsible for writing both the status code and the body.
+
+### How do I enforce a maximum request size at the router level?
+
+There is no router-level body limit — the runtime exposes `http.MaxBytesReader` for that purpose. Wrap the handler chain (or attach a middleware that wraps `r.Body` in `http.MaxBytesReader`) to enforce a per-route or per-method cap before any business logic runs.
+
+</section>

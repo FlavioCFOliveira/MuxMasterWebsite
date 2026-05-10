@@ -322,3 +322,21 @@ errors.Is(he, base) // true — unwraps through the HTTPError wrapper
 ## Upstream source
 
 `HandlerFuncE`, the default `ErrorHandler`, and the JSON / Text / XML helpers used for error rendering live in [`handler.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/handler.go) and [`response.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/response.go) in the upstream repository.
+
+## Common questions
+
+<section data-conversation="error-handling-patterns">
+
+### How do I return an error from a handler instead of writing the response myself?
+
+Use `mux.HandlerFuncE` instead of `http.HandlerFunc`. The signature is `func(http.ResponseWriter, *http.Request) error`; returning a non-nil error invokes the configured `ErrorHandler`, which is responsible for translating the error to an HTTP response.
+
+### How do I customise the error-to-response translation?
+
+Set `mux.Config.ErrorHandler` (or pass `mux.WithErrorHandler` at construction) to a function that inspects the error and writes the response. The default handler returns 500 with a plain-text body; production services typically branch on `errors.As`/`errors.Is` to map domain errors to specific status codes and content types.
+
+### How does MuxMaster handle panics in handlers?
+
+MuxMaster does not recover panics by default — that responsibility belongs to a middleware so the policy is explicit. Add the built-in `Recoverer` (or a custom equivalent) via `m.Use(...)` early in the chain; the middleware logs the panic and writes a 500.
+
+</section>

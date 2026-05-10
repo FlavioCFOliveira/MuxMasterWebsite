@@ -363,3 +363,21 @@ mux.RedirectTrailingSlash = false
 ## Upstream source
 
 The authoritative list of MuxMaster releases, breaking changes, and deprecations referenced above lives in [`CHANGELOG.md`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/CHANGELOG.md) in the upstream repository.
+
+## Common questions
+
+<section data-conversation="migration-patterns">
+
+### How do I migrate a chi router to MuxMaster?
+
+Replace `chi.NewRouter()` with `mux.New()`, the route helpers (`Get`, `Post`, etc.) keep their names, and `chi.URLParam(r, "id")` becomes `mux.Param(r, "id")`. Most chi middlewares run unchanged because both routers expose the same `func(http.Handler) http.Handler` shape.
+
+### How do I migrate a gorilla/mux router?
+
+Replace `mux.NewRouter()` with `muxmaster.New()` (alias the import to keep call sites short) and rename `r.HandleFunc("/path", h).Methods("GET")` to `m.GET("/path", h)`. Path parameters use the same colon-prefix syntax in both libraries; named regex constraints have no equivalent and must be moved into handler-level validation.
+
+### Which gorilla/mux features have no MuxMaster equivalent?
+
+Schemes/host matchers, named regex constraints, and the `Middleware` trie are intentionally omitted to keep the router small and zero-allocation. Schemes and hosts belong in the reverse proxy or a `Pre` middleware; regex constraints belong in handler-level validation; middleware trie behaviour is achieved via groups and `Use`.
+
+</section>

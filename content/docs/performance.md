@@ -170,3 +170,21 @@ gorilla/mux uses regular-expression matching and was archived in 2022. It is typ
 ## Upstream source
 
 The benchmark harness is in [`bench_test.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/bench_test.go) in the upstream repository; rerun with `go test -run=^$ -bench . -benchmem` to reproduce the numbers cited above.
+
+## Common questions
+
+<section data-conversation="performance-patterns">
+
+### How fast is MuxMaster compared with the standard library?
+
+Static-route lookups are within a few percent of `net/http.ServeMux` and zero-allocation; parameterised routes allocate 416–480 B per request for the parameter map and resolve in O(k) over the path length k. The full numbers come from `bench_test.go` in the upstream repo and from the benchmarks page on this site.
+
+### Why are static routes zero-allocation?
+
+The router resolves them entirely on the radix-tree path without constructing a parameter map (there are no parameters to capture). Once the leaf is reached the handler is dispatched directly; no per-request allocations beyond what `net/http` itself makes.
+
+### How do I benchmark my own routing setup?
+
+Copy `bench_test.go` from the upstream repository as a starting point and replace its routes with yours. Run with `go test -run=^$ -bench . -benchmem`; the `ns/op`, `B/op`, and `allocs/op` columns are the three metrics the spec considers normative.
+
+</section>

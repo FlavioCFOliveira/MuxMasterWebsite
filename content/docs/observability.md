@@ -279,3 +279,21 @@ yields to context cancellation.
 ## Upstream source
 
 The introspection API (`Routes()`, `Stats()`, conflict reporting) is implemented in [`introspection.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/introspection.go) in the upstream repository.
+
+## Common questions
+
+<section data-conversation="observability-patterns">
+
+### How do I list every route registered on a router?
+
+Call `mux.Routes()` (or `m.Routes()`) to obtain a slice describing every registered method/pattern pair, the order in which they were registered, and the middleware stack each handler sees. The result is suitable for emitting on `/admin/routes` or for a startup sanity check.
+
+### How do I detect route conflicts at startup?
+
+The router rejects conflicting registrations at registration time — `m.GET` panics with a structured error that names the two patterns and the conflicting segment. Wrap the registration block in a startup recover (or write the registration in a `func init`) to surface conflicts as a clean exit instead of a goroutine crash.
+
+### How do I read runtime statistics from a live router?
+
+Call `mux.Stats()` to obtain hit counters per route, plus the global request total and the count of 404s. The map is stable for the lifetime of the process and is suitable to expose on a metrics endpoint or to scrape periodically.
+
+</section>

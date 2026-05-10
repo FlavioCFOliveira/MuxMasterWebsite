@@ -241,3 +241,21 @@ mux.Pre(middleware.CleanPath)
 ## Upstream source
 
 The radix-tree router and pattern semantics described above are implemented in [`mux.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/mux.go) and [`tree.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/tree.go) in the upstream repository.
+
+## Common questions
+
+<section data-conversation="routing-patterns">
+
+### How do I match a path parameter in a route?
+
+Declare it in the route pattern with a colon prefix and read it from the request inside the handler with `mux.Param(r, "name")`. For example `/users/:id` makes `mux.Param(r, "id")` return the matched segment.
+
+### What happens when a parameter contains a slash?
+
+By default a `:name` segment matches one path component and stops at the next slash. To match the rest of the URL (including slashes) declare a catch-all parameter with the `*` prefix, for example `/files/*path`. There can be at most one catch-all per pattern and it must be the last segment.
+
+### How does MuxMaster resolve overlapping patterns?
+
+Static segments win over `:name` parameters, and `:name` parameters win over `*catchall` segments — at every depth in the radix tree. The router rejects route registrations that would otherwise be ambiguous; the conflict is reported at registration time, not at request time.
+
+</section>

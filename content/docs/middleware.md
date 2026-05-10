@@ -420,3 +420,21 @@ env := r.Context().Value("appEnv").(string)
 ## Upstream source
 
 The middleware chain composition and the `Use` / `Pre` ordering described above are implemented in [`handler.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/handler.go) in the upstream repository.
+
+## Common questions
+
+<section data-conversation="middleware-patterns">
+
+### How do I add a middleware that runs on every request?
+
+Call `m.Use(middleware)` on the top-level mux before registering any routes. The middleware wraps every handler the router dispatches, so request-id, recovery, and structured logging are the typical candidates for global `Use`.
+
+### How do I order multiple middlewares?
+
+The order of `Use` calls is the order of execution: the first call wraps the outermost layer (the request enters it first and leaves it last). Reverse the registration order to reverse the chain — there is no priority field.
+
+### When should I prefer `Pre` over `Use`?
+
+Pick `Pre` for middleware that must run before the router resolves the route — typically `RealIP`, `CleanPath`, or a TLS-redirect step. `Pre` runs against the raw URL before pattern matching; `Use` runs after the route is selected and the handler chain is composed.
+
+</section>

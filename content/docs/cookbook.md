@@ -580,3 +580,21 @@ order.RegisterRoutes(api, orderService)
 ## Upstream source
 
 Every recipe in this cookbook traces back to a runnable program in the upstream [`examples/`](https://github.com/FlavioCFOliveira/MuxMaster/tree/v1.0.1/examples) directory.
+
+## Common questions
+
+<section data-conversation="cookbook-patterns">
+
+### How do I structure a production-ready application with MuxMaster?
+
+Split the registration into a function (`func registerRoutes(m *mux.Mux, deps Deps)`) so tests can construct the same router without starting a server. Group middleware by concern (`auth`, `observability`, `body-limits`) and apply them with `Use` at the appropriate scope (root for global, group for scoped).
+
+### How do I share state across handlers?
+
+Inject the dependency at construction time — for example `func newAPIHandler(db *sql.DB) http.HandlerFunc` returns a closure that captures the dependency. The router never owns the dependency; this keeps tests free of global state and avoids context-key gymnastics.
+
+### How do I write a unit test that exercises my routes?
+
+Construct the router in the test (the same `registerRoutes` function the binary calls), use `httptest.NewRecorder` to capture the response, and call `m.ServeHTTP(rr, req)`. No external HTTP layer is needed; the router implements `http.Handler`, so the same test pattern works with any test fixture style.
+
+</section>

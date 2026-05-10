@@ -152,3 +152,21 @@ The helpers are a convenience for the common case; they do not restrict your opt
 ## Upstream source
 
 The `JSON`, `Text`, `XML`, `Stream`, and conditional-GET helpers covered above are implemented in [`response.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/response.go) in the upstream repository.
+
+## Common questions
+
+<section data-conversation="response-patterns">
+
+### How do I write a JSON response from a handler?
+
+Call `mux.JSON(w, status, value)`. The helper sets `Content-Type: application/json; charset=utf-8`, encodes the value with `encoding/json`, writes the status, and returns any error from the encoder so callers can decide whether to log or surface it.
+
+### How do I serve a conditional GET (304)?
+
+Set the `ETag` (or `Last-Modified`) header before writing the body and call `mux.IfNoneMatch(w, r, etag)` (or `IfModifiedSince`). The helper returns `true` and writes the 304 short-circuit when the request's conditional headers match; the handler returns immediately without writing the body.
+
+### How do I stream a response without buffering it in memory?
+
+Use `mux.Stream(w, contentType, reader)`. The helper sets the content type, copies the reader to the response writer with a fixed-size buffer, and flushes between chunks where the underlying writer supports it. The reader is closed after the copy completes.
+
+</section>
