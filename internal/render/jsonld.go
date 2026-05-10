@@ -19,12 +19,13 @@ import (
 // (mtime, build time, source markdown for HowTo step extraction) that the
 // template never references and that must not leak into chrome metadata.
 type JSONLDInputs struct {
-	Page         meta.Page
-	Family       string    // "landing", "doc-article", "collection", "api", "error"
-	BuildTime    time.Time // process start time, used as datePublished
-	LastModified time.Time // mtime of the underlying content file (when applicable)
-	HowToSource  []byte    // optional; if present the generator scans for `## Step N — name` headings
-	HasPart      []string  // for "collection" family: canonical absolute URLs of the items the page lists; emitted as CollectionPage.hasPart.
+	Page          meta.Page
+	Family        string    // "landing", "doc-article", "collection", "api", "error"
+	BuildTime     time.Time // process start time, retained for diagnostics; MUST NOT be used as a date substitute (spec/structured-data.md § Date sources for embedded content).
+	DatePublished time.Time // truthful first-publication date sourced from front-matter; zero means omit per the doctrine.
+	DateModified  time.Time // truthful last-modified date sourced from front-matter or git-log build manifest; zero means omit per the doctrine.
+	HowToSource   []byte    // optional; if present the generator scans for `## Step N — name` headings
+	HasPart       []string  // for "collection" family: canonical absolute URLs of the items the page lists; emitted as CollectionPage.hasPart.
 }
 
 // BuildJSONLD returns one or more JSON-LD objects (each pre-stringified) for
@@ -36,18 +37,44 @@ type JSONLDInputs struct {
 //
 // Error pages and unrecognised families return nil — the head template skips
 // emission cleanly when the slice is empty.
-func BuildJSONLD(in JSONLDInputs) []string {
+func BuildJSONLD(in JSONLDInputs) []meta.JSONLDBlock {
+	var jsons []string
 	switch in.Family {
 	case "landing":
-		return buildLandingJSONLD(in)
+		jsons = buildLandingJSONLD(in)
 	case "doc-article":
-		return buildArticleJSONLD(in)
+		jsons = buildArticleJSONLD(in)
 	case "collection":
-		return buildCollectionJSONLD(in)
+		jsons = buildCollectionJSONLD(in)
 	case "api":
-		return buildAPIJSONLD(in)
+		jsons = buildAPIJSONLD(in)
+	default:
+		return nil
 	}
-	return nil
+	out := make([]meta.JSONLDBlock, 0, len(jsons))
+	for _, j := range jsons {
+		out = append(out, meta.JSONLDBlock{JSON: j})
+	}
+	// Per spec/structured-data.md § Field completeness, intentionally
+	// omitted required-or-recommended fields are recorded as a one-line
+	// HTML comment immediately above the relevant <script> tag. The
+	// article-shape families omit datePublished / dateModified when they
+	// cannot be sourced truthfully from front-matter or the build mani-
+	// fest (see § Date sources for embedded content). Attach the audit
+	// comment to the first block (the TechArticle) when applicable.
+	if (in.Family == "doc-article" || in.Family == "api") && len(out) > 0 {
+		var notes []string
+		if in.DatePublished.IsZero() {
+			notes = append(notes, "omitted: datePublished on TechArticle — front-matter date not yet authored")
+		}
+		if in.DateModified.IsZero() {
+			notes = append(notes, "omitted: dateModified on TechArticle — neither front-matter nor git history available")
+		}
+		if len(notes) > 0 {
+			out[0].Comment = strings.Join(notes, "; ")
+		}
+	}
+	return out
 }
 
 // schema is the JSON-LD context value emitted on every object.
@@ -215,10 +242,6 @@ func buildLandingJSONLD(in JSONLDInputs) []string {
 func buildArticleJSONLD(in JSONLDInputs) []string {
 	base := in.Page.BaseURL
 	canonical := in.Page.Canonical
-	dateModified := in.LastModified
-	if dateModified.IsZero() {
-		dateModified = in.BuildTime
-	}
 	article := struct {
 		Context          string `json:"@context"`
 		Type             string `json:"@type"`
@@ -227,8 +250,8 @@ func buildArticleJSONLD(in JSONLDInputs) []string {
 		Description      string `json:"description"`
 		URL              string `json:"url"`
 		InLanguage       string `json:"inLanguage"`
-		DatePublished    string `json:"datePublished"`
-		DateModified     string `json:"dateModified"`
+		DatePublished    string `json:"datePublished,omitempty"`
+		DateModified     string `json:"dateModified,omitempty"`
 		MainEntityOfPage string `json:"mainEntityOfPage"`
 		IsPartOf         idRef  `json:"isPartOf"`
 		Author           idRef  `json:"author"`
@@ -236,9 +259,15 @@ func buildArticleJSONLD(in JSONLDInputs) []string {
 	}{
 		Context: schema, Type: "TechArticle", ID: canonical + "#article",
 		Headline: in.Page.Title, Description: in.Page.Description, URL: canonical,
-		InLanguage:       "en",
-		DatePublished:    in.BuildTime.UTC().Format(time.RFC3339),
-		DateModified:     dateModified.UTC().Format(time.RFC3339),
+		InLanguage: "en",
+		// datePublished and dateModified are populated only when truthful
+		// values are available (front-matter or git-log build manifest).
+		// Per spec/structured-data.md § Field completeness, fabricated or
+		// build-time substitutes are forbidden: missing values are omitted
+		// (omitempty) and the HTML-comment audit trail is attached by
+		// BuildJSONLD.
+		DatePublished:    formatRFC3339OrEmpty(in.DatePublished),
+		DateModified:     formatRFC3339OrEmpty(in.DateModified),
 		MainEntityOfPage: canonical,
 		IsPartOf:         idRef{ID: jsonSiteID(base)},
 		// Author is the Person entity (per spec/structured-data.md
@@ -251,6 +280,13 @@ func buildArticleJSONLD(in JSONLDInputs) []string {
 		out = append(out, howto)
 	}
 	return out
+}
+
+func formatRFC3339OrEmpty(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.UTC().Format(time.RFC3339)
 }
 
 // collection graph: CollectionPage + BreadcrumbList. Used for the section

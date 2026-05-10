@@ -127,8 +127,14 @@ func DocPageRecipe(spec DocPageSpec, loader *content.Loader, ogImagePath string,
 
 			// mtime is best-effort. Embedded files report a zero time on
 			// embed.FS; the body footer falls back to the build time so
-			// every page always shows a real "Last updated" line.
-			lastMod, _ := loader.Mtime(spec.ContentPath)
+			// every page always shows a real "Last updated" line. The
+			// JSON-LD path uses sourceMtime (the unmodified zero-when-
+			// missing value) so it can OMIT dateModified per the
+			// no-fabricated-values rule (spec/structured-data.md § Date
+			// sources for embedded content); the omission is reported via
+			// an HTML-comment audit trail by BuildJSONLD.
+			sourceMtime, _ := loader.Mtime(spec.ContentPath)
+			lastMod := sourceMtime
 			if lastMod.IsZero() {
 				lastMod = deps.BuildTime
 			}
@@ -183,7 +189,7 @@ func DocPageRecipe(spec DocPageSpec, loader *content.Loader, ogImagePath string,
 				Page:         page,
 				Family:       family,
 				BuildTime:    deps.BuildTime,
-				LastModified: lastMod,
+				DateModified: sourceMtime, // zero → omit; never substituted with BuildTime.
 				HowToSource:  howToSrc,
 			})
 

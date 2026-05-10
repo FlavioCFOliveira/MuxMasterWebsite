@@ -9,6 +9,17 @@ type Breadcrumb struct {
 	Href  string // Empty when this is the current page.
 }
 
+// JSONLDBlock is one <script type="application/ld+json"> emission, plus an
+// optional one-line HTML comment that sits immediately above the script
+// tag. The comment is the audit trail required by spec/structured-data.md
+// § Field completeness whenever a required-or-recommended schema.org field
+// is omitted (e.g. an embedded content file with no front-matter
+// datePublished).
+type JSONLDBlock struct {
+	Comment string // optional, single line; when non-empty the chrome emits "<!-- <Comment> -->" above the script tag
+	JSON    string // pre-encoded JSON-LD, one object per block
+}
+
 // Page captures everything <head> and the chrome need to know about one page.
 // All absolute URLs (Canonical, OGImage) are resolved by the renderer using
 // SITE_BASE_URL.
@@ -21,7 +32,7 @@ type Page struct {
 	OGImage     string // Absolute OG image URL.
 	Robots      string // Empty unless a noindex value is required.
 	Breadcrumbs []Breadcrumb
-	JSONLD      []string // Pre-encoded JSON-LD blocks (one per <script>).
+	JSONLD      []JSONLDBlock // Pre-encoded JSON-LD blocks (one per <script>); each may carry an audit-trail HTML comment.
 	Version     string   // Current MuxMaster version label.
 	GoVersion   string   // Minimum supported Go version (e.g. "1.26"); sourced from ../MuxMaster/go.mod at build time.
 	CSSPath     string   // Hashed CSS bundle URL.
