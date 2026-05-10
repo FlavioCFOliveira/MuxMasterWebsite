@@ -434,12 +434,17 @@ func basePage(deps Deps, path, title, description, ogType, ogImagePath string, p
 // filterRoutes selects routes whose path lives directly under prefix and
 // returns them in a stable order (path lex order). The prefix itself is
 // excluded so an index page does not list itself.
-// itemsAsAbsoluteURLs converts a slice of RouteInfo to the absolute URLs of
-// each route, used as the input to CollectionPage.hasPart on section indexes.
+// itemsAsAbsoluteURLs converts a slice of RouteInfo to the @id values of
+// the TechArticle node each route emits on its own page, used as the
+// input to CollectionPage.hasPart on section indexes. The article @id
+// shape is `<canonical>#article` (see jsonld.go buildArticleJSONLD), so
+// hasPart references that fragment URI rather than the bare canonical
+// URL — otherwise the JSON-LD validation gate flags hasPart entries as
+// unresolved @id references.
 func itemsAsAbsoluteURLs(items []RouteInfo, baseURL string) []string {
 	out := make([]string, 0, len(items))
 	for _, it := range items {
-		out = append(out, baseURL+it.Path)
+		out = append(out, baseURL+it.Path+"#article")
 	}
 	return out
 }
