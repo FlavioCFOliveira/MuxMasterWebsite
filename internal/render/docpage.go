@@ -124,7 +124,11 @@ func DocPageRecipe(spec DocPageSpec, loader *content.Loader, ogImagePath string,
 			page := basePage(deps, spec.Path, spec.Title, spec.Description, spec.OGType, ogImagePath, productionRobots)
 			page.Breadcrumbs = breadcrumbsForDoc(spec)
 			page.UpstreamURL = spec.UpstreamURL
-			page.HasMarkdown = spec.HasMarkdown
+			// Every DocPageSpec route ships a Markdown companion at
+			// <Canonical>.md (see internal/server/routes.go and
+			// content-sources.md), so the alternate-markdown <link>
+			// emits unconditionally for this family.
+			page.HasMarkdown = true
 
 			// mtime is best-effort. Embedded files report a zero time on
 			// embed.FS; the body footer falls back to the build time so
