@@ -324,17 +324,44 @@ func buildCollectionJSONLD(in JSONLDInputs) []string {
 	return []string{mustJSON(collection), breadcrumbJSON(in.Page)}
 }
 
-// api graph: TechArticle + BreadcrumbList. /api references the
-// SoftwareSourceCode entity by @id (the canonical /#muxmaster node emitted
-// in full only on /). APIReference is added by task #33; this function
-// stops at the article + breadcrumb shape until then.
+// api graph: TechArticle + BreadcrumbList + APIReference. /api references
+// the SoftwareSourceCode entity by @id (the canonical /#muxmaster node
+// emitted in full only on /).
 //
 // Per spec/structured-data.md § Non-negotiables, this function MUST NOT
 // emit an inline SoftwareSourceCode redefinition — the helper that used
 // to live here was deleted because it minted a duplicate /api#software
 // @id, fragmenting the citation graph for AI engines.
 func buildAPIJSONLD(in JSONLDInputs) []string {
-	return buildArticleJSONLD(in)
+	out := buildArticleJSONLD(in)
+	base := in.Page.BaseURL
+	canonical := in.Page.Canonical
+	apiRef := struct {
+		Context              string `json:"@context"`
+		Type                 string `json:"@type"`
+		ID                   string `json:"@id"`
+		Name                 string `json:"name"`
+		Description          string `json:"description"`
+		URL                  string `json:"url"`
+		TargetPlatform       string `json:"targetPlatform"`
+		ProgrammingModel     string `json:"programmingModel"`
+		ExecutableLibraryName string `json:"executableLibraryName"`
+		AssemblyVersion      string `json:"assemblyVersion,omitempty"`
+		About                idRef  `json:"about"`
+	}{
+		Context:               schema,
+		Type:                  "APIReference",
+		ID:                    canonical + "#apiref",
+		Name:                  in.Page.Title,
+		Description:           in.Page.Description,
+		URL:                   canonical,
+		TargetPlatform:        "Go",
+		ProgrammingModel:      "HTTP request multiplexer (radix-tree, net/http-compatible)",
+		ExecutableLibraryName: "github.com/FlavioCFOliveira/MuxMaster",
+		AssemblyVersion:       in.Page.Version,
+		About:                 idRef{ID: jsonSoftwareID(base)},
+	}
+	return append(out, mustJSON(apiRef))
 }
 
 // idRef is the JSON-LD "{@id: ...}" shorthand used to reference another
