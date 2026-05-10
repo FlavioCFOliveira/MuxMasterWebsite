@@ -285,6 +285,9 @@ func buildArticleJSONLD(in JSONLDInputs) []string {
 	if faq := buildFAQPageJSONLD(in); faq != "" {
 		out = append(out, faq)
 	}
+	if dts := buildDefinedTermSetJSONLD(in); dts != "" {
+		out = append(out, dts)
+	}
 	return out
 }
 
@@ -478,6 +481,71 @@ func breadcrumbJSON(p meta.Page) string {
 // region in rendered HTML. Multi-line, non-greedy: a page may contain
 // several chains and the scanner walks all of them.
 var conversationSectionRE = regexp.MustCompile(`(?is)<section\s+[^>]*\bdata-conversation\s*=\s*"[^"]*"[^>]*>(.*?)</section>`)
+
+// definitionListRE matches a <dl>...</dl> region in the rendered HTML;
+// the scanner walks each block to extract <dt> + following <dd> pairs
+// into a DefinedTermSet (spec/structured-data.md § Auxiliary schemas).
+var definitionListRE = regexp.MustCompile(`(?is)<dl\b[^>]*>(.*?)</dl>`)
+
+// dtOpenRE matches the opening of a <dt> tag inside a <dl> body. The
+// scanner uses positional walking (RE2 has no backreferences) to slice
+// each <dt>...</dt><dd>...</dd> pair.
+var dtOpenRE = regexp.MustCompile(`(?is)<dt\b[^>]*>`)
+
+// buildDefinedTermSetJSONLD scans the rendered HTML for <dl>...</dl>
+// regions and emits a single DefinedTermSet block listing every
+// <dt>/<dd> pair as a DefinedTerm. Returns "" when no definition list
+// is present or the list contains no usable pairs.
+func buildDefinedTermSetJSONLD(in JSONLDInputs) string {
+	if len(in.RenderedHTML) == 0 {
+		return ""
+	}
+	type term struct {
+		Type        string `json:"@type"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
+	}
+	type set struct {
+		Context  string `json:"@context"`
+		Type     string `json:"@type"`
+		ID       string `json:"@id"`
+		Name     string `json:"name"`
+		HasDefinedTerm []term `json:"hasDefinedTerm"`
+	}
+	var terms []term
+	for _, dl := range definitionListRE.FindAllSubmatch(in.RenderedHTML, -1) {
+		body := dl[1]
+		opens := dtOpenRE.FindAllSubmatchIndex(body, -1)
+		for i, om := range opens {
+			afterOpen := om[1]
+			closeIdx := bytes.Index(body[afterOpen:], []byte("</dt>"))
+			if closeIdx < 0 {
+				continue
+			}
+			name := faqPlainText(body[afterOpen : afterOpen+closeIdx])
+			defStart := afterOpen + closeIdx + len("</dt>")
+			defEnd := len(body)
+			if i+1 < len(opens) {
+				defEnd = opens[i+1][0]
+			}
+			description := faqPlainText(body[defStart:defEnd])
+			if name == "" || description == "" {
+				continue
+			}
+			terms = append(terms, term{Type: "DefinedTerm", Name: name, Description: description})
+		}
+	}
+	if len(terms) == 0 {
+		return ""
+	}
+	return mustJSON(set{
+		Context:        schema,
+		Type:           "DefinedTermSet",
+		ID:             in.Page.Canonical + "#defined-terms",
+		Name:           in.Page.Title + " — defined terms",
+		HasDefinedTerm: terms,
+	})
+}
 
 // faqHeadingOpenRE matches the opening tag of an in-section question
 // heading (h2, h3, h4). RE2 has no backreferences, so the scanner finds

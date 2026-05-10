@@ -22,6 +22,11 @@ import (
 // The configuration:
 //   - extension.GFM enables tables (used by /content/benchmarks.md and
 //     several docs pages).
+//   - extension.DefinitionList renders the CommonMark definition-list
+//     syntax to <dl><dt>Term</dt><dd>Definition</dd></dl>. The
+//     buildDefinedTermSetJSONLD scanner walks <dl> blocks to emit
+//     schema.org DefinedTermSet (spec/structured-data.md § Auxiliary
+//     schemas).
 //   - parser.WithAutoHeadingID emits `<h2 id="kebab-case">` anchors for
 //     the in-page TOC.
 //   - html.WithUnsafe lets curated HTML comments survive (the curator may
@@ -30,7 +35,7 @@ import (
 //
 // Goldmark is concurrency-safe once configured.
 var markdownEngine = goldmark.New(
-	goldmark.WithExtensions(extension.GFM),
+	goldmark.WithExtensions(extension.GFM, extension.DefinitionList),
 	goldmark.WithParserOptions(parser.WithAutoHeadingID()),
 	goldmark.WithRendererOptions(html.WithUnsafe()),
 )

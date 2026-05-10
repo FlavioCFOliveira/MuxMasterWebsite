@@ -132,6 +132,33 @@ announced via GitHub Security Advisories. The CHANGELOG `### Security`
 section enumerates each finding with its identifier (e.g.
 `CSA-2026-0060`, `HPS-2026-0005`).
 
+## Glossary
+
+The terms below appear throughout this page and the wider documentation;
+their meanings are pinned here so cross-page references are unambiguous.
+
+API
+:   The set of exported types, functions, methods, and constants that
+    consumers may rely on. Membership is defined per tier above.
+
+MAJOR version
+:   The first number in a `vX.Y.Z` tag. Incrementing it signals a
+    backward-incompatible change to the Tier 1 surface.
+
+MINOR version
+:   The second number in a `vX.Y.Z` tag. Incrementing it signals a
+    backward-compatible addition or a behavioural fix that may be
+    observable.
+
+PATCH version
+:   The third number in a `vX.Y.Z` tag. Incrementing it signals a bug
+    fix, security patch, or internal refactor with no API impact.
+
+Pre-release identifier
+:   A suffix such as `-rc1`, `-beta1`, or `-alpha1` on a version tag,
+    indicating the version is not yet covered by the SemVer guarantees
+    above. Pin pre-release versions exactly when packaging.
+
 ## Questions
 
 Open an issue on
