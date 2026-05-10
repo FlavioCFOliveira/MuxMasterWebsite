@@ -24,6 +24,7 @@ func (s *Server) healthzHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Header().Set("Cache-Control", cacheControlNoStore)
+		w.Header().Set("Vary", "Accept-Encoding")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok\n"))
 	}
@@ -39,12 +40,14 @@ func (s *Server) notFoundFromPrerender() http.HandlerFunc {
 		if !ok {
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			w.Header().Set("Cache-Control", cacheControlNoStore)
+			w.Header().Set("Vary", "Accept-Encoding")
 			w.WriteHeader(http.StatusNotFound)
 			_, _ = w.Write([]byte("404 Not Found\n"))
 			return
 		}
 		w.Header().Set("ETag", pre.ETag)
 		w.Header().Set("Cache-Control", cacheControlNoStore)
+		w.Header().Set("Vary", "Accept-Encoding")
 		if render.MatchesIfNoneMatch(r, pre.ETag) {
 			w.WriteHeader(http.StatusNotModified)
 			return

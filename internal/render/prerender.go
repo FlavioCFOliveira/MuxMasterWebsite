@@ -142,6 +142,12 @@ func (r *Renderer) ServePrerendered(path string, cacheControl string, status int
 		h.Set("ETag", pre.ETag)
 		h.Set("Last-Modified", pre.LastModified.UTC().Format(http.TimeFormat))
 		h.Set("Cache-Control", cacheControl)
+		// Vary: Accept-Encoding MUST be set on the conditional 304 path
+		// too, so any intermediate cache keys the empty-body response by
+		// the same dimension as the corresponding 200. Otherwise a cache
+		// could serve a 304 against a request with a different
+		// Accept-Encoding (spec/rendering-and-caching.md § Cache headers).
+		h.Set("Vary", "Accept-Encoding")
 
 		if MatchesIfNoneMatch(req, pre.ETag) {
 			w.WriteHeader(http.StatusNotModified)
@@ -155,7 +161,6 @@ func (r *Renderer) ServePrerendered(path string, cacheControl string, status int
 		}
 
 		h.Set("Content-Type", pre.ContentType)
-		h.Set("Vary", "Accept-Encoding")
 		w.WriteHeader(status)
 		// HEAD: net/http drops the body automatically.
 		_, _ = w.Write(pre.Body)
