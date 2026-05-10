@@ -61,7 +61,7 @@ The full `robots.txt` is co-owned with `seo.md`. The AI-crawler portion MUST exp
 - `Applebot-Extended` (Apple Intelligence)
 - `CCBot` (Common Crawl)
 - `Bytespider` (ByteDance)
-- `DiffBot` / `Diffbot` (Diffbot)
+- `Diffbot` (Diffbot — single canonical spelling; the vendor's user-agent is `Diffbot/X.X`, the alternate `DiffBot` capitalisation is not emitted by the site)
 - `OmgiliBot` (Webz)
 - `Amazonbot` (Amazon)
 - `meta-externalagent` (Meta)

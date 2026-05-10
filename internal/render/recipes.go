@@ -297,7 +297,6 @@ func RobotsRecipe() Recipe {
 		"Applebot-Extended",
 		"CCBot",
 		"Bytespider",
-		"DiffBot",
 		"Diffbot",
 		"OmgiliBot",
 		"Amazonbot",
