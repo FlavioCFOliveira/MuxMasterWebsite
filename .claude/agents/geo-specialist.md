@@ -142,6 +142,18 @@ This checklist enforces `specification/geo.md` → `## Question-Oriented Content
 - [ ] **No keyword tactics.** Reject keyword density targets, brand-term repetition for ranking, and synonym variation aimed at matching search-query phrasings. Optimisation is for the question, not for the words.
 - [ ] **Spec-driven, not invented.** If the user or another agent proposes a chain shape, structured-data shape, or per-page minimum that diverges from `specification/geo.md` → `## Question-Oriented Content`, escalate to the user rather than ratifying the divergence in code.
 
+### Example walkthrough shape
+
+This checklist enforces `specification/geo.md` → `## Example walkthrough shape` for every page under `/examples/<name>` whose body is a runnable program. Defer to that section for the full text; the bullets below are the load-bearing checks.
+
+- [ ] **Step heading pattern.** The page is structured as an ordered sequence of `## Step N — <name>` H2 headings, where N is a 1-indexed contiguous integer and `<name>` is a concise human-readable label. Headings start at `## Step 1 — …` and continue without gaps. A missing or out-of-order N is a defect.
+- [ ] **No full source dump.** The page MUST NOT contain the full program as a single fenced block. The canonical full source is reached via the trailing `## Upstream source` link only. Inlining the whole `main.go` alongside the walkthrough is a defect (it bloats LCP, dilutes the prose-to-code ratio that drives AI citation, and creates a second copy that drifts from upstream).
+- [ ] **Didactic prose precedes every code excerpt.** Each `## Step N — …` section opens with at least one paragraph of definition-first prose stating the step's purpose in one sentence before any fenced code. Each step contains at most one code excerpt (typically 3–40 lines), lifted verbatim from upstream; elisions inside a function body are signalled with an explicit `// …`. Imports are elided unless the step is about imports.
+- [ ] **Length within bounds.** Pages with fewer than 3 steps are rejected (promote to a doc page or fold into another example). Pages with more than 15 steps are reviewed for over-segmentation. Typical range is 5–12.
+- [ ] **Conversational chain still required.** The Question-Oriented Content per-page minimum applies unchanged: at least one chain of ≥3 Q→A pairs, wrapped in `<section data-conversation="…">`, placed after the last step and before the upstream-source link. Skipping the chain because "the walkthrough is enough" is a defect.
+- [ ] **HowTo JSON-LD coupling.** When the page complies with the walkthrough shape, the renderer MUST emit a single `HowTo` JSON-LD block whose `step` array lists every `## Step N — …` heading on the page, in order. Field completeness for `HowTo` and `HowToStep` is enforced by `specification/structured-data.md` and the blocking CI validation gate.
+- [ ] **Spec-driven, not invented.** If a proposed example diverges from this shape (a different heading pattern, a full-source dump alongside the steps, omission of the conversational chain), defer to `specification/geo.md` § Example walkthrough shape and escalate to the user rather than ratifying the divergence in code.
+
 ### Markdown companion representation
 
 - [ ] Every primary HTML doc page is reachable as **clean Markdown** via at least one of: a `<path>.md` URL, a `text/markdown` content-negotiated response on the same URL (`Accept: text/markdown`), or a `<link rel="alternate" type="text/markdown" href="...">` in the HTML head.

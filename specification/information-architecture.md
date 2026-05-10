@@ -2,7 +2,7 @@
 title: Information architecture
 purpose: Define the sitemap, URL structure, navigation, page templates, and inter-page navigation rules.
 owners: ux-specialist (primary); seo-specialist (canonical/sitemap alignment); geo-specialist (Markdown companions and llms.txt linkage).
-last-updated: 2026-05-08
+last-updated: 2026-05-10
 status: ratified
 ---
 
@@ -140,7 +140,7 @@ The following templates exist. Each template has a single, declared purpose. All
 3. **doc-index** (`/docs/`) — eleven cards (one per sub-section) with title and one-line description. JSON-LD `BreadcrumbList`.
 4. **api-page** (`/api`) — single long article rendered from `/content/api.md`, with sticky in-page TOC. JSON-LD `TechArticle` + `SoftwareSourceCode` (referencing the upstream module). No sidebar.
 5. **example-index** (`/examples/`) — eight cards (one per example mirrored into `/content/examples/`) with title, one-line purpose statement, link to the example page, and link to the upstream directory. JSON-LD `BreadcrumbList`.
-6. **example-page** (`/examples/<name>`) — title, one-paragraph purpose, syntax-highlighted embedded source of the example's primary file (typically `main.go`, mirrored into `/content/examples/<name>.md` by the `content-curator` agent), and a "Source" link to the upstream directory containing the rest of the files. The site does not execute or sandbox the example. JSON-LD `TechArticle`.
+6. **example-page** (`/examples/<name>`) — title (`<h1>`), a short editorial intro paragraph (one or two sentences) stating what the example program does and the concrete capability it demonstrates, and the walkthrough body. The walkthrough body is an ordered sequence of `## Step N — <name>` H2 sections; each step opens with one or more paragraphs of didactic prose and contains at most one small fenced Go excerpt (3–40 lines) lifted verbatim from the upstream source. The full program source is **not** rendered on this template; readers who want the entire file follow the `## Upstream source` link at the foot of the page, which targets `https://github.com/FlavioCFOliveira/MuxMaster/tree/v<version>/examples/<name>`. The page MUST also carry a `## Common questions` section with at least one conversational chain of three or more Q→A pairs wrapped in `<section data-conversation="…">` (per `geo.md` § Question-Oriented Content), placed after the walkthrough and before `## Upstream source`. The canonical contract for the page shape is `geo.md` § Example walkthrough shape; this template inventory references it rather than restating it. The site does not execute or sandbox the example. JSON-LD `TechArticle`, `BreadcrumbList`, `HowTo`, `FAQPage`.
 7. **benchmarks** (`/benchmarks`) — table of benchmark numbers quoted verbatim from upstream (mirrored into `/content/benchmarks.md` by the curator agent), with a source citation linking to the upstream README. JSON-LD `TechArticle` + `Dataset` (where the table is the dataset).
 8. **changelog** (`/changelog`) — full mirrored `/content/changelog.md` rendered as a single long page, with one `<h2>` per version. JSON-LD `TechArticle`.
 9. **release-notes** (`/releases/v1.0.0`) — single long article rendered from `/content/release-notes/v1.0.0.md`. JSON-LD `TechArticle`.

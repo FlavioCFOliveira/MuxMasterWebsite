@@ -79,7 +79,7 @@ The allowlist MUST be re-evaluated at least once per release of the site. Remova
 ## FAQPage and HowTo structured data
 
 - Pages with three or more explicit Q→A pairs (a `<h2>` or `<h3>` phrased as a question, immediately followed by a paragraph answer) MUST emit a JSON-LD `FAQPage` block listing those pairs. Q→A pairs are not optional on docs, guides, examples, and API/reference pages: their presence and minimum counts are mandated by `## Question-Oriented Content` below.
-- Pages with an ordered, named list of steps (typically the Getting Started page and some examples) MUST emit a JSON-LD `HowTo` block listing those steps.
+- Pages with an ordered, named list of steps MUST emit a JSON-LD `HowTo` block listing those steps. The trigger is structural — the presence of a contiguous, 1-indexed `## Step N — <name>` heading sequence — not editorial. Two page families satisfy this trigger by construction: the Getting Started page in `/docs/`, and every page under `/examples/<name>` whose body is a runnable program (see `## Example walkthrough shape` below). Pages outside those two families MAY emit `HowTo` when they contain such a step sequence, but the structural rule, not the page family, is what compels emission.
 - Both blocks MUST live alongside the SEO JSON-LD blocks defined in `seo.md`. Duplicate facts in two blocks are acceptable.
 
 Field-level rules and the validation gate are defined in `specification/structured-data.md`.
@@ -138,6 +138,30 @@ Content is optimised for the question it answers, not for the words it contains.
 ### Compliance window
 
 This contract is forward-looking. Existing pages MUST be brought into compliance during the next content-curation pass. New pages MUST comply on first write.
+
+## Example walkthrough shape
+
+The example pages are the most program-shaped content on the site: each one corresponds to a real, runnable program in the upstream MuxMaster repository. A code dump is not didactic, however. A reader landing on an example wants to learn what each part of the program does and why it is written that way; an AI answer engine needs prose paragraphs it can quote when answering "how do I build X with MuxMaster?". This section defines the shape every example page MUST take so that both audiences are served.
+
+The following nine sub-rules apply.
+
+1. **Scope.** Applies to every page under `/examples/<name>` whose body is a runnable program. Does not apply to docs, the API page, the landing page, or any reference page.
+
+2. **Required structure.** An example page MUST be authored as an ordered sequence of `## Step N — <name>` H2 headings (N is a 1-indexed contiguous integer, `<name>` a concise human-readable label). Headings start at `## Step 1 — …` and continue without gaps.
+
+3. **Per-step body.** Each `## Step N — …` section MUST open with at least one paragraph of didactic prose stating the step's purpose in one sentence (definition-first), then expand as needed. After the prose, the section MUST contain at most one fenced Go code excerpt showing only the lines relevant to that step (typically 3–40 lines). A step MAY also contain follow-up prose after the code excerpt to explain non-obvious consequences (error handling, security implications, performance trade-offs).
+
+4. **No full source dump.** The page MUST NOT contain the full program as a single fenced block. Readers who want the entire file follow the `## Upstream source` link at the end, which already points at the canonical file in `https://github.com/FlavioCFOliveira/MuxMaster/tree/v<version>/examples/<name>`. Duplicating the full source bloats the LCP, dilutes the prose-to-code ratio that drives AI citation, and creates a second copy that can drift from upstream.
+
+5. **Step ordering.** Steps SHOULD reflect the order in which the program executes or the order in which a reader would write the program from scratch. Where two orderings are equally defensible (e.g. "configure logger" vs "configure router"), the curator chooses the one that minimises forward references in the prose.
+
+6. **Code-excerpt rules.** Each excerpt MUST be valid Go (or the relevant language) on its own as far as a reader's eye can tell — incomplete bodies are signalled with `// …` so the elision is explicit; ellipsis MUST NOT silently truncate the middle of a function. Imports SHOULD be elided unless the step's purpose is to discuss imports. The excerpt SHOULD be lifted verbatim from the upstream source so a reader who follows the upstream link sees the same lines.
+
+7. **JSON-LD coupling.** When an example complies with this shape, the renderer's existing HowTo emitter (see `## FAQPage and HowTo structured data`) emits a HowTo JSON-LD block listing every step. The list of pages that emit HowTo is therefore data-driven (every example), not hand-curated; `specification/structured-data.md` § HowTo and the validation gate enforce field completeness.
+
+8. **Question-Oriented Content remains in force.** The per-page minimums in `## Question-Oriented Content` apply unchanged: every example MUST still carry at least one conversational chain of ≥3 Q→A pairs, wrapped in `<section data-conversation="…">`, after the walkthrough and before the upstream-source link.
+
+9. **Length guidance.** A typical example walkthrough has 5–12 steps. Pages with fewer than 3 steps are rejected (the page is not a walkthrough, it is a single excerpt — promote it to a doc page or fold it into another example). Pages with more than 15 steps are reviewed for over-segmentation.
 
 ## Content-shape rules
 

@@ -19,11 +19,11 @@ The following table maps each page family to the JSON-LD types it MUST emit. Whe
 | Page family | Required JSON-LD | Notes |
 | --- | --- | --- |
 | `/` | `WebSite`, `SoftwareSourceCode`, `Organization`, `Person` | The four reified entity nodes are emitted **in full** on this page only. Every other page references them by `@id`. |
-| `/docs/<section>` | `TechArticle`, `BreadcrumbList` | `TechArticle.author` references `Person@id`; `TechArticle.publisher` references `Organization@id`; `TechArticle.isPartOf` references `WebSite@id`. |
+| `/docs/<section>` | `TechArticle`, `BreadcrumbList`, `HowTo` (Getting Started) | `TechArticle.author` references `Person@id`; `TechArticle.publisher` references `Organization@id`; `TechArticle.isPartOf` references `WebSite@id`. The Getting Started page emits `HowTo` because its body is structured as an ordered, named step sequence; other doc pages MAY emit `HowTo` when their body has the same shape. |
 | `/docs/` | `CollectionPage`, `BreadcrumbList` | `CollectionPage.isPartOf` references `WebSite@id`; `CollectionPage.publisher` references `Organization@id`. |
 | `/api` | `TechArticle`, `SoftwareSourceCode` (by `@id`), `APIReference`, `BreadcrumbList` | `SoftwareSourceCode` is referenced by `@id` (the MuxMaster module node) — this row MUST NOT cause inline redefinition of the entity on `/api`. `APIReference` is the auxiliary schema mandated for this page family — see `## Auxiliary schemas`. |
 | `/examples/` | `CollectionPage`, `BreadcrumbList` | Same entity references as `/docs/`. |
-| `/examples/<name>` | `TechArticle`, `BreadcrumbList`; `HowTo` when the example is structured as ordered, named steps | When `HowTo` is emitted, every step's named code block also emits `Code` (see `## Auxiliary schemas`). |
+| `/examples/<name>` | `TechArticle`, `BreadcrumbList`, `HowTo` (every page complying with `geo.md` § Example walkthrough shape) | Every example page MUST comply with the walkthrough shape defined in `geo.md` § Example walkthrough shape; that shape is the trigger for `HowTo` emission, so emission is data-driven across the entire `/examples/` family rather than hand-curated. When `HowTo` is emitted, every step's named code block also emits `Code` (see `## Auxiliary schemas`). |
 | `/benchmarks` | `TechArticle`, `BreadcrumbList`, `Dataset` | `Dataset.creator` references `Organization@id`; `Dataset.distribution` links to the upstream raw report file. |
 | `/changelog` | `TechArticle`, `BreadcrumbList` | `TechArticle.about` references `SoftwareSourceCode@id` (the MuxMaster module). |
 | `/releases/<v>` | `TechArticle`, `BreadcrumbList` | `TechArticle.about` references `SoftwareSourceCode@id`; `TechArticle.version` is the release version. |

@@ -2,7 +2,7 @@
 title: Out of scope (v1)
 purpose: Enumerate what v1 of the site explicitly does not do, so that future requests to add these features are recognised as expansions and trigger explicit ratification.
 owners: specification-manager.
-last-updated: 2026-05-08
+last-updated: 2026-05-10
 status: ratified
 ---
 
@@ -55,7 +55,7 @@ The website does **not** read `../MuxMaster/` at request time, at startup, or at
 ## Executable example playground
 
 - The site does **not** execute, sandbox, or run the example code.
-- Each example page renders the upstream `main.go` as syntax-highlighted text and links to the upstream directory for the rest of the files.
+- The shape of each example page is defined in `geo.md` § Example walkthrough shape and `information-architecture.md` (template `example-page`); this section only asserts that no execution path exists.
 
 ## Logo variants
 

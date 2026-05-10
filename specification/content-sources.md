@@ -2,7 +2,7 @@
 title: Content sources
 purpose: Define where every public route gets its content from, and the workflow by which upstream MuxMaster information is curated into this repository.
 owners: specification-manager; review by seo-specialist (canonical alignment), geo-specialist (Markdown companion mapping), content-curator (sync workflow).
-last-updated: 2026-05-08
+last-updated: 2026-05-10
 status: ratified
 ---
 
@@ -154,13 +154,16 @@ Every route in the table is pre-rendered at startup per `rendering-and-caching.m
 
 ## Examples — file shape
 
-Each example file (`/content/examples/<name>.md`) MUST contain:
+Each example file (`/content/examples/<name>.md`) MUST contain, in this order:
 
-1. An editorial intro paragraph (one or two sentences) stating the example's purpose.
-2. A fenced ```` ```go ```` code block containing the **embedded `main.go` source** of that example, copied verbatim by the curator agent from `${MUXMASTER_SOURCE_DIR}/examples/<name>/main.go`.
-3. A trailing "Source" line linking to the upstream directory, in the form: `Source: <https://github.com/FlavioCFOliveira/MuxMaster/tree/v<version>/examples/<name>>`.
+1. An editorial intro paragraph (one or two sentences) stating what the example program does and the concrete capability it demonstrates.
+2. The walkthrough body: an ordered sequence of `## Step N — <name>` H2 sections, where `N` is a 1-indexed contiguous integer starting at `1`. Each section opens with one or more paragraphs of didactic prose and contains at most one fenced ```` ```go ```` excerpt (typically 3–40 lines) showing only the lines relevant to that step. The excerpt MUST be lifted verbatim from `${MUXMASTER_SOURCE_DIR}/examples/<name>/main.go` (or another file in that example's upstream directory when the step concerns it); the curator MUST NOT invent code. Elisions inside an excerpt MUST be marked with `// …` and MUST NOT silently truncate the middle of a function. The page MUST NOT contain the full program as a single fenced block.
+3. A `## Common questions` section carrying at least one conversational chain of three or more Q→A pairs wrapped in `<section data-conversation="…">`, per `geo.md` § Question-Oriented Content.
+4. A trailing `## Upstream source` section: one paragraph plus a link to the canonical upstream directory, in the form: `Source: <https://github.com/FlavioCFOliveira/MuxMaster/tree/v<version>/examples/<name>>`.
 
-The curator agent embeds the source code rather than linking to it externally, so the runtime page is self-contained and survives upstream availability incidents.
+The canonical contract for the page shape — the H2 sequencing rule, the per-step body rule, the no-full-source-dump rule, and the JSON-LD coupling — is `geo.md` § Example walkthrough shape. The list of constraints in this section is the file-on-disk view of that contract; if the two ever drift, `geo.md` is authoritative and this section MUST be brought back into alignment.
+
+The curator does **not** copy the upstream `main.go` verbatim as a single block. The curator authors the editorial intro and the per-step prose, chooses the segmentation, and lifts each excerpt verbatim from the upstream source so a reader who follows `## Upstream source` sees the same lines. Every excerpt on the page MUST appear in the upstream file referenced by `## Upstream source`.
 
 ## Benchmarks — source citation
 
@@ -179,7 +182,7 @@ The version label rendered in the header and footer is read at server startup fr
 ## Markdown companions
 
 - For every HTML route in the mapping table whose source is a Markdown file, the companion at `<route>.md` MUST serve the source file (after stripping a leading frontmatter block if present) with `Content-Type: text/markdown; charset=utf-8`.
-- For example pages, the `.md` companion MUST serve `/content/examples/<name>.md` directly: the editorial intro, the fenced ```` ```go ```` block, and the trailing "Source" line. The companion MUST NOT attempt to extract the bare `.go` source.
+- For example pages, the `.md` companion MUST serve `/content/examples/<name>.md` directly: the editorial intro, the ordered `## Step N — <name>` walkthrough sections (each carrying its didactic prose and its small Go excerpt), the `## Common questions` section, and the `## Upstream source` link. The shape of the `.md` representation is identical to the shape of the HTML rendering. The companion MUST NOT extract a bare `.go` source dump and MUST NOT apply any transformation step beyond stripping a leading frontmatter block if present.
 - Content negotiation via `Accept` headers is **not** used. The `.md` URL is the only way to reach the Markdown representation.
 - The HTML and `.md` representations of the same route MUST present the same canonical information.
 
@@ -198,7 +201,7 @@ The website is updated to a new MuxMaster release through the **content sync wor
    - `${MUXMASTER_SOURCE_DIR}/COMPATIBILITY.md` maps to `/content/compatibility.md`.
    - `${MUXMASTER_SOURCE_DIR}/CONTRIBUTING.md` maps to `/content/contributing.md`.
    - `${MUXMASTER_SOURCE_DIR}/release-notes/<file>.md` map to `/content/release-notes/<simplified-name>.md` (the curator strips dated suffixes; for example `v1.0.0-20260508.md` becomes `v1.0.0.md`).
-   - `${MUXMASTER_SOURCE_DIR}/examples/<name>/main.go` maps to `/content/examples/<name>.md`, with the curator authoring the editorial intro paragraph and embedding the `.go` source as described in "Examples — file shape" above.
+   - `${MUXMASTER_SOURCE_DIR}/examples/<name>/` maps to `/content/examples/<name>.md`. The curator produces a walkthrough whose excerpts are lifted verbatim from upstream `${MUXMASTER_SOURCE_DIR}/examples/<name>/main.go` (and other files in that directory when a step concerns them). The curator MUST NOT invent code; every excerpt MUST appear in the upstream source. The curator chooses the step segmentation, authors the editorial intro and the per-step didactic prose, and assembles the `## Common questions` chain and `## Upstream source` link as described in "Examples — file shape" above and in `geo.md` § Example walkthrough shape.
    - The `## Benchmarks` section of `${MUXMASTER_SOURCE_DIR}/README.md` is extracted (heading inclusive, up to but not including the next heading of equal or higher level) and written to `/content/benchmarks.md`, with the source citation appended.
    The curator proposes the resulting diff for review. The curator does **not** auto-commit.
 5. **Review.** The project owner reviews the diff. Optionally, the gatekeeper agents (`seo-specialist`, `geo-specialist`, `tailwind-specialist`, `ux-specialist`) review per the model in `agents-and-gates.md` — for example, when the sync introduces a new section that affects sitemap entries (`seo-specialist`), the AI-crawler allowlist (`geo-specialist`), or the page templates (`ux-specialist`).
