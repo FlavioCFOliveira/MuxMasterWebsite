@@ -27,12 +27,20 @@
                decorative for assistive tech (alt=""). fetchpriority="high"
                and explicit width/height keep the LCP element on the
                critical path with zero CLS. */}}
-          <img src="/static/img/logo-192.png"
-               alt=""
-               width="192" height="192"
-               class="h-32 w-32 sm:h-40 sm:w-40 md:h-48 md:w-48"
-               decoding="async"
-               fetchpriority="high">
+          {{/* Per-breakpoint sources keep the mobile payload at logo-192
+               (50 KB) — the LCP the Lighthouse mobile run measures —
+               while desktops get a sharper logo-384 (162 KB) at the
+               larger md/lg display sizes. The <img> fallback covers
+               browsers that ignore <picture> media queries. */}}
+          <picture>
+            <source media="(min-width: 1024px)" srcset="/static/img/logo-384.png">
+            <img src="/static/img/logo-256.png"
+                 alt=""
+                 width="256" height="256"
+                 class="h-44 w-44 sm:h-56 sm:w-56 md:h-72 md:w-72 lg:h-80 lg:w-80"
+                 decoding="async"
+                 fetchpriority="high">
+          </picture>
         </div>
       </div>
     </section>
