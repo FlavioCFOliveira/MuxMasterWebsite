@@ -52,6 +52,25 @@ func BuildJSONLD(in JSONLDInputs) []string {
 // schema is the JSON-LD context value emitted on every object.
 const schema = "https://schema.org"
 
+// UpstreamMinimumGoVersion mirrors the `go` directive in
+// ../MuxMaster/go.mod and is surfaced in JSON-LD as
+// SoftwareSourceCode.runtimePlatform. The release-manager agent MUST
+// update this constant whenever the upstream go.mod bumps the minimum.
+// Hard-coded rather than parsed at runtime because go.mod is not
+// embedded in this binary; the constant is the build-time mirror.
+const UpstreamMinimumGoVersion = "1.26"
+
+// softwareRuntimePlatform formats the minimum supported Go version as a
+// schema.org runtimePlatform value (e.g. "Go 1.26"). Returns "" when the
+// caller did not thread a Go version through Deps/Page; the caller emits
+// the field with omitempty so an absent value produces no fabrication.
+func softwareRuntimePlatform(goVersion string) string {
+	if goVersion == "" {
+		return ""
+	}
+	return "Go " + goVersion
+}
+
 // jsonOrgID, jsonSiteID, jsonSoftwareID, jsonAuthorID are the canonical @id
 // values for the four project-level entities reified by
 // specification/structured-data.md § Entity graph. Each entity is emitted
@@ -95,17 +114,23 @@ func buildEntityGraph(in JSONLDInputs) []string {
 		Context: schema, Type: "WebSite", ID: jsonSiteID(base),
 		Name: "MuxMaster", URL: base + "/", Description: in.Page.Description,
 	}
+	type targetProductT struct {
+		Type                string `json:"@type"`
+		ApplicationCategory string `json:"applicationCategory"`
+	}
 	software := struct {
-		Context             string   `json:"@context"`
-		Type                string   `json:"@type"`
-		ID                  string   `json:"@id"`
-		Name                string   `json:"name"`
-		CodeRepository      string   `json:"codeRepository"`
-		ProgrammingLanguage string   `json:"programmingLanguage"`
-		License             string   `json:"license"`
-		Version             string   `json:"version"`
-		Description         string   `json:"description"`
-		SameAs              []string `json:"sameAs,omitempty"`
+		Context             string         `json:"@context"`
+		Type                string         `json:"@type"`
+		ID                  string         `json:"@id"`
+		Name                string         `json:"name"`
+		CodeRepository      string         `json:"codeRepository"`
+		ProgrammingLanguage string         `json:"programmingLanguage"`
+		License             string         `json:"license"`
+		Version             string         `json:"version"`
+		Description         string         `json:"description"`
+		RuntimePlatform     string         `json:"runtimePlatform,omitempty"`
+		TargetProduct       targetProductT `json:"targetProduct"`
+		SameAs              []string       `json:"sameAs,omitempty"`
 	}{
 		Context: schema, Type: "SoftwareSourceCode", ID: jsonSoftwareID(base),
 		Name:                "MuxMaster",
@@ -114,11 +139,20 @@ func buildEntityGraph(in JSONLDInputs) []string {
 		License:             "https://opensource.org/licenses/MIT",
 		Version:             in.Page.Version,
 		Description:         in.Page.Description,
-		// sameAs carries the legacy @id during the migration window so AI
-		// engines that have already consolidated facts under #software can
-		// reattribute them to #muxmaster. The third-party authoritative
-		// entries (GitHub repo, pkg.go.dev) are added by task #26.
-		SameAs: []string{jsonLegacySoftwareID(base)},
+		RuntimePlatform:     softwareRuntimePlatform(in.Page.GoVersion),
+		TargetProduct: targetProductT{
+			Type:                "SoftwareApplication",
+			ApplicationCategory: "DeveloperApplication",
+		},
+		// sameAs carries the legacy @id during the migration window
+		// (per task #23 + the @id migration policy in spec/structured-
+		// data.md), plus the authoritative third-party identity URLs
+		// for the MuxMaster module.
+		SameAs: []string{
+			"https://github.com/FlavioCFOliveira/MuxMaster",
+			"https://pkg.go.dev/github.com/FlavioCFOliveira/MuxMaster",
+			jsonLegacySoftwareID(base),
+		},
 	}
 	org := struct {
 		Context string `json:"@context"`

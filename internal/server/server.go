@@ -99,6 +99,7 @@ func (s *Server) Prerender() error {
 	deps := render.Deps{
 		Routes:    routeInfos(),
 		Version:   s.version,
+		GoVersion: render.UpstreamMinimumGoVersion,
 		BaseURL:   s.cfg.SiteBaseURL,
 		BuildTime: s.buildTime,
 		Renderer:  s.renderer,

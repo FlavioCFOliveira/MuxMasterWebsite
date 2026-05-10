@@ -55,6 +55,7 @@ type RouteInfo struct {
 type Deps struct {
 	Routes    []RouteInfo
 	Version   string
+	GoVersion string // Minimum supported Go version, mirrored from ../MuxMaster/go.mod (e.g. "1.26"). Sourced at build time and surfaced in JSON-LD SoftwareSourceCode.runtimePlatform.
 	BaseURL   string
 	BuildTime time.Time
 	// Renderer is exposed so HTML recipes can execute the parsed templates

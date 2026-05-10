@@ -399,6 +399,7 @@ func basePage(deps Deps, path, title, description, ogType, ogImagePath string, p
 		OGType:      ogType,
 		OGImage:     deps.BaseURL + ogImagePath,
 		Version:     deps.Version,
+		GoVersion:   deps.GoVersion,
 		CSSPath:     deps.Renderer.CSSPath(),
 		BaseURL:     deps.BaseURL,
 	}

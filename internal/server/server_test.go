@@ -104,10 +104,14 @@ func TestSmokeFullSite(t *testing.T) {
 			bodyMarkers: []string{"# MuxMaster", "## Documentation", "## API", "## Examples", "## Reference", "## Optional"},
 		},
 		{
-			path:        "/llms-full.txt",
-			wantStatus:  http.StatusOK,
-			wantCT:      "text/plain; charset=utf-8",
-			bodyMarkers: []string{"# MuxMaster", "/docs/routing.md", "# Full content"},
+			path:       "/llms-full.txt",
+			wantStatus: http.StatusOK,
+			wantCT:     "text/plain; charset=utf-8",
+			// Navigation index links to canonical HTML URLs (no .md);
+			// inlined-body headings use the route path form ("## /docs/
+			// routing"). Both are mandated by spec/geo.md § /llms-full.txt
+			// and enforced by tasks #14 and #15.
+			bodyMarkers: []string{"# MuxMaster", "## /docs/routing", "# Full content"},
 		},
 		{
 			path:        "/sitemap.xml",

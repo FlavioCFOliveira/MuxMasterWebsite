@@ -23,6 +23,7 @@ type Page struct {
 	Breadcrumbs []Breadcrumb
 	JSONLD      []string // Pre-encoded JSON-LD blocks (one per <script>).
 	Version     string   // Current MuxMaster version label.
+	GoVersion   string   // Minimum supported Go version (e.g. "1.26"); sourced from ../MuxMaster/go.mod at build time.
 	CSSPath     string   // Hashed CSS bundle URL.
 	BaseURL     string   // SITE_BASE_URL for absolute references.
 	UpstreamURL string   // Optional link to the upstream source file on GitHub.
