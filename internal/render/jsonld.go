@@ -52,16 +52,29 @@ func BuildJSONLD(in JSONLDInputs) []string {
 // schema is the JSON-LD context value emitted on every object.
 const schema = "https://schema.org"
 
-// jsonOrgID, jsonSiteID, jsonSoftwareID are the canonical @id values for
-// the project's primary entities. Linking by @id (rather than embedding the
-// entity inline every time) keeps the graph consistent and easier for
-// crawlers to deduplicate.
+// jsonOrgID, jsonSiteID, jsonSoftwareID, jsonAuthorID are the canonical @id
+// values for the four project-level entities reified by
+// specification/structured-data.md § Entity graph. Each entity is emitted
+// in full only on / (via buildEntityGraph) and referenced by @id from every
+// other page. Renaming any of these is governed by the @id migration policy
+// in the same spec.
 func jsonOrgID(base string) string      { return base + "/#org" }
 func jsonSiteID(base string) string     { return base + "/#website" }
 func jsonSoftwareID(base string) string { return base + "/#software" }
+func jsonAuthorID(base string) string   { return base + "/#author" }
 
-// landing graph: WebSite + SoftwareSourceCode + Organization.
-func buildLandingJSONLD(in JSONLDInputs) []string {
+// buildEntityGraph emits the four reified entity nodes (WebSite,
+// SoftwareSourceCode, Organization, Person) in full. Per
+// specification/structured-data.md § Entity graph and § Non-negotiables,
+// these nodes appear in full ONLY on the landing page; every other page
+// references them by @id. Renaming or restructuring is governed by the
+// @id migration policy in the same spec.
+//
+// Field completeness for each node is the subject of separate tasks (see
+// rmp tasks #23 through #28); this helper establishes the shape and the
+// single emission site, with the minimum fields required to make the
+// references resolvable today.
+func buildEntityGraph(in JSONLDInputs) []string {
 	base := in.Page.BaseURL
 	site := struct {
 		Context     string `json:"@context"`
@@ -103,7 +116,24 @@ func buildLandingJSONLD(in JSONLDInputs) []string {
 		Context: schema, Type: "Organization", ID: jsonOrgID(base),
 		Name: "FlavioCFOliveira", URL: "https://github.com/FlavioCFOliveira",
 	}
-	return []string{mustJSON(site), mustJSON(software), mustJSON(org)}
+	person := struct {
+		Context string `json:"@context"`
+		Type    string `json:"@type"`
+		ID      string `json:"@id"`
+		Name    string `json:"name"`
+		URL     string `json:"url"`
+	}{
+		Context: schema, Type: "Person", ID: jsonAuthorID(base),
+		Name: "Flávio Oliveira", URL: "https://github.com/FlavioCFOliveira",
+	}
+	return []string{mustJSON(site), mustJSON(software), mustJSON(org), mustJSON(person)}
+}
+
+// buildLandingJSONLD is the landing-page entry point. The landing page is
+// the single emission site for the four reified entity nodes; the helper
+// is delegated.
+func buildLandingJSONLD(in JSONLDInputs) []string {
+	return buildEntityGraph(in)
 }
 
 // article graph: TechArticle + BreadcrumbList. /docs/getting-started and a
