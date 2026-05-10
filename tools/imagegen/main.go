@@ -47,6 +47,9 @@ func main() {
 		{path: "static/img/logo-64.png", w: 64, h: 64, scaler: draw.CatmullRom},
 		{path: "static/img/logo-80.png", w: 80, h: 80, scaler: draw.CatmullRom},
 		{path: "static/img/logo-128.png", w: 128, h: 128, scaler: draw.CatmullRom},
+		{path: "static/img/logo-192.png", w: 192, h: 192, scaler: draw.CatmullRom},
+		{path: "static/img/logo-256.png", w: 256, h: 256, scaler: draw.CatmullRom},
+		{path: "static/img/logo-384.png", w: 384, h: 384, scaler: draw.CatmullRom},
 
 		// Favicon set used by templates/partials/head.html. PNG only; ICO is
 		// not produced (modern browsers prefer PNG and the spec lists PNGs

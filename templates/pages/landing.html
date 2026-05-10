@@ -7,17 +7,34 @@
   {{template "header" .Meta}}
   <main id="main" role="main" class="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
 
-    <section class="py-10 sm:py-16">
-      <h1 class="text-4xl font-bold tracking-tight sm:text-5xl">A radix-tree HTTP router for Go. Zero dependencies, O(k) lookups.</h1>
-      <p class="mt-5 max-w-2xl text-lg text-zinc-600 dark:text-zinc-400">
-        MuxMaster routes <strong>25&nbsp;ns</strong> on static paths and <strong>112&nbsp;ns</strong> on a single parameter (AMD&nbsp;Ryzen&nbsp;9&nbsp;5900HX, Go&nbsp;1.26.2), allocates <strong>zero bytes</strong> on static routes, and is <strong>100% compatible</strong> with the <code class="font-mono text-base">net/http</code> handler interface. Build production services on the Go standard library.
-      </p>
-      <div class="mt-7 flex flex-wrap gap-3">
-        <a href="/docs/getting-started" class="inline-flex h-11 items-center rounded bg-cyan-700 px-5 font-semibold text-white hover:bg-cyan-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-700 dark:focus-visible:outline-cyan-300">Get started</a>
-        <a href="/api" class="inline-flex h-11 items-center rounded border border-zinc-300 px-5 font-semibold hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-700 dark:border-zinc-700 dark:hover:bg-zinc-800 dark:focus-visible:outline-cyan-300">Read the API</a>
-        <a href="https://github.com/FlavioCFOliveira/MuxMaster" rel="noopener" class="inline-flex h-11 items-center rounded border border-zinc-300 px-5 font-semibold hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-700 dark:border-zinc-700 dark:hover:bg-zinc-800 dark:focus-visible:outline-cyan-300">View source on GitHub</a>
+    <section class="my-8 overflow-hidden rounded-2xl border border-zinc-200 bg-white p-6 sm:my-12 sm:p-10 dark:border-zinc-800 dark:bg-zinc-900">
+      <div class="grid items-center gap-8 md:grid-cols-[minmax(0,1fr)_auto] md:gap-12 lg:gap-16">
+        <div class="order-2 md:order-1">
+          <h1 class="text-5xl font-bold tracking-tight sm:text-6xl">MuxMaster</h1>
+          <p class="mt-3 text-xl font-semibold text-zinc-700 sm:text-2xl dark:text-zinc-200">A radix-tree HTTP router for Go. Zero dependencies, O(k) lookups.</p>
+          <p class="mt-5 max-w-2xl text-base text-zinc-600 sm:text-lg dark:text-zinc-400">
+            MuxMaster routes <strong>25&nbsp;ns</strong> on static paths and <strong>112&nbsp;ns</strong> on a single parameter (AMD&nbsp;Ryzen&nbsp;9&nbsp;5900HX, Go&nbsp;1.26.2), allocates <strong>zero bytes</strong> on static routes, and is <strong>100% compatible</strong> with the <code class="font-mono text-base">net/http</code> handler interface. Build production services on the Go standard library.
+          </p>
+          <div class="mt-7 flex flex-wrap gap-3">
+            <a href="/docs/getting-started" class="inline-flex h-11 items-center rounded bg-cyan-700 px-5 font-semibold text-white hover:bg-cyan-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-700 dark:focus-visible:outline-cyan-300">Get started</a>
+            <a href="/api" class="inline-flex h-11 items-center rounded border border-zinc-300 px-5 font-semibold hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-700 dark:border-zinc-700 dark:hover:bg-zinc-800 dark:focus-visible:outline-cyan-300">Read the API</a>
+            <a href="https://github.com/FlavioCFOliveira/MuxMaster" rel="noopener" class="inline-flex h-11 items-center rounded border border-zinc-300 px-5 font-semibold hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-700 dark:border-zinc-700 dark:hover:bg-zinc-800 dark:focus-visible:outline-cyan-300">View source on GitHub</a>
+          </div>
+          <p class="mt-4 text-sm text-zinc-500 dark:text-zinc-500">Released as <span class="font-mono">{{.Meta.Version}}</span> · MIT-licensed · Requires Go&nbsp;1.26+.</p>
+        </div>
+        <div class="order-1 flex justify-center md:order-2 md:justify-end">
+          {{/* The H1 "MuxMaster" already conveys the brand, so the logo is
+               decorative for assistive tech (alt=""). fetchpriority="high"
+               and explicit width/height keep the LCP element on the
+               critical path with zero CLS. */}}
+          <img src="/static/img/logo-192.png"
+               alt=""
+               width="192" height="192"
+               class="h-32 w-32 sm:h-40 sm:w-40 md:h-48 md:w-48"
+               decoding="async"
+               fetchpriority="high">
+        </div>
       </div>
-      <p class="mt-4 text-sm text-zinc-500 dark:text-zinc-500">Released as <span class="font-mono">{{.Meta.Version}}</span> · MIT-licensed · Requires Go&nbsp;1.26+.</p>
     </section>
 
     <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-labelledby="highlights-heading">
