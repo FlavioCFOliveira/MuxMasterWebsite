@@ -191,6 +191,7 @@ func DocPageRecipe(spec DocPageSpec, loader *content.Loader, ogImagePath string,
 				BuildTime:    deps.BuildTime,
 				DateModified: sourceMtime, // zero → omit; never substituted with BuildTime.
 				HowToSource:  howToSrc,
+				RenderedHTML: htmlBody, // FAQPage scanner reads <section data-conversation>.
 			})
 
 			return deps.Renderer.ExecuteTemplate("doc-page.html", Data{Meta: page, Body: body})

@@ -26,6 +26,7 @@ type JSONLDInputs struct {
 	DateModified  time.Time // truthful last-modified date sourced from front-matter or git-log build manifest; zero means omit per the doctrine.
 	HowToSource   []byte    // optional; if present the generator scans for `## Step N — name` headings
 	HasPart       []string  // for "collection" family: canonical absolute URLs of the items the page lists; emitted as CollectionPage.hasPart.
+	RenderedHTML  []byte    // optional; when present the FAQPage scanner walks <section data-conversation> regions to extract Q→A pairs into a single flat FAQPage block (spec/geo.md § Question-Oriented Content).
 }
 
 // BuildJSONLD returns one or more JSON-LD objects (each pre-stringified) for
@@ -279,6 +280,9 @@ func buildArticleJSONLD(in JSONLDInputs) []string {
 	if howto := buildHowToJSONLD(in); howto != "" {
 		out = append(out, howto)
 	}
+	if faq := buildFAQPageJSONLD(in); faq != "" {
+		out = append(out, faq)
+	}
 	return out
 }
 
@@ -379,6 +383,116 @@ func breadcrumbJSON(p meta.Page) string {
 		})
 	}
 	return mustJSON(doc{Context: schema, Type: "BreadcrumbList", Elements: els})
+}
+
+// conversationSectionRE matches a <section data-conversation="..."> ... </section>
+// region in rendered HTML. Multi-line, non-greedy: a page may contain
+// several chains and the scanner walks all of them.
+var conversationSectionRE = regexp.MustCompile(`(?is)<section\s+[^>]*\bdata-conversation\s*=\s*"[^"]*"[^>]*>(.*?)</section>`)
+
+// faqHeadingOpenRE matches the opening tag of an in-section question
+// heading (h2, h3, h4). RE2 has no backreferences, so the scanner finds
+// these positions and walks each heading manually to extract the heading
+// text (until the matching close tag) and the answer body (until the next
+// heading or end of section).
+var faqHeadingOpenRE = regexp.MustCompile(`(?is)<(h[234])\b[^>]*>`)
+
+// htmlTagsRE strips HTML tags; used to convert an answer body to plain
+// text suitable for schema.org Question.acceptedAnswer.text.
+var htmlTagsRE = regexp.MustCompile(`<[^>]+>`)
+
+// htmlEntities maps the small set of named entities Goldmark emits in
+// rendered text. Numeric entities are decoded inline.
+var htmlEntities = map[string]string{
+	"&amp;":  "&",
+	"&lt;":   "<",
+	"&gt;":   ">",
+	"&quot;": `"`,
+	"&apos;": "'",
+	"&#39;":  "'",
+	"&nbsp;": " ",
+}
+
+// buildFAQPageJSONLD scans the rendered HTML for <section data-conversation>
+// regions, collects every interrogative heading + following content as a
+// Question/Answer pair, and emits a single flat FAQPage block when at
+// least three pairs are present. Lead and follow-up questions across
+// multiple chains on the same page are flattened into one mainEntity
+// array (per spec/structured-data.md § Master schema table cross-cutting
+// rule + spec/geo.md § Question-Oriented Content § JSON-LD coupling).
+//
+// Returns "" when the HTML carries no <section data-conversation> region
+// or fewer than three Q→A pairs in total.
+func buildFAQPageJSONLD(in JSONLDInputs) string {
+	if len(in.RenderedHTML) == 0 {
+		return ""
+	}
+	type qaAnswer struct {
+		Type string `json:"@type"`
+		Text string `json:"text"`
+	}
+	type qa struct {
+		Type           string   `json:"@type"`
+		Name           string   `json:"name"`
+		AcceptedAnswer qaAnswer `json:"acceptedAnswer"`
+	}
+	type doc struct {
+		Context    string `json:"@context"`
+		Type       string `json:"@type"`
+		MainEntity []qa   `json:"mainEntity"`
+	}
+	var pairs []qa
+	for _, sectionMatch := range conversationSectionRE.FindAllSubmatch(in.RenderedHTML, -1) {
+		body := sectionMatch[1]
+		// Find every opening heading; each becomes a question candidate.
+		// The body of an answer runs from the heading's closing tag to
+		// the next heading or end of the section.
+		opens := faqHeadingOpenRE.FindAllSubmatchIndex(body, -1)
+		for i, om := range opens {
+			tag := string(body[om[2]:om[3]])
+			closeTag := []byte("</" + tag + ">")
+			afterOpen := om[1]
+			closeIdx := bytes.Index(body[afterOpen:], closeTag)
+			if closeIdx < 0 {
+				continue
+			}
+			question := faqPlainText(body[afterOpen : afterOpen+closeIdx])
+			if !strings.HasSuffix(question, "?") {
+				continue
+			}
+			answerStart := afterOpen + closeIdx + len(closeTag)
+			answerEnd := len(body)
+			if i+1 < len(opens) {
+				answerEnd = opens[i+1][0]
+			}
+			answer := faqPlainText(body[answerStart:answerEnd])
+			if answer == "" {
+				continue
+			}
+			pairs = append(pairs, qa{
+				Type:           "Question",
+				Name:           question,
+				AcceptedAnswer: qaAnswer{Type: "Answer", Text: answer},
+			})
+		}
+	}
+	if len(pairs) < 3 {
+		return ""
+	}
+	return mustJSON(doc{Context: schema, Type: "FAQPage", MainEntity: pairs})
+}
+
+// faqPlainText converts an HTML fragment to a normalised single-line
+// plain-text string suitable for FAQPage schema fields. Tags are removed,
+// entities decoded, whitespace collapsed.
+func faqPlainText(b []byte) string {
+	stripped := htmlTagsRE.ReplaceAllString(string(b), " ")
+	for ent, repl := range htmlEntities {
+		stripped = strings.ReplaceAll(stripped, ent, repl)
+	}
+	// Collapse runs of whitespace into a single space.
+	stripped = strings.Join(strings.Fields(stripped), " ")
+	return strings.TrimSpace(stripped)
 }
 
 // stepHeadingRE matches "## Step N — name" or "## Step N - name" (en-dash or
