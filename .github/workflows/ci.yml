@@ -1,0 +1,67 @@
+# CI pipeline — see specification/ci.md for the contract.
+#
+# Required steps (every pull request):
+#   1. Setup
+#   2. Vet & test (the structured-data validation gate runs here as
+#      `go test`; failures of TestJSONLDValidationGate or any other test
+#      block merge per spec/ci.md § Required steps).
+#   3. Build
+#   4. Upload test output as a build artefact (the validator's per-page
+#      defects, when present, land in the test log; reviewers download
+#      the artefact from the PR).
+#
+# Out of scope today: Lighthouse, nu-validator, pa11y. Tracked in
+# spec/ci.md § Out of scope.
+
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-validate:
+    name: test + structured-data validation gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: go vet
+        run: go vet ./...
+
+      # The structured-data validation gate (spec/ci.md § Validation)
+      # runs as part of `go test`. TestJSONLDValidationGate exercises
+      # every prerendered HTML page through both the schema.org
+      # structural checks (task #50) and the rich-result eligibility
+      # checks (task #51). Failure here blocks merge.
+      - name: go test (includes JSON-LD validation gate)
+        run: go test -race -v ./... | tee test-output.log
+        shell: bash
+
+      - name: go build
+        run: go build ./...
+
+      # Upload the full test log as a build artefact so reviewers can
+      # audit the per-page validator output even on a green PR (warnings
+      # and intentional omissions are recorded in the audit-trail HTML
+      # comments above each <script> tag and surface in the test log
+      # whenever a page is logged at -v).
+      - name: Upload test output artefact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jsonld-validation-output
+          path: test-output.log
+          retention-days: 30
