@@ -113,6 +113,21 @@ func TestJSONLDValidationGate(t *testing.T) {
 					t.Errorf("%s: missing required @type %q (master schema table)", tc.path, must)
 				}
 			}
+
+			// Rich-results eligibility checks (per task #51). Google's
+			// Rich Results Test API would gate these in production; the
+			// in-process linter substitutes per spec/ci.md § Validator-
+			// tooling choice. The eligibility rules below are the subset
+			// of Google's published requirements that the doctrine
+			// enforces unconditionally.
+			for i, raw := range blocks {
+				var doc map[string]any
+				if err := json.Unmarshal([]byte(raw), &doc); err != nil {
+					continue
+				}
+				typ, _ := doc["@type"].(string)
+				assertRichResultEligible(t, fmt.Sprintf("%s block %d", tc.path, i), typ, doc)
+			}
 			// Reified-entity discipline: only / may emit these in full.
 			if tc.path != "/" {
 				for _, forbidden := range tc.mustNotContainInline {
@@ -149,6 +164,106 @@ func TestJSONLDValidationGate(t *testing.T) {
 				t.Errorf("%s: unresolved @id reference %q (no node with that @id was emitted on this page, on /, or on the article subpage)", tc.path, ref)
 			}
 		})
+	}
+}
+
+// assertRichResultEligible enforces the rich-result-eligibility subset
+// of Google's published requirements for each type the site emits.
+// Failures here are blocking — the test fails and CI rejects the PR.
+//
+// Coverage (today): FAQPage, HowTo, BreadcrumbList, TechArticle,
+// Dataset, SoftwareSourceCode, Person, Organization, WebSite,
+// CollectionPage, APIReference, DefinedTermSet, Code. The list is
+// intentionally complete for every type emitted by the renderer; new
+// types must add their own clause here.
+func assertRichResultEligible(t *testing.T, where, typ string, doc map[string]any) {
+	t.Helper()
+	requireFields := func(fields ...string) {
+		for _, f := range fields {
+			v, ok := doc[f]
+			if !ok || v == nil {
+				t.Errorf("%s (%s): missing required field %q for rich-results eligibility", where, typ, f)
+				continue
+			}
+			if s, isStr := v.(string); isStr && s == "" {
+				t.Errorf("%s (%s): empty %q for rich-results eligibility", where, typ, f)
+			}
+		}
+	}
+	requireArrayMin := func(field string, min int) {
+		v, ok := doc[field]
+		if !ok || v == nil {
+			t.Errorf("%s (%s): missing array field %q (min %d)", where, typ, field, min)
+			return
+		}
+		arr, ok := v.([]any)
+		if !ok {
+			t.Errorf("%s (%s): %q is not an array", where, typ, field)
+			return
+		}
+		if len(arr) < min {
+			t.Errorf("%s (%s): %q has %d entries, want >= %d for rich-results eligibility", where, typ, field, len(arr), min)
+		}
+	}
+
+	switch typ {
+	case "FAQPage":
+		// Google requires mainEntity[] with at least 1 Question.
+		// Spec/structured-data.md sets the threshold higher (3 pairs)
+		// and the FAQPage emitter only fires above that threshold, so
+		// any emitted FAQPage MUST already carry >= 3 entries.
+		requireArrayMin("mainEntity", 3)
+	case "HowTo":
+		requireFields("name")
+		requireArrayMin("step", 1)
+	case "BreadcrumbList":
+		requireArrayMin("itemListElement", 1)
+		// Each element must have position + item.@id + item.name.
+		els, _ := doc["itemListElement"].([]any)
+		for i, raw := range els {
+			el, _ := raw.(map[string]any)
+			if _, ok := el["position"]; !ok {
+				t.Errorf("%s (BreadcrumbList): element %d missing position", where, i)
+			}
+			itemAny, ok := el["item"]
+			if !ok {
+				t.Errorf("%s (BreadcrumbList): element %d missing item", where, i)
+				continue
+			}
+			item, ok := itemAny.(map[string]any)
+			if !ok {
+				t.Errorf("%s (BreadcrumbList): element %d item is not an object {@id,name}", where, i)
+				continue
+			}
+			if _, ok := item["@id"].(string); !ok {
+				t.Errorf("%s (BreadcrumbList): element %d item missing @id", where, i)
+			}
+			if _, ok := item["name"].(string); !ok {
+				t.Errorf("%s (BreadcrumbList): element %d item missing name", where, i)
+			}
+		}
+	case "TechArticle":
+		requireFields("headline", "inLanguage", "mainEntityOfPage", "isPartOf", "author", "publisher")
+	case "Dataset":
+		requireFields("name", "creator", "license")
+		requireArrayMin("variableMeasured", 1)
+		requireArrayMin("distribution", 1)
+	case "SoftwareSourceCode":
+		requireFields("name", "codeRepository", "programmingLanguage", "license")
+	case "Person":
+		requireFields("name", "url")
+	case "Organization":
+		requireFields("name", "url", "logo")
+	case "WebSite":
+		requireFields("name", "url", "inLanguage", "publisher")
+	case "CollectionPage":
+		requireFields("name", "url", "inLanguage", "publisher")
+	case "APIReference":
+		requireFields("name", "targetPlatform", "executableLibraryName", "about")
+	case "DefinedTermSet":
+		requireArrayMin("hasDefinedTerm", 1)
+	case "Code":
+		requireFields("name", "programmingLanguage", "text", "codeSampleType")
 	}
 }
 
