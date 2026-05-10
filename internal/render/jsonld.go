@@ -155,14 +155,22 @@ func buildEntityGraph(in JSONLDInputs) []string {
 		},
 	}
 	org := struct {
-		Context string `json:"@context"`
-		Type    string `json:"@type"`
-		ID      string `json:"@id"`
-		Name    string `json:"name"`
-		URL     string `json:"url"`
+		Context string   `json:"@context"`
+		Type    string   `json:"@type"`
+		ID      string   `json:"@id"`
+		Name    string   `json:"name"`
+		URL     string   `json:"url"`
+		Logo    string   `json:"logo"`
+		SameAs  []string `json:"sameAs,omitempty"`
 	}{
 		Context: schema, Type: "Organization", ID: jsonOrgID(base),
-		Name: "FlavioCFOliveira", URL: "https://github.com/FlavioCFOliveira",
+		Name: "FlavioCFOliveira",
+		URL:  "https://github.com/FlavioCFOliveira",
+		Logo: base + "/static/img/logo-384.png",
+		// Authoritative third-party identity URL for the publisher.
+		// Additional entries (project page, public technical blog) are
+		// added here only as they become verifiable; never invented.
+		SameAs: []string{"https://github.com/FlavioCFOliveira"},
 	}
 	person := struct {
 		Context string   `json:"@context"`
