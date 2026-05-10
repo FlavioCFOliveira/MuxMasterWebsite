@@ -149,21 +149,21 @@ func LLMsFullRecipe(loader *content.Loader, routeToContent map[string]string) Re
 			var b bytes.Buffer
 			b.Write(out)
 			b.WriteString("\n---\n\n# Full content\n\n")
-			// Walk the route table in deterministic order so the output is
-			// stable across runs (a precondition for stable ETags).
-			paths := make([]string, 0, len(deps.Routes))
-			for _, r := range deps.Routes {
+			// Inlined bodies MUST appear in the same order as the routes
+			// appear in the navigation index above (per specification/geo.md
+			// § /llms-full.txt). The navigation index walks groupRoutes
+			// output in section sequence (Documentation → API → Examples →
+			// Reference); we replicate that walk here so a crawler can
+			// locate the body it cares about by route path within the
+			// bundle, in a position that matches its nav-index position.
+			for _, r := range navIndexOrder(deps.Routes) {
 				if !r.HasMarkdown {
 					continue
 				}
-				if _, ok := routeToContent[r.Path]; !ok {
+				cp, ok := routeToContent[r.Path]
+				if !ok {
 					continue
 				}
-				paths = append(paths, r.Path)
-			}
-			sort.Strings(paths)
-			for _, p := range paths {
-				cp := routeToContent[p]
 				src, err := loader.Load(cp)
 				if err != nil {
 					return nil, err
@@ -172,7 +172,7 @@ func LLMsFullRecipe(loader *content.Loader, routeToContent map[string]string) Re
 				// specification/geo.md § /llms-full.txt: "Each inlined body
 				// MUST be preceded by a heading line that names the route URL
 				// (for example `## /docs/routing`)."
-				fmt.Fprintf(&b, "## %s\n\n", p)
+				fmt.Fprintf(&b, "## %s\n\n", r.Path)
 				b.Write(src)
 				if len(src) == 0 || src[len(src)-1] != '\n' {
 					b.WriteByte('\n')
@@ -485,6 +485,22 @@ func buildLLMs(deps Deps) []byte {
 	b.WriteString("- [GitHub repository](https://github.com/FlavioCFOliveira/MuxMaster): canonical source for MuxMaster.\n")
 
 	return []byte(b.String())
+}
+
+// navIndexOrder returns the routes in the same sequence the /llms.txt and
+// /llms-full.txt navigation indexes emit them: Documentation → API →
+// Examples → Reference (benchmarks → changelog → releases → security →
+// compatibility → contributing). Within each section, groupRoutes places
+// index pages first, then sorts the remaining routes by path. The /
+// landing page is excluded — the navigation index has no entry for it
+// and /llms-full.txt does not inline its body.
+func navIndexOrder(routes []RouteInfo) []RouteInfo {
+	groups := groupRoutes(routes)
+	var ordered []RouteInfo
+	for _, key := range []string{"docs", "api", "examples", "benchmarks", "changelog", "releases", "security", "compatibility", "contributing"} {
+		ordered = append(ordered, groups[key]...)
+	}
+	return ordered
 }
 
 // groupRoutes buckets the routes by their Section field. Index pages
