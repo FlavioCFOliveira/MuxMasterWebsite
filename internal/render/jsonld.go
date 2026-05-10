@@ -60,8 +60,16 @@ const schema = "https://schema.org"
 // in the same spec.
 func jsonOrgID(base string) string      { return base + "/#org" }
 func jsonSiteID(base string) string     { return base + "/#website" }
-func jsonSoftwareID(base string) string { return base + "/#software" }
+func jsonSoftwareID(base string) string { return base + "/#muxmaster" }
 func jsonAuthorID(base string) string   { return base + "/#author" }
+
+// jsonLegacySoftwareID is the previous canonical @id for the MuxMaster
+// module, retained ONLY so the bridging mechanism in
+// specification/structured-data.md § @id migration policy can list it in
+// the SoftwareSourceCode node's sameAs array during the 90-day transition
+// window. After the window ends, this constant and its usage MUST be
+// deleted (rmp follow-up task to be created at the end of the window).
+func jsonLegacySoftwareID(base string) string { return base + "/#software" }
 
 // buildEntityGraph emits the four reified entity nodes (WebSite,
 // SoftwareSourceCode, Organization, Person) in full. Per
@@ -88,15 +96,16 @@ func buildEntityGraph(in JSONLDInputs) []string {
 		Name: "MuxMaster", URL: base + "/", Description: in.Page.Description,
 	}
 	software := struct {
-		Context             string `json:"@context"`
-		Type                string `json:"@type"`
-		ID                  string `json:"@id"`
-		Name                string `json:"name"`
-		CodeRepository      string `json:"codeRepository"`
-		ProgrammingLanguage string `json:"programmingLanguage"`
-		License             string `json:"license"`
-		Version             string `json:"version"`
-		Description         string `json:"description"`
+		Context             string   `json:"@context"`
+		Type                string   `json:"@type"`
+		ID                  string   `json:"@id"`
+		Name                string   `json:"name"`
+		CodeRepository      string   `json:"codeRepository"`
+		ProgrammingLanguage string   `json:"programmingLanguage"`
+		License             string   `json:"license"`
+		Version             string   `json:"version"`
+		Description         string   `json:"description"`
+		SameAs              []string `json:"sameAs,omitempty"`
 	}{
 		Context: schema, Type: "SoftwareSourceCode", ID: jsonSoftwareID(base),
 		Name:                "MuxMaster",
@@ -105,6 +114,11 @@ func buildEntityGraph(in JSONLDInputs) []string {
 		License:             "https://opensource.org/licenses/MIT",
 		Version:             in.Page.Version,
 		Description:         in.Page.Description,
+		// sameAs carries the legacy @id during the migration window so AI
+		// engines that have already consolidated facts under #software can
+		// reattribute them to #muxmaster. The third-party authoritative
+		// entries (GitHub repo, pkg.go.dev) are added by task #26.
+		SameAs: []string{jsonLegacySoftwareID(base)},
 	}
 	org := struct {
 		Context string `json:"@context"`
