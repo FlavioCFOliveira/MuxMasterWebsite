@@ -250,12 +250,13 @@ type contentMtimer interface {
 }
 
 // changeFreqFor returns the sitemap changefreq value per route family. The
-// values are taken verbatim from specification/seo.md "sitemap.xml".
+// values are taken verbatim from specification/seo.md "sitemap.xml" table:
+//   weekly:  /, /changelog
+//   monthly: /docs/, /examples/, every other documentation page
+//   yearly:  /releases/<v>  (immutable release notes)
 func changeFreqFor(path string) string {
 	switch {
 	case path == "/":
-		return "weekly"
-	case path == "/docs/" || path == "/examples/":
 		return "weekly"
 	case path == "/changelog":
 		return "weekly"
