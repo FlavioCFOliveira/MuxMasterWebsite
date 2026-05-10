@@ -170,8 +170,12 @@ func TestLLMsRecipeStructure(t *testing.T) {
 	}
 }
 
-func TestLLMsFullRecipePointsAtMarkdown(t *testing.T) {
+func TestLLMsFullRecipeNavigationLinksUseHTMLURLs(t *testing.T) {
 	t.Parallel()
+	// Per specification/geo.md § /llms-full.txt: the bundled file MUST NOT
+	// list .md companion URLs in its navigation index. Links in the index
+	// point at canonical HTML URLs only. The .md companions are reachable
+	// via their explicit .md URLs but never through this index.
 	deps := fixtureDeps(t)
 	loader := fixtureLoader(t)
 	mapping := map[string]string{
@@ -185,8 +189,21 @@ func TestLLMsFullRecipePointsAtMarkdown(t *testing.T) {
 		t.Fatalf("Build: %v", err)
 	}
 	s := string(body)
-	if !strings.Contains(s, "/docs/routing.md") {
-		t.Error("/llms-full.txt must link to .md companions")
+	// The navigation index sits before the `---` separator. Extract it and
+	// ensure no .md links appear there.
+	sepIdx := strings.Index(s, "\n---\n")
+	if sepIdx < 0 {
+		t.Fatalf("/llms-full.txt missing the `---` separator before inlined bodies")
+	}
+	navIndex := s[:sepIdx]
+	for _, badPath := range []string{"/docs/routing.md", "/api.md", "/examples/jwt.md"} {
+		if strings.Contains(navIndex, badPath) {
+			t.Errorf("/llms-full.txt navigation index must not list %s (HTML URL only)", badPath)
+		}
+	}
+	// And the canonical HTML URL must appear.
+	if !strings.Contains(navIndex, "/docs/routing)") {
+		t.Error("/llms-full.txt navigation index must link to the canonical HTML URL /docs/routing")
 	}
 	if !strings.Contains(s, "# Full content") {
 		t.Error("/llms-full.txt must carry the inlined-bodies section header")
@@ -268,7 +285,7 @@ func TestRobotsRecipeListsExpectedBots(t *testing.T) {
 		"GPTBot", "ChatGPT-User", "OAI-SearchBot",
 		"ClaudeBot", "anthropic-ai",
 		"PerplexityBot", "Google-Extended", "Applebot-Extended",
-		"CCBot", "Bytespider", "DiffBot", "Diffbot",
+		"CCBot", "Bytespider", "Diffbot",
 		"OmgiliBot", "Amazonbot", "meta-externalagent",
 	} {
 		if !strings.Contains(s, "User-agent: "+bot) {

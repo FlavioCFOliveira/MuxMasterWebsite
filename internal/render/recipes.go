@@ -131,7 +131,7 @@ func LLMsRecipe() Recipe {
 		Path:        "/llms.txt",
 		ContentType: "text/plain; charset=utf-8",
 		Build: func(deps Deps) ([]byte, error) {
-			return buildLLMs(deps, false), nil
+			return buildLLMs(deps), nil
 		},
 	}
 }
@@ -145,7 +145,7 @@ func LLMsFullRecipe(loader *content.Loader, routeToContent map[string]string) Re
 		Path:        "/llms-full.txt",
 		ContentType: "text/plain; charset=utf-8",
 		Build: func(deps Deps) ([]byte, error) {
-			out := buildLLMs(deps, true)
+			out := buildLLMs(deps)
 			var b bytes.Buffer
 			b.Write(out)
 			b.WriteString("\n---\n\n# Full content\n\n")
@@ -449,10 +449,13 @@ func filterRoutesByOrder(routes []RouteInfo, section, indexPath string) []RouteI
 	return out
 }
 
-// buildLLMs is the shared body builder for /llms.txt and /llms-full.txt. The
-// only difference between the two is the link target: HTML in /llms.txt, .md
-// in /llms-full.txt (with the HTML equivalent shown alongside).
-func buildLLMs(deps Deps, full bool) []byte {
+// buildLLMs is the shared body builder for /llms.txt and /llms-full.txt. Both
+// files emit the same navigation index, with links pointing at canonical HTML
+// URLs (per specification/geo.md § /llms-full.txt: the bundled file MUST NOT
+// list .md companion URLs in its navigation index). The difference between
+// the two is that /llms-full.txt appends the inlined Markdown bodies after a
+// `---` separator (handled by LLMsFullRecipe, not here).
+func buildLLMs(deps Deps) []byte {
 	var b strings.Builder
 	b.WriteString("# MuxMaster\n\n")
 	b.WriteString("> MuxMaster is a high-performance, zero-dependency HTTP router for Go. " +
@@ -462,9 +465,9 @@ func buildLLMs(deps Deps, full bool) []byte {
 
 	groups := groupRoutes(deps.Routes)
 
-	writeSection(&b, "Documentation", groups["docs"], deps.BaseURL, full)
-	writeSection(&b, "API", groups["api"], deps.BaseURL, full)
-	writeSection(&b, "Examples", groups["examples"], deps.BaseURL, full)
+	writeSection(&b, "Documentation", groups["docs"], deps.BaseURL)
+	writeSection(&b, "API", groups["api"], deps.BaseURL)
+	writeSection(&b, "Examples", groups["examples"], deps.BaseURL)
 
 	// "Reference" covers benchmarks, changelog, releases, security,
 	// compatibility, contributing — per specification/geo.md.
@@ -472,7 +475,7 @@ func buildLLMs(deps Deps, full bool) []byte {
 	for _, key := range []string{"benchmarks", "changelog", "releases", "security", "compatibility", "contributing"} {
 		reference = append(reference, groups[key]...)
 	}
-	writeSection(&b, "Reference", reference, deps.BaseURL, full)
+	writeSection(&b, "Reference", reference, deps.BaseURL)
 
 	b.WriteString("## Optional\n\n")
 	b.WriteString("- [GitHub repository](https://github.com/FlavioCFOliveira/MuxMaster): canonical source for MuxMaster.\n")
@@ -501,19 +504,17 @@ func groupRoutes(routes []RouteInfo) map[string][]RouteInfo {
 	return g
 }
 
-func writeSection(b *strings.Builder, heading string, items []RouteInfo, baseURL string, full bool) {
+func writeSection(b *strings.Builder, heading string, items []RouteInfo, baseURL string) {
 	if len(items) == 0 {
 		return
 	}
 	fmt.Fprintf(b, "## %s\n\n", heading)
 	for _, r := range items {
-		htmlURL := baseURL + r.Path
-		if full && r.HasMarkdown {
-			mdURL := htmlURL + ".md"
-			fmt.Fprintf(b, "- [%s](%s): %s (HTML: %s)\n", r.Title, mdURL, r.Description, htmlURL)
-		} else {
-			fmt.Fprintf(b, "- [%s](%s): %s\n", r.Title, htmlURL, r.Description)
-		}
+		// Navigation-index links always target the canonical HTML URL
+		// (per specification/geo.md § /llms-full.txt). Markdown
+		// companions are reachable via their explicit .md URLs but are
+		// never listed here.
+		fmt.Fprintf(b, "- [%s](%s): %s\n", r.Title, baseURL+r.Path, r.Description)
 	}
 	b.WriteString("\n")
 }
