@@ -84,24 +84,55 @@
       <pre class="mt-4 overflow-x-auto rounded bg-zinc-950 p-4 text-sm text-zinc-100 dark:bg-zinc-950"><code class="language-go">package main
 
 import (
+    "encoding/json"
+    "errors"
     "log"
     "net/http"
 
     "github.com/FlavioCFOliveira/MuxMaster"
 )
 
+var errUserNotFound = errors.New("user not found")
+
 func main() {
     mux := muxmaster.New()
 
-    mux.GETE("/users/:id", func(w http.ResponseWriter, r *http.Request) error {
+    mux.GET("/users/:id", func(w http.ResponseWriter, r *http.Request) {
         id, err := muxmaster.ParamsFromContext(r.Context()).Int("id")
         if err != nil {
-            return muxmaster.Error(http.StatusBadRequest, err)
+            http.Error(w, "invalid id", http.StatusBadRequest)
+            return
         }
-        return muxmaster.JSON(w, http.StatusOK, map[string]int{"id": id})
+
+        name, err := lookupUser(id)
+        switch {
+        case errors.Is(err, errUserNotFound):
+            http.NotFound(w, r)
+            return
+        case err != nil:
+            log.Printf("lookup user %d: %v", id, err)
+            http.Error(w, "internal error", http.StatusInternalServerError)
+            return
+        }
+
+        w.Header().Set("Content-Type", "application/json")
+        if err := json.NewEncoder(w).Encode(map[string]string{"name": name}); err != nil {
+            log.Printf("encode user %d: %v", id, err)
+        }
     })
 
-    log.Fatal(http.ListenAndServe(":8080", mux))
+    if err := http.ListenAndServe(":8080", mux); err != nil {
+        log.Fatal(err)
+    }
+}
+
+func lookupUser(id int) (string, error) {
+    users := map[int]string{1: "alice", 2: "bob"}
+    name, ok := users[id]
+    if !ok {
+        return "", errUserNotFound
+    }
+    return name, nil
 }
 </code></pre>
       <p class="mt-3 text-sm text-zinc-600 dark:text-zinc-400">Read <a href="/docs/getting-started" class="text-cyan-700 underline dark:text-cyan-300">Getting started</a> for the full walkthrough, or jump to the <a href="/api" class="text-cyan-700 underline dark:text-cyan-300">API reference</a>.</p>
