@@ -1,385 +1,227 @@
-# Static Site example
+# Static site example
 
-HTTP conditional GET (`304` via `ETag`/`Last-Modified`) and range requests (`206` partial content) on top of MuxMaster's `ServeFiles` primitive. Reach for it when serving static assets that must round-trip with byte-range and revalidation semantics.
+A documentation static-site server that exercises the full HTTP vocabulary for static delivery: conditional GETs (304 via `ETag` / `Last-Modified`), range requests (206 partial content), HEAD, OPTIONS / CORS, gzip via `Accept-Encoding`, security headers, rate-limited backlog, RealIP behind a reverse proxy, clean-path normalisation, custom HTML 404, redirect chains, sub-handler mount for versioned documentation, and route inspection. Reach for this example when serving any non-trivial static asset tree.
 
-## Source
+## Step 1 — Construct the router and configure dispatch flags
+
+The four flags on `*Mux` declare how the dispatcher behaves on edge cases the static-site path encounters all the time: trailing-slash redirects, method-not-allowed responses, and OPTIONS handling for CORS preflight.
 
 ```go
-// Package main implements a documentation static website served with MuxMaster.
-//
-// It demonstrates the full HTTP vocabulary for static file serving:
-//   - Conditional GET (304 Not Modified via ETag / Last-Modified)
-//   - Range requests (partial content, 206)
-//   - Content-Type detection and charset negotiation
-//   - HEAD requests for metadata without body transfer
-//   - OPTIONS for CORS preflight
-//   - Cache-Control strategy (long TTL for versioned assets, no-cache for HTML)
-//   - Gzip compression via Accept-Encoding
-//   - Security headers (X-Frame-Options, X-Content-Type-Options, CSP)
-//   - CORS for cross-origin asset requests (e.g. web fonts, CDN)
-//   - Request IDs for distributed tracing
-//   - Rate limiting via ThrottleBacklog
-//   - RealIP resolution behind a reverse proxy
-//   - Clean-path normalisation before routing
-//   - Custom HTML 404 and method-not-allowed pages
-//   - Redirect chains for canonical URLs
-//   - Sub-handler mount for versioned documentation
-//
-// Start the server:
-//
-//	go run .
-//
-// Try it:
-//
-//	curl -I http://localhost:8080/assets/style.css            # HEAD + ETag
-//	curl -H 'Accept-Encoding: gzip' http://localhost:8080/   # gzip body
-//	curl -r 0-499 http://localhost:8080/assets/style.css      # Range request
-//	curl -H 'Origin: https://example.com' -X OPTIONS http://localhost:8080/assets/style.css
-package main
+r := mm.New()
 
-import (
-	"compress/gzip"
-	"context"
-	"errors"
-	"fmt"
-	"io"
-	"log/slog"
-	"net/http"
-	"net/netip"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
+r.RedirectTrailingSlash = true
+r.RedirectFixedPath = false
+r.HandleMethodNotAllowed = true
+r.HandleOPTIONS = true
+```
 
-	mm "github.com/FlavioCFOliveira/MuxMaster"
-	mw "github.com/FlavioCFOliveira/MuxMaster/middleware"
+`RedirectTrailingSlash` matters because `http.FileServer` requires a trailing slash on directories — keeping both layers in agreement avoids a redirect loop.
+
+## Step 2 — Wire the themed 404, method-not-allowed, and global OPTIONS handlers
+
+`r.NotFound`, `r.MethodNotAllowed`, and `r.GlobalOPTIONS` are the override slots for the dispatcher's defaults. The static-site uses themed HTML 404, a plain-text method-not-allowed (browsers never POST to a static file), and an OPTIONS handler that answers CORS preflight for every registered route in one place.
+
+```go
+r.NotFound = http.HandlerFunc(serveNotFound(staticRoot))
+
+r.MethodNotAllowed = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+    w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+    w.Header().Set("Allow", w.Header().Get("Allow")) // already set by the router
+    http.Error(w, fmt.Sprintf("method %s not allowed", req.Method), http.StatusMethodNotAllowed)
+})
+
+r.GlobalOPTIONS = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+    w.Header().Set("Access-Control-Allow-Origin", "*")
+    w.Header().Set("Access-Control-Allow-Methods", w.Header().Get("Allow"))
+    w.Header().Set("Access-Control-Allow-Headers", "Accept, Accept-Encoding, Range")
+    w.Header().Set("Access-Control-Max-Age", "86400")
+    w.WriteHeader(http.StatusNoContent)
+})
+```
+
+`Access-Control-Max-Age: 86400` tells browsers to cache the preflight result for a day, eliminating the per-request OPTIONS round-trip for repeated cross-origin reads.
+
+## Step 3 — Normalise paths in `Pre`
+
+`CleanPath` runs before the radix tree resolves the URL — it collapses `//`, resolves `..` segments, and drops any path-traversal attempt before the dispatcher sees it. Belongs in `Pre` because the cleaned path is the one that gets matched.
+
+```go
+r.Pre(mw.CleanPath())
+```
+
+This also closes a double-hit cache vector: `/foo` and `//foo` would otherwise be two distinct keys with the same body.
+
+## Step 4 — Apply the global middleware stack
+
+Five layers of cross-cutting concerns: `RealIP` (rewrite `RemoteAddr` from `X-Forwarded-For` when a trusted proxy is in front), `RequestID` (correlation across logs), `Logger` (structured access log), `Recoverer` (panic safety), `ThrottleBacklog` (concurrency cap with bounded queue), `Compress` (gzip on text/* and application/* responses ≥ 1 kB), and four security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`).
+
+```go
+r.Use(
+    mw.RealIP(&loopback, &private10, &private172, &private192),
+    mw.RequestID(),
+    mw.Logger(os.Stdout),
+    mw.RecovererWithLogger(log),
+    mw.ThrottleBacklog(500, 200, 8*time.Second),
+    mw.Compress(gzip.BestSpeed),
+    mw.SetHeader("X-Content-Type-Options", "nosniff"),
+    mw.SetHeader("X-Frame-Options", "SAMEORIGIN"),
+    mw.SetHeader("Referrer-Policy", "strict-origin-when-cross-origin"),
+    mw.SetHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()"),
+)
+```
+
+`ThrottleBacklog(500, 200, 8s)` is the canonical guard against accidental DDoS from scrapers or CI load tests: 500 in-flight requests with a 200-request backlog, 8-second queue timeout. Returns 503 when the backlog overflows.
+
+## Step 5 — Register the FastHandler health probe (GET + HEAD)
+
+Health probes are called thousands of times per second by load balancers and operators. `GETFast` registers the route on the `FastHandler` path so the request resolves with zero allocations, and `HEADFast` covers tools that probe with HEAD only.
+
+```go
+r.GETFast("/health", func(w http.ResponseWriter, _ *http.Request, _ mm.Params) {
+    w.Header().Set("Content-Type", "application/json")
+    _, _ = io.WriteString(w, `{"status":"ok"}`)
+})
+
+r.HEADFast("/health", func(w http.ResponseWriter, _ *http.Request, _ mm.Params) {
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusOK)
+})
+```
+
+`io.WriteString` on a literal avoids both the `fmt` package's reflection cost and the byte-slice allocation `[]byte(s)` would imply.
+
+## Step 6 — Wire a no-cache JSON API endpoint via `With()`
+
+`With()` returns a group with extra middleware applied only to its routes. The example uses it for a small JSON config endpoint that must NEVER be cached: `NoCache` writes the headers (`Cache-Control: no-store, no-cache, must-revalidate`, `Pragma: no-cache`), `Timeout` bounds the handler.
+
+```go
+api := r.With(mw.NoCache(), mw.Timeout(10*time.Second))
+api.GET("/api/config", serveConfig)
+```
+
+`With()` is the right choice when only a handful of routes need the extra layer; for a larger surface use `r.Group("/api").Use(...)` instead.
+
+## Step 7 — Serve HTML pages with `no-cache` so updates land immediately
+
+`With(SetHeader("Cache-Control", "no-cache, must-revalidate"))` is the canonical policy for HTML: the browser keeps the page but revalidates with the server on every navigation, picking up new content without a hard refresh.
+
+```go
+pages := r.With(
+    mw.SetHeader("Cache-Control", "no-cache, must-revalidate"),
 )
 
-func main() {
-	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+pages.GET("/", serveFile(staticRoot, "/index.html"))
+pages.HEAD("/", serveFile(staticRoot, "/index.html"))
+```
 
-	// Root of the static file tree (relative to the working directory).
-	// Run the server from the examples/static-site directory.
-	staticRoot := http.Dir("./static")
+`http.FileServer` (under `serveFile`) handles `ETag`, `Last-Modified`, `If-None-Match`, `If-Modified-Since`, range requests, and HEAD transparently — there is no need to write any of that by hand.
 
-	// ── Router ───────────────────────────────────────────────────────────────
-	r := mm.New()
+## Step 8 — Redirect old URL shapes to the canonical docs path
 
-	// RedirectTrailingSlash handles /docs/v1/ → /docs/v1 and vice-versa
-	// automatically; http.FileServer also needs the trailing slash on directories,
-	// so we keep both enabled and let each layer handle its own case.
-	r.RedirectTrailingSlash = true
-	r.RedirectFixedPath = false
-	r.HandleMethodNotAllowed = true
-	r.HandleOPTIONS = true
+`mm.Redirect` writes the redirect with the supplied status code. 301 is the right choice for "moved permanently" — search engines and intermediate caches transfer their signal from the legacy URL to the canonical one.
 
-	// ── Custom fallback handlers ──────────────────────────────────────────────
+```go
+r.GET("/doc", func(w http.ResponseWriter, req *http.Request) {
+    mm.Redirect(w, req, http.StatusMovedPermanently, "/docs/v2/")
+})
+r.GET("/documentation", func(w http.ResponseWriter, req *http.Request) {
+    mm.Redirect(w, req, http.StatusMovedPermanently, "/docs/v2/")
+})
+```
 
-	// NotFound: serve the custom HTML 404 page instead of Go's default plain text.
-	r.NotFound = http.HandlerFunc(serveNotFound(staticRoot))
+When a redirect needs to be temporary (A/B test, maintenance redirect), use 302 / 307 instead — search engines preserve signal on the original URL.
 
-	// MethodNotAllowed: return a simple HTML message for non-GET/HEAD requests on
-	// static routes (browsers never POST to a static file, but robots might).
-	r.MethodNotAllowed = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Header().Set("Allow", w.Header().Get("Allow")) // already set by the router
-		http.Error(w, fmt.Sprintf("method %s not allowed", req.Method), http.StatusMethodNotAllowed)
-	})
+## Step 9 — Mount versioned documentation sub-routers
 
-	// GlobalOPTIONS: respond to preflight requests for all registered routes.
-	r.GlobalOPTIONS = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", w.Header().Get("Allow"))
-		w.Header().Set("Access-Control-Allow-Headers", "Accept, Accept-Encoding, Range")
-		w.Header().Set("Access-Control-Max-Age", "86400")
-		w.WriteHeader(http.StatusNoContent)
-	})
+`r.Mount(prefix, handler)` attaches a sub-handler at a prefix and strips the prefix before forwarding. Each docs-version sub-mux runs its own middleware (cache policy, robots tag, throttle) and serves its own file tree.
 
-	// ── Pre-middleware: before route matching ─────────────────────────────────
+```go
+docsV1 := buildDocsMux(http.Dir("./static/docs/v1"))
+docsV2 := buildDocsMux(http.Dir("./static/docs/v2"))
+r.Mount("/docs/v1", docsV1)
+r.Mount("/docs/v2", docsV2)
+```
 
-	// CleanPath normalises paths like /docs//v1/../v2/ → /docs/v2 before the
-	// radix tree sees them, preventing traversal attacks and double-hit caching.
-	r.Pre(mw.CleanPath())
+After mount, a request to `/docs/v1/index.html` arrives at `docsV1` as `/index.html`, which is what `http.FileServer` rooted at `./static/docs/v1` expects to see.
 
-	// ── Global middleware ─────────────────────────────────────────────────────
+## Step 10 — Serve fingerprinted assets with immutable cache + CORS
 
-	// Trusted upstream CIDRs for RealIP — localhost + common private ranges.
-	loopback, _ := netip.ParsePrefix("127.0.0.0/8")
-	private10, _ := netip.ParsePrefix("10.0.0.0/8")
-	private172, _ := netip.ParsePrefix("172.16.0.0/12")
-	private192, _ := netip.ParsePrefix("192.168.0.0/16")
+Versioned assets (e.g. `/assets/style.abc123.css`) carry their content hash in the URL — when the body changes, the URL changes too. The `immutable` directive plus `max-age=31536000` (one year) tells browsers and CDNs to keep the asset until the URL stops being referenced, eliminating revalidation traffic for assets that cannot change behind their URL.
 
-	r.Use(
-		// Overwrite r.RemoteAddr with X-Forwarded-For when behind nginx/Caddy.
-		mw.RealIP(&loopback, &private10, &private172, &private192),
+```go
+assetsGroup := r.With(
+    mw.SetHeader("Cache-Control", "public, max-age=31536000, immutable"),
+    mw.CORS(mw.CORSOptions{
+        AllowedOrigins: []string{"*"},
+        AllowedMethods: []string{http.MethodGet, http.MethodHead},
+        AllowedHeaders: []string{"Accept-Encoding", "Range"},
+        ExposedHeaders: []string{"Content-Length", "Content-Range", "ETag"},
+        MaxAge:         86400,
+    }),
+)
 
-		// Assign or propagate X-Request-ID for access log correlation.
-		mw.RequestID(),
+assetsGroup.ServeFiles("/assets/*filepath", staticRoot)
+```
 
-		// Structured access log: "2026-04-21T... GET /assets/style.css 200 1.2ms"
-		mw.Logger(os.Stdout),
+`ServeFiles` registers GET and HEAD for the catch-all pattern; `http.FileServer` handles ETag, range, conditional GET, and HEAD transparently. Per `SECURITY.md` CDX-S8-002, `ServeFiles` refuses to register when the mux is configured with both `UseRawPath=true` and `UnescapePathValues=true` simultaneously — both stay at default to let `net/http` canonicalise the path before dispatch.
 
-		// Recover from panics so a bad handler does not bring down the whole server.
-		mw.RecovererWithLogger(log),
+## Step 11 — Expose route introspection for debugging
 
-		// Global rate limit: max 500 concurrent requests, backlog 200, 8s timeout.
-		// Protects against accidental DDoS from scrapers or CI load tests.
-		mw.ThrottleBacklog(500, 200, 8*time.Second),
+`r.Routes()` returns a slice of `RouteInfo` — every method/pattern pair the dispatcher knows about. The example exposes them at `/debug/routes` with the request id in the response header, useful for verifying the dispatch tree against an expected manifest.
 
-		// Gzip: compress text/* and application/* responses >= 1 kB.
-		// http.FileServer sets Content-Type before writing — Compress picks it up.
-		mw.Compress(gzip.BestSpeed),
+```go
+r.GET("/debug/routes", func(w http.ResponseWriter, req *http.Request) {
+    traceID := mw.GetRequestID(req.Context())
+    w.Header().Set("X-Trace-ID", traceID)
+    routes := r.Routes()
+    type entry struct {
+        Method  string `json:"method"`
+        Pattern string `json:"pattern"`
+    }
+    list := make([]entry, 0, len(routes))
+    for _, ri := range routes {
+        list = append(list, entry{Method: ri.Method, Pattern: ri.Pattern})
+    }
+    _ = mm.JSON(w, http.StatusOK, list)
+})
+```
 
-		// Security headers applied to every response.
-		// X-Content-Type-Options prevents MIME sniffing.
-		mw.SetHeader("X-Content-Type-Options", "nosniff"),
-		// X-Frame-Options prevents clickjacking.
-		mw.SetHeader("X-Frame-Options", "SAMEORIGIN"),
-		// Referrer-Policy controls how much info is sent in Referer headers.
-		mw.SetHeader("Referrer-Policy", "strict-origin-when-cross-origin"),
-		// Permissions-Policy restricts access to browser APIs.
-		mw.SetHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()"),
-	)
+In production, gate this endpoint behind an authentication middleware — exposing the full route table to an unauthenticated reader leaks API shape to attackers.
 
-	// ── Health check ─────────────────────────────────────────────────────────
+## Step 12 — Serve with hardened timeouts and graceful shutdown
 
-	// FastHandler: no context allocation, 0 allocs for this static route.
-	// Ideal for load-balancer probes called thousands of times per second.
-	r.GETFast("/health", func(w http.ResponseWriter, _ *http.Request, _ mm.Params) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, `{"status":"ok"}`)
-	})
+The same shape as the graceful-shutdown example: a goroutine-driven start, signal-driven drain, bounded grace period with `Shutdown(ctx)`. Static content is unusual in needing a long write timeout because slow clients legitimately consume a multi-megabyte asset over a metered connection.
 
-	// HEAD /health for tools that only probe with HEAD.
-	r.HEADFast("/health", func(w http.ResponseWriter, _ *http.Request, _ mm.Params) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-	})
-
-	// ── Dynamic API endpoint (JSON, no-cache) ─────────────────────────────────
-
-	// With() returns a Group with extra middleware applied only to its routes.
-	// NoCache ensures these endpoints are never stored by proxies or browsers.
-	api := r.With(mw.NoCache(), mw.Timeout(10*time.Second))
-	api.GET("/api/config", serveConfig)
-
-	// ── HTML pages ────────────────────────────────────────────────────────────
-
-	// HTML pages use NoCache so changes are picked up immediately.
-	// Cache-Control is set per-route via SetHeader.
-	pages := r.With(
-		mw.SetHeader("Cache-Control", "no-cache, must-revalidate"),
-	)
-
-	// Serve the site root — http.FileServer handles:
-	//   • ETag generation and If-None-Match → 304 Not Modified
-	//   • Last-Modified and If-Modified-Since → 304 Not Modified
-	//   • Range requests → 206 Partial Content
-	//   • HEAD (automatically — no body but all headers present)
-	//   • Directory index (index.html auto-served for directories)
-	pages.GET("/", serveFile(staticRoot, "/index.html"))
-	pages.HEAD("/", serveFile(staticRoot, "/index.html"))
-
-	// Redirect old URL shape to canonical docs path.
-	r.GET("/doc", func(w http.ResponseWriter, req *http.Request) {
-		mm.Redirect(w, req, http.StatusMovedPermanently, "/docs/v2/")
-	})
-	r.GET("/documentation", func(w http.ResponseWriter, req *http.Request) {
-		mm.Redirect(w, req, http.StatusMovedPermanently, "/docs/v2/")
-	})
-
-	// ── Versioned documentation (Mount) ──────────────────────────────────────
-
-	// Mount attaches a sub-handler at a prefix, stripping the prefix before
-	// forwarding. Each versioned docs sub-mux handles its own file tree.
-	//
-	// After mount, requests to /docs/v1/index.html arrive at docsV1 as /index.html.
-	docsV1 := buildDocsMux(http.Dir("./static/docs/v1"))
-	docsV2 := buildDocsMux(http.Dir("./static/docs/v2"))
-	r.Mount("/docs/v1", docsV1)
-	r.Mount("/docs/v2", docsV2)
-
-	// ── Versioned static assets ───────────────────────────────────────────────
-
-	// Assets use immutable cache: long TTL + immutable directive.
-	// The asset URL encodes a content hash, e.g. /assets/style.css.
-	// http.FileServer handles ETag / Last-Modified / Range / HEAD automatically.
-	assetsGroup := r.With(
-		// Long-lived cache for fingerprinted assets.
-		mw.SetHeader("Cache-Control", "public, max-age=31536000, immutable"),
-		// Allow CDNs and cross-origin pages to load fonts and scripts.
-		mw.CORS(mw.CORSOptions{
-			AllowedOrigins: []string{"*"},
-			AllowedMethods: []string{http.MethodGet, http.MethodHead},
-			AllowedHeaders: []string{"Accept-Encoding", "Range"},
-			ExposedHeaders: []string{"Content-Length", "Content-Range", "ETag"},
-			MaxAge:         86400,
-		}),
-	)
-
-	// ServeFiles registers GET and HEAD for the catch-all pattern.
-	// http.FileServer underneath handles:
-	//   GET  /assets/style.css                → 200 with body
-	//   HEAD /assets/style.css                → 200 headers only
-	//   GET  /assets/style.css (with ETag)    → 304 Not Modified
-	//   GET  /assets/large.js (Range: 0-1023) → 206 Partial Content
-	//
-	// SECURITY (CDX-S8-002): ServeFiles refuses to register when this Mux is
-	// configured with both UseRawPath=true AND UnescapePathValues=true. We
-	// keep both at default (false) to let net/http canonicalise the path
-	// before dispatch, and http.FileServer applies path.Clean internally.
-	// See SECURITY.md "UseRawPath traversal".
-	assetsGroup.ServeFiles("/assets/*filepath", staticRoot)
-
-	// ── Route inspection ──────────────────────────────────────────────────────
-
-	// List all registered routes — useful for debugging the routing tree.
-	r.GET("/debug/routes", func(w http.ResponseWriter, req *http.Request) {
-		traceID := mw.GetRequestID(req.Context())
-		w.Header().Set("X-Trace-ID", traceID)
-		routes := r.Routes()
-		type entry struct {
-			Method  string `json:"method"`
-			Pattern string `json:"pattern"`
-		}
-		list := make([]entry, 0, len(routes))
-		for _, ri := range routes {
-			list = append(list, entry{Method: ri.Method, Pattern: ri.Pattern})
-		}
-		_ = mm.JSON(w, http.StatusOK, list)
-	})
-
-	// ── Server ────────────────────────────────────────────────────────────────
-
-	srv := &http.Server{
-		Addr:         ":8080",
-		Handler:      r,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 60 * time.Second,
-		IdleTimeout:  120 * time.Second,
-	}
-
-	go func() {
-		log.Info("static site listening", "addr", srv.Addr,
-			"tip", "curl -I http://localhost:8080/assets/style.css")
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Error("server error", "err", err)
-			os.Exit(1)
-		}
-	}()
-
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Error("shutdown error", "err", err)
-	}
-	log.Info("server stopped")
-}
-
-// ─── Sub-muxer for versioned docs (Mount demo) ────────────────────────────────
-
-// buildDocsMux returns a Mux that serves a versioned documentation directory.
-// All routes use an HTML-appropriate cache policy and moderate rate limiting.
-func buildDocsMux(root http.FileSystem) http.Handler {
-	sub := mm.New()
-	sub.Use(
-		mw.SetHeader("Cache-Control", "no-cache, must-revalidate"),
-		mw.SetHeader("X-Robots-Tag", "index, follow"),
-		mw.ThrottleBacklog(100, 50, 5*time.Second),
-	)
-
-	// Serve directory index — http.FileServer auto-redirects /docs/v1 → /docs/v1/
-	// (the trailing slash) and then serves index.html for the directory.
-	sub.ServeFiles("/*filepath", root)
-	return sub
-}
-
-// ─── Handlers ────────────────────────────────────────────────────────────────
-
-// serveFile returns a HandlerFunc that serves a single file from root.
-// http.ServeContent / http.ServeFile honours:
-//   - If-Modified-Since → 304
-//   - If-None-Match (ETag) → 304
-//   - Range → 206 Partial Content
-//   - HEAD → headers only, no body
-func serveFile(root http.FileSystem, name string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		f, err := root.Open(name)
-		if err != nil {
-			http.NotFound(w, r)
-			return
-		}
-		defer f.Close()
-		stat, err := f.Stat()
-		if err != nil {
-			http.Error(w, "internal error", http.StatusInternalServerError)
-			return
-		}
-		// http.ServeContent handles ETag, Last-Modified, Range and HEAD transparently.
-		http.ServeContent(w, r, name, stat.ModTime(), f.(io.ReadSeeker))
-	}
-}
-
-// serveNotFound returns a HandlerFunc that serves the custom 404 HTML page.
-func serveNotFound(root http.FileSystem) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		f, err := root.Open("/404.html")
-		if err != nil {
-			http.NotFound(w, r)
-			return
-		}
-		defer f.Close()
-		stat, err := f.Stat()
-		if err != nil {
-			http.NotFound(w, r)
-			return
-		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.WriteHeader(http.StatusNotFound)
-		// http.ServeContent would send 200; use manual copy for the 404 body.
-		http.ServeContent(w, r, "404.html", stat.ModTime(), f.(io.ReadSeeker))
-	}
-}
-
-// serveConfig returns a JSON payload of public site configuration.
-// Registered with NoCache + Timeout via With().
-func serveConfig(w http.ResponseWriter, r *http.Request) {
-	traceID := mw.GetRequestID(r.Context())
-	_ = mm.JSON(w, http.StatusOK, map[string]any{
-		"site":     "MuxMaster Docs",
-		"version":  "v1.0.0",
-		"trace_id": traceID,
-		"routes": []string{
-			"/",
-			"/docs/v1/",
-			"/docs/v2/",
-			"/assets/*",
-			"/health",
-		},
-	})
+```go
+srv := &http.Server{
+    Addr:         ":8080",
+    Handler:      r,
+    ReadTimeout:  15 * time.Second,
+    WriteTimeout: 60 * time.Second,
+    IdleTimeout:  120 * time.Second,
 }
 ```
 
-[`examples/static-site/main.go` at v1.0.1](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/examples/static-site/main.go)
+`WriteTimeout` here is the upper bound on a single response — if a client is so slow that writing a single asset takes more than 60 seconds, the connection is forcibly closed.
 
 ## Common questions
 
 <section data-conversation="static-site-patterns">
 
-### How do I serve a static directory through MuxMaster?
+### How do I serve a directory tree of static files through MuxMaster?
 
-Register a catch-all route that delegates to `mux.ServeFiles(dir)`: for example `m.GET("/static/*filepath", mux.ServeFiles("static"))`. The helper returns a handler that resolves the requested path, sets `Content-Type` from the file extension, and streams the body with conditional-GET support.
+Register a catch-all route that delegates to `mux.ServeFiles`: for example `assetsGroup.ServeFiles("/assets/*filepath", staticRoot)`. The helper resolves the requested path, sets `Content-Type` from the file extension, and delegates to `http.FileServer`, which handles ETag, conditional GET, range requests, and HEAD transparently.
 
-### How do I make sure ETags are stable across deploys?
+### How do I use the immutable-cache directive correctly?
 
-Generate the ETag from the file's content hash (sha256, truncated) at startup and serve it with `If-None-Match` evaluation. The example program walks the static directory once and stores the ETag map in memory; restart-as-deploy regenerates the table while the binary stays running for at most one process lifetime.
+Apply `Cache-Control: public, max-age=31536000, immutable` ONLY to URLs whose body cannot change behind the URL — typically content-hash-fingerprinted assets like `/assets/style.abc123.css`. HTML pages and any URL that may serve different bytes over time MUST use `no-cache, must-revalidate` instead, or browsers will cache stale content for a year.
 
-### How do I support partial-content (range) requests?
+### How do I support partial-content (range) requests for large files?
 
-`mux.ServeFiles` already handles `Range` headers and returns `206 Partial Content` with `Content-Range` when the request asks for a slice of the file. No extra handler code is needed; the helper delegates to `net/http.ServeContent` under the hood.
+`mux.ServeFiles` already handles `Range` headers and returns 206 with `Content-Range` when the request asks for a slice of the file. No extra handler code is needed; the helper delegates to `http.ServeContent`, which negotiates ranges, ETags, and conditional GETs in one pass.
 
 </section>
+
+## Upstream source
+
+Every code excerpt above is lifted verbatim from [`examples/static-site/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/examples/static-site/main.go) at the v1.0.1 tag. The upstream directory also contains the `static/` tree the example serves (the index, asset stylesheet, two versioned `docs/` subtrees, and the themed 404 page) and the `serveFile` / `serveNotFound` helpers.
