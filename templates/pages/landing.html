@@ -31,7 +31,15 @@
                (50 KB) — the LCP the Lighthouse mobile run measures —
                while desktops get a sharper logo-384 (162 KB) at the
                larger md/lg display sizes. The <img> fallback covers
-               browsers that ignore <picture> media queries. */}}
+               browsers that ignore <picture> media queries.
+
+               TODO (rmp #55): once the imagegen tool gains AVIF and
+               WebP encoders, add <source type="image/avif" …> and
+               <source type="image/webp" …> entries ahead of the PNG
+               sources. Only the existing PNG variants are emitted
+               today because no encoder is available in the build
+               environment; pointing at non-existent variants would
+               produce 404s. */}}
           <picture>
             <source media="(min-width: 1024px)" srcset="/static/img/logo-384.png">
             <img src="/static/img/logo-256.png"
