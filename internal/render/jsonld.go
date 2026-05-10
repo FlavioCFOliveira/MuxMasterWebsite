@@ -284,32 +284,17 @@ func buildCollectionJSONLD(in JSONLDInputs) []string {
 	return []string{mustJSON(collection), breadcrumbJSON(in.Page)}
 }
 
-// api graph: TechArticle + BreadcrumbList + a SoftwareSourceCode entry that
-// points at the upstream module. The reference SoftwareSourceCode is local
-// to /api so it does not collide with the landing page's @id.
+// api graph: TechArticle + BreadcrumbList. /api references the
+// SoftwareSourceCode entity by @id (the canonical /#muxmaster node emitted
+// in full only on /). APIReference is added by task #33; this function
+// stops at the article + breadcrumb shape until then.
+//
+// Per spec/structured-data.md § Non-negotiables, this function MUST NOT
+// emit an inline SoftwareSourceCode redefinition — the helper that used
+// to live here was deleted because it minted a duplicate /api#software
+// @id, fragmenting the citation graph for AI engines.
 func buildAPIJSONLD(in JSONLDInputs) []string {
-	out := buildArticleJSONLD(in)
-	canonical := in.Page.Canonical
-	software := struct {
-		Context             string `json:"@context"`
-		Type                string `json:"@type"`
-		ID                  string `json:"@id"`
-		Name                string `json:"name"`
-		CodeRepository      string `json:"codeRepository"`
-		ProgrammingLanguage string `json:"programmingLanguage"`
-		License             string `json:"license"`
-		Version             string `json:"version"`
-		URL                 string `json:"url"`
-	}{
-		Context: schema, Type: "SoftwareSourceCode", ID: canonical + "#software",
-		Name:                "MuxMaster",
-		CodeRepository:      "https://github.com/FlavioCFOliveira/MuxMaster",
-		ProgrammingLanguage: "Go",
-		License:             "https://opensource.org/licenses/MIT",
-		Version:             in.Page.Version,
-		URL:                 "https://github.com/FlavioCFOliveira/MuxMaster",
-	}
-	return append(out, mustJSON(software))
+	return buildArticleJSONLD(in)
 }
 
 // idRef is the JSON-LD "{@id: ...}" shorthand used to reference another
