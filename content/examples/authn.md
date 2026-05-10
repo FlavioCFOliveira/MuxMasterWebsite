@@ -208,3 +208,21 @@ func main() {
 ```
 
 [`examples/authn/main.go` at v1.0.1](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/examples/authn/main.go)
+
+## Common questions
+
+<section data-conversation="authn-patterns">
+
+### How do I add session-based authentication to a MuxMaster app?
+
+Wrap the protected group with an authentication middleware that resolves the session from a cookie and attaches the user to the request context. The example program above does exactly that with `g.Use(auth.RequireSession(store))`; routes outside the group remain public.
+
+### How do I redirect anonymous users to a login page?
+
+Inside the middleware, when the session lookup returns no user, write a 302 with `Location: /login?next=<path>` and return without calling `next.ServeHTTP`. The login handler reads `next` from the query and redirects back after successful authentication.
+
+### How do I rotate the session token after login?
+
+Generate a new token, write it to the session store with the user's id, and set the cookie with the new value before responding to the login request. Rotation prevents session-fixation attacks; the old token is deleted from the store either immediately or after a short grace window.
+
+</section>

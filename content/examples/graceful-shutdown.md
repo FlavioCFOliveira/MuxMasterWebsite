@@ -154,3 +154,21 @@ func slowHandler(w http.ResponseWriter, req *http.Request) {
 ```
 
 [`examples/graceful-shutdown/main.go` at v1.0.1](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/examples/graceful-shutdown/main.go)
+
+## Common questions
+
+<section data-conversation="graceful-shutdown-patterns">
+
+### How do I shut down a MuxMaster server without dropping in-flight requests?
+
+Call `srv.Shutdown(ctx)` on the `*http.Server` (not the router itself) — `Shutdown` stops accepting new connections, waits for in-flight handlers to complete, and returns when the listener and the active connections have all closed. The example program does this in response to `SIGINT`/`SIGTERM`.
+
+### How do I bound the grace period?
+
+Construct the context passed to `Shutdown` with a deadline (`context.WithTimeout(ctx, 30*time.Second)`). When the deadline elapses, `Shutdown` returns `context.DeadlineExceeded` and the in-flight requests are dropped — a forced exit after a bounded wait, never an infinite hang.
+
+### How do I close other resources (database, cache) on the way down?
+
+Treat the server shutdown and resource shutdown as separate steps in a deterministic order: drain HTTP first (so handlers stop touching the resources), then close database connections, then flush logs, then exit. The example wires this as a sequence of `defer` calls in `main` so the shutdown path is local to the file that owns each resource.
+
+</section>

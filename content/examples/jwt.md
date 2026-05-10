@@ -300,3 +300,21 @@ func main() {
 ```
 
 [`examples/jwt/main.go` at v1.0.1](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/examples/jwt/main.go)
+
+## Common questions
+
+<section data-conversation="jwt-patterns">
+
+### How do I verify a JWT on every protected request?
+
+Mount the protected routes inside a group, then call `g.Use(jwt.Authenticate(verifier))` once. The middleware extracts the token from the `Authorization: Bearer <token>` header, verifies it with the supplied `Verifier`, and attaches the parsed claims to the request context.
+
+### What happens if the token is expired?
+
+The verifier returns an error and the middleware responds with `401 Unauthorized` + `WWW-Authenticate: Bearer error="invalid_token"`. The example respects RFC 6750 so well-known clients (curl, httpie, OpenAPI consumers) surface a precise error message instead of a generic 401.
+
+### How do I read the user id from inside a protected handler?
+
+Read the claims from the request context with `jwt.ClaimsFromContext(r.Context())` and pull the `sub` (subject) field. The middleware sets the value once per request; downstream handlers see the same claims regardless of how deep the call stack is.
+
+</section>

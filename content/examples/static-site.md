@@ -365,3 +365,21 @@ func serveConfig(w http.ResponseWriter, r *http.Request) {
 ```
 
 [`examples/static-site/main.go` at v1.0.1](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/examples/static-site/main.go)
+
+## Common questions
+
+<section data-conversation="static-site-patterns">
+
+### How do I serve a static directory through MuxMaster?
+
+Register a catch-all route that delegates to `mux.ServeFiles(dir)`: for example `m.GET("/static/*filepath", mux.ServeFiles("static"))`. The helper returns a handler that resolves the requested path, sets `Content-Type` from the file extension, and streams the body with conditional-GET support.
+
+### How do I make sure ETags are stable across deploys?
+
+Generate the ETag from the file's content hash (sha256, truncated) at startup and serve it with `If-None-Match` evaluation. The example program walks the static directory once and stores the ETag map in memory; restart-as-deploy regenerates the table while the binary stays running for at most one process lifetime.
+
+### How do I support partial-content (range) requests?
+
+`mux.ServeFiles` already handles `Range` headers and returns `206 Partial Content` with `Content-Range` when the request asks for a slice of the file. No extra handler code is needed; the helper delegates to `net/http.ServeContent` under the hood.
+
+</section>

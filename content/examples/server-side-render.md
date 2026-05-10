@@ -303,3 +303,21 @@ func main() {
 ```
 
 [`examples/server-side-render/main.go` at v1.0.1](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/examples/server-side-render/main.go)
+
+## Common questions
+
+<section data-conversation="ssr-patterns">
+
+### How do I render an HTML template from a MuxMaster handler?
+
+Construct an `*html/template.Template` once at startup, store it on the application struct, and call `tmpl.ExecuteTemplate(w, "name", data)` from the handler. The example program parses every template under `/templates/` at startup; per-request rendering avoids the parse cost and makes hot reloads explicit.
+
+### How do I pass data into the template?
+
+Define a struct that mirrors the page's view model and pass it as the third argument to `ExecuteTemplate`. Keep the struct flat where possible; deeply nested view models slow down template execution and obscure which fields the template actually references.
+
+### How do I test a server-side-rendered route?
+
+Construct the router with the same registration function the binary uses, run the request through `httptest.NewRecorder`, and parse the response body with `golang.org/x/net/html` (or a regex for simple assertions). Assert on the rendered HTML, not the template variables — the test confirms what the user actually sees.
+
+</section>

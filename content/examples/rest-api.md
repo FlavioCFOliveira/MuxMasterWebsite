@@ -791,3 +791,21 @@ func findAuthorByID(s *Store, id string) (*Author, bool) {
 ```
 
 [`examples/rest-api/main.go` at v1.0.1](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/examples/rest-api/main.go)
+
+## Common questions
+
+<section data-conversation="rest-api-patterns">
+
+### How do I structure CRUD routes for a single resource?
+
+Map the five canonical operations to the five HTTP methods on a single pattern: `GET /users` (list), `POST /users` (create), `GET /users/:id` (read), `PUT /users/:id` (update), `DELETE /users/:id` (delete). The example program registers all five with `m.GET`/`m.POST`/etc.; each handler returns JSON via `mux.JSON`.
+
+### How do I validate the request body before touching the database?
+
+Decode into a typed struct, then call a separate validator (a method on the struct or a third-party library). Return `400 Bad Request` with a machine-readable JSON error body when validation fails; the database call happens only after validation passes. The example demonstrates the pattern with a `validate` package on each create/update handler.
+
+### How do I version the API?
+
+Mount each version under its own prefix — `m.Group("/v1")`, `m.Group("/v2")` — and register the version-specific handlers on the group. Routes that survived unchanged across versions can be registered on a shared group factory; routes that diverge are registered separately. The example keeps `/v1` only because adding `/v2` is documentation rather than code.
+
+</section>

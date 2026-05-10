@@ -369,3 +369,21 @@ func main() {
 ```
 
 [`examples/cache/main.go` at v1.0.1](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/examples/cache/main.go)
+
+## Common questions
+
+<section data-conversation="cache-patterns">
+
+### How do I cache an expensive handler response in memory?
+
+Wrap the handler with a cache middleware keyed on the request URL (or a tuple of URL + relevant headers). The example program reads from the cache on every request and falls through to the underlying handler only on a miss; the response is recorded as bytes and served as `text/html` (or whatever Content-Type the handler chose) on subsequent hits.
+
+### How do I invalidate a cached entry when the underlying data changes?
+
+Either let the entry expire on a TTL or expose an `Invalidate(key)` method that the write handler calls after mutating the underlying record. The example uses a TTL because cache invalidation correctness is a deep topic; explicit invalidation is layered on top when the application owns the writes.
+
+### What's the right TTL for a cache entry?
+
+Match the TTL to the freshness contract the page makes with its readers — a benchmark page tolerates hours, a leaderboard tolerates seconds. The cache middleware accepts a per-route TTL function so different routes can use different policies without duplicating the middleware.
+
+</section>

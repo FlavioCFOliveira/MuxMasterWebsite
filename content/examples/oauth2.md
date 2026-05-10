@@ -101,3 +101,21 @@ func main() {
 ```
 
 [`examples/oauth2/main.go` at v1.0.1](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/examples/oauth2/main.go)
+
+## Common questions
+
+<section data-conversation="oauth2-patterns">
+
+### How do I add OAuth2 login with an external provider?
+
+Register two handlers — `/auth/login` redirects to the provider's authorisation URL with a state parameter, and `/auth/callback` exchanges the returned code for a token and creates a local session. The example program ships both handlers with state validation and PKCE; copy the file into a new project and replace the provider configuration.
+
+### How do I store the state parameter so the callback can verify it?
+
+Sign the state with a per-process secret and stash it in a short-lived cookie (`HttpOnly`, `Secure`, `SameSite=Lax`). On the callback, read the cookie and verify the signature. The cookie is preferred over a server-side store because the OAuth2 spec already requires the state parameter to be unguessable; signing makes forgery infeasible.
+
+### Why does the example use PKCE even with a server-side flow?
+
+PKCE protects against authorisation-code interception when the redirect URI passes through a less-trusted environment (browser extension, mobile app, untrusted proxy). The CPU cost is negligible and PKCE is mandatory in OAuth 2.1, so enabling it now keeps the example forward-compatible.
+
+</section>
