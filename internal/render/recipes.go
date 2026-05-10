@@ -168,7 +168,11 @@ func LLMsFullRecipe(loader *content.Loader, routeToContent map[string]string) Re
 				if err != nil {
 					return nil, err
 				}
-				fmt.Fprintf(&b, "## %s\n\n", deps.BaseURL+p)
+				// Heading is the route path (e.g. "## /docs/routing"), per
+				// specification/geo.md § /llms-full.txt: "Each inlined body
+				// MUST be preceded by a heading line that names the route URL
+				// (for example `## /docs/routing`)."
+				fmt.Fprintf(&b, "## %s\n\n", p)
 				b.Write(src)
 				if len(src) == 0 || src[len(src)-1] != '\n' {
 					b.WriteByte('\n')
