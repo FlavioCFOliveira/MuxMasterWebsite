@@ -219,23 +219,31 @@ func buildArticleJSONLD(in JSONLDInputs) []string {
 		dateModified = in.BuildTime
 	}
 	article := struct {
-		Context       string `json:"@context"`
-		Type          string `json:"@type"`
-		ID            string `json:"@id"`
-		Headline      string `json:"headline"`
-		Description   string `json:"description"`
-		URL           string `json:"url"`
-		DatePublished string `json:"datePublished"`
-		DateModified  string `json:"dateModified"`
-		IsPartOf      idRef  `json:"isPartOf"`
-		Author        idRef  `json:"author"`
+		Context          string `json:"@context"`
+		Type             string `json:"@type"`
+		ID               string `json:"@id"`
+		Headline         string `json:"headline"`
+		Description      string `json:"description"`
+		URL              string `json:"url"`
+		InLanguage       string `json:"inLanguage"`
+		DatePublished    string `json:"datePublished"`
+		DateModified     string `json:"dateModified"`
+		MainEntityOfPage string `json:"mainEntityOfPage"`
+		IsPartOf         idRef  `json:"isPartOf"`
+		Author           idRef  `json:"author"`
+		Publisher        idRef  `json:"publisher"`
 	}{
 		Context: schema, Type: "TechArticle", ID: canonical + "#article",
 		Headline: in.Page.Title, Description: in.Page.Description, URL: canonical,
-		DatePublished: in.BuildTime.UTC().Format(time.RFC3339),
-		DateModified:  dateModified.UTC().Format(time.RFC3339),
-		IsPartOf:      idRef{ID: jsonSiteID(base)},
-		Author:        idRef{ID: jsonOrgID(base)},
+		InLanguage:       "en",
+		DatePublished:    in.BuildTime.UTC().Format(time.RFC3339),
+		DateModified:     dateModified.UTC().Format(time.RFC3339),
+		MainEntityOfPage: canonical,
+		IsPartOf:         idRef{ID: jsonSiteID(base)},
+		// Author is the Person entity (per spec/structured-data.md
+		// § TechArticle table); previously mis-wired to Organization@id.
+		Author:    idRef{ID: jsonAuthorID(base)},
+		Publisher: idRef{ID: jsonOrgID(base)},
 	}
 	out := []string{mustJSON(article), breadcrumbJSON(in.Page)}
 	if howto := buildHowToJSONLD(in); howto != "" {
