@@ -68,6 +68,43 @@ The site reifies four project-level entities. Each is **emitted in full only on 
 
 The four nodes above MUST appear in full **only on `/`**. On every other page, the JSON-LD MUST reference them by `@id` and MUST NOT redefine them inline (see `## Non-negotiables`).
 
+## @id migration policy
+
+`@id` URIs are the durable handles that allow generative engines to consolidate facts about MuxMaster across the site and across the wider web. An engine that has accumulated statements under `https://<canonical>/#software` does not automatically reattribute them when the site renames the node to `https://<canonical>/#muxmaster`; without an explicit bridge the citation graph fragments silently. The rules in this section govern every present and future rename of an `@id` on this site.
+
+### Stability rule
+
+`@id` URIs are stable identifiers. Once an `@id` has been published on a deployed page, it MUST NOT change except through a documented migration plan ratified in this file. Renaming an `@id` without following the procedure below is a defect and is blocked by the SEO and GEO gatekeepers.
+
+### Migration plan requirements
+
+A ratified migration plan MUST specify, in this file, all four of the following:
+
+1. The **legacy `@id`** — the URI that is being retired.
+2. The **new `@id`** — the URI that replaces it.
+3. The **transition window** — a contiguous period during which the bridging mechanism described below is in effect. The window MUST be **at least 90 days** long.
+4. The **bridging mechanism** — the concrete steps defined in `### Bridging mechanism` below.
+
+### Bridging mechanism
+
+During the transition window, the following two conditions MUST hold simultaneously:
+
+- The entity emitted at the **new** `@id` MUST list the **legacy** `@id` in its `sameAs` array, alongside any other `sameAs` entries already required by `## Entity graph`. This declares to consuming engines that the two URIs identify the same entity.
+- The legacy `@id` URL fragment MUST resolve to the same canonical page as the new `@id` — the page MUST not return `404`. Because `@id` is a URL fragment and fragments are not transmitted to the server, no HTTP redirect is required; the requirement is only that the host page continues to be served.
+
+After the transition window has elapsed, the legacy `@id` entry in `sameAs` MAY be removed. The host page MUST continue to be served (the stability rule for canonical pages is governed by `url-and-versioning.md`, independently of this section).
+
+### Current migration in flight
+
+One migration is currently in flight on this site:
+
+- **Legacy `@id`:** `https://<canonical>/#software`.
+- **New `@id`:** `https://<canonical>/#muxmaster`.
+- **Transition window:** starts on the deploy of the renamed `@id`; ends 90 days after that deploy.
+- **Bridging mechanism:** during the window, the `SoftwareSourceCode` node emitted on `/` MUST include `"sameAs": [ ..., "https://<canonical>/#software" ]`, in addition to the third-party `sameAs` entries already required by `## Entity graph`.
+
+After the window ends, the legacy `@id` entry MAY be removed from the `SoftwareSourceCode` node's `sameAs` array. Until then, removing it is a defect.
+
 ## Field completeness
 
 For every JSON-LD node emitted on the site, every field that schema.org documents as **required** OR **recommended** for the type MUST be populated when a truthful value is available. The list of fields treated as required-or-recommended for each type used on this site is enumerated in `## Required field-by-type expectations` below.
