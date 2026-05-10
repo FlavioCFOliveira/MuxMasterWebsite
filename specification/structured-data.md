@@ -134,12 +134,33 @@ For each schema type used on this site, the fields below MUST be populated when 
 | `headline` | The page's `<h1>` text. |
 | `description` | The page's `<meta name="description">` content. |
 | `inLanguage` | `"en"` (the site is English-only on day one — see `geo.md`). |
-| `datePublished` | The mtime of the file under `/content/` that backs the route, on first publication; persisted in front-matter once available. |
-| `dateModified` | The mtime of the file under `/content/` that backs the route at build time. |
+| `datePublished` | A `datePublished` value in the page's front-matter, set at first authorship and never rewritten thereafter. See `### Date sources for embedded content` below for the full resolution order. |
+| `dateModified` | The git-log commit time of the most recent change to the file under `/content/` that backs the route, resolved at build time and threaded into the renderer. See `### Date sources for embedded content` below. |
 | `author` | Reference to `Person@id`. |
 | `publisher` | Reference to `Organization@id`. |
 | `mainEntityOfPage` | The canonical absolute URL of the page. |
 | `isPartOf` | Reference to `WebSite@id`. |
+
+### Date sources for embedded content
+
+Content files served via Go's `embed.FS` carry a zero `mtime` because the embedding step erases filesystem timestamps. The renderer therefore MUST NOT read `mtime` directly. The following resolution order is mandatory and applies to both `datePublished` and `dateModified` on `TechArticle` (and on any other type that carries either field, such as `Dataset`).
+
+**Resolution order for `datePublished`:**
+
+1. The `datePublished` value from the page's front-matter (an ISO-8601 date or datetime), if present.
+2. **Otherwise omit the field**, with the standard HTML-comment audit trail (see `## Field completeness`):
+   `<!-- omitted: datePublished on TechArticle — front-matter date not yet authored -->`.
+
+**Resolution order for `dateModified`:**
+
+1. A `dateModified` value from the page's front-matter (an ISO-8601 date or datetime), if explicitly set there.
+2. The git-log commit time of the most recent commit that touched the file under `/content/` that backs the route, resolved at build time and threaded into the renderer through a build-step manifest (the build pipeline, not the runtime, runs `git log -1 --format=%cI -- <path>`).
+3. **Otherwise omit the field**, with the standard HTML-comment audit trail:
+   `<!-- omitted: dateModified on TechArticle — neither front-matter nor git history available -->`.
+
+**Forbidden fallbacks.** Substituting the process build timestamp (`BuildTime`), the deploy timestamp, the current wall-clock time, or any other "best-guess" value for either date is a fabricated value (see `## Field completeness`) and is a defect. The doctrine prefers an omitted field with an audit-trail comment to any guessed substitute.
+
+**Front-matter authoring rule.** On first authorship of a content file, the curator MUST set `datePublished` in the front-matter to the ISO-8601 date of authorship. On subsequent edits the curator MAY also set `dateModified` in the front-matter; if not set, the build pipeline derives it from git history per step 2 above. `datePublished` MUST NOT be rewritten after the first authorship.
 
 ### `BreadcrumbList`
 
