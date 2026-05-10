@@ -319,32 +319,43 @@ type idRef struct {
 }
 
 // breadcrumbJSON returns the BreadcrumbList JSON-LD object for the page's
-// breadcrumb trail. Position is 1-indexed per schema.org.
+// breadcrumb trail. Position is 1-indexed per schema.org. Each element's
+// item is an object {@id, name}, per spec/structured-data.md
+// § BreadcrumbList — the visible name lives at item.name; the bare URL
+// string form (deprecated by Google's rich-result documentation) is not
+// emitted.
 func breadcrumbJSON(p meta.Page) string {
-	type item struct {
-		Type     string `json:"@type"`
-		Position int    `json:"position"`
-		Name     string `json:"name"`
-		Item     string `json:"item,omitempty"`
+	type itemRef struct {
+		ID   string `json:"@id"`
+		Name string `json:"name"`
+	}
+	type element struct {
+		Type     string  `json:"@type"`
+		Position int     `json:"position"`
+		Item     itemRef `json:"item"`
 	}
 	type doc struct {
-		Context  string `json:"@context"`
-		Type     string `json:"@type"`
-		Elements []item `json:"itemListElement"`
+		Context  string    `json:"@context"`
+		Type     string    `json:"@type"`
+		Elements []element `json:"itemListElement"`
 	}
 	if len(p.Breadcrumbs) == 0 {
 		return ""
 	}
-	els := make([]item, 0, len(p.Breadcrumbs))
+	els := make([]element, 0, len(p.Breadcrumbs))
 	for i, b := range p.Breadcrumbs {
-		it := item{Type: "ListItem", Position: i + 1, Name: b.Label}
+		var url string
 		if b.Href != "" {
-			it.Item = p.BaseURL + b.Href
+			url = p.BaseURL + b.Href
 		} else {
-			// Current page: link to its canonical URL.
-			it.Item = p.Canonical
+			// Current page: anchor on the canonical URL.
+			url = p.Canonical
 		}
-		els = append(els, it)
+		els = append(els, element{
+			Type:     "ListItem",
+			Position: i + 1,
+			Item:     itemRef{ID: url, Name: b.Label},
+		})
 	}
 	return mustJSON(doc{Context: schema, Type: "BreadcrumbList", Elements: els})
 }
