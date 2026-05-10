@@ -184,8 +184,14 @@ func DocPageRecipe(spec DocPageSpec, loader *content.Loader, ogImagePath string,
 			case "benchmarks":
 				family = "benchmarks"
 			}
+			// HowTo is emitted only for pages whose body is genuinely
+			// structured as `## Step N — name` headings. /docs/getting-
+			// started follows that shape; the graceful-shutdown example
+			// does not (its body is prose around a single program), so it
+			// is intentionally absent from this list. Emitting an empty
+			// HowTo block from a non-step body is a defect (rmp #48).
 			var howToSrc []byte
-			if spec.Path == "/docs/getting-started" || spec.Path == "/examples/graceful-shutdown" {
+			if spec.Path == "/docs/getting-started" {
 				howToSrc = src
 			}
 			page.JSONLD = BuildJSONLD(JSONLDInputs{
