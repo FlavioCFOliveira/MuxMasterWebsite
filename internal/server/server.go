@@ -112,7 +112,7 @@ func (s *Server) Prerender() error {
 		render.ExamplesIndexRecipe(s.loader, ogImagePath, productionRobots),
 		render.LLMsRecipe(),
 		render.LLMsFullRecipe(s.loader, routeContentPaths()),
-		render.SitemapRecipe(s.loader, routeContentPaths()),
+		render.SitemapRecipe(s.loader, routeContentPaths(), productionRobots),
 		render.RobotsRecipe(),
 		render.NotFoundRecipe(ogImagePath, productionRobots),
 		render.ServerErrorRecipe(ogImagePath, productionRobots),

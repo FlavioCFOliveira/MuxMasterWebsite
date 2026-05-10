@@ -195,7 +195,7 @@ func LLMsFullRecipe(loader *content.Loader, routeToContent map[string]string) Re
 // process build time. Embedded files report a zero mtime under
 // embed.FS — when that happens, the build time is used as a stable
 // fallback so the value is never empty.
-func SitemapRecipe(loader contentMtimer, routeContent map[string]string) Recipe {
+func SitemapRecipe(loader contentMtimer, routeContent map[string]string, productionRobots bool) Recipe {
 	return Recipe{
 		Path:        "/sitemap.xml",
 		ContentType: "application/xml; charset=utf-8",
@@ -212,8 +212,18 @@ func SitemapRecipe(loader contentMtimer, routeContent map[string]string) Recipe 
 				Xmlns   string     `xml:"xmlns,attr"`
 				URLs    []urlEntry `xml:"url"`
 			}
-			fallback := deps.BuildTime.UTC().Format(time.RFC3339)
 			set := urlSet{Xmlns: "http://www.sitemaps.org/schemas/sitemap/0.9"}
+			// Outside production every page is noindex,nofollow until the
+			// canonical domain is ratified (open-questions.md item 1).
+			// Listing a noindex URL in sitemap.xml is contradictory and
+			// Google treats it as a low-quality signal — so we emit an
+			// empty urlset on non-production environments. The endpoint
+			// still exists (200, valid XML) so health probes against it
+			// pass; only the URL list is suppressed.
+			if !productionRobots {
+				return encodeSitemap(set)
+			}
+			fallback := deps.BuildTime.UTC().Format(time.RFC3339)
 			for _, r := range deps.Routes {
 				lastMod := fallback
 				if cp, ok := routeContent[r.Path]; ok && loader != nil {
@@ -228,17 +238,24 @@ func SitemapRecipe(loader contentMtimer, routeContent map[string]string) Recipe 
 					Priority:   priorityFor(r.Path),
 				})
 			}
-			var buf bytes.Buffer
-			buf.WriteString(xml.Header)
-			enc := xml.NewEncoder(&buf)
-			enc.Indent("", "  ")
-			if err := enc.Encode(set); err != nil {
-				return nil, fmt.Errorf("sitemap: encode: %w", err)
-			}
-			buf.WriteByte('\n')
-			return buf.Bytes(), nil
+			return encodeSitemap(set)
 		},
 	}
+}
+
+// encodeSitemap marshals the supplied urlset to XML with the standard
+// header and indentation. Defined here so the recipe body stays readable
+// when both the production and non-production branches need to encode.
+func encodeSitemap(v any) ([]byte, error) {
+	var buf bytes.Buffer
+	buf.WriteString(xml.Header)
+	enc := xml.NewEncoder(&buf)
+	enc.Indent("", "  ")
+	if err := enc.Encode(v); err != nil {
+		return nil, fmt.Errorf("sitemap: encode: %w", err)
+	}
+	buf.WriteByte('\n')
+	return buf.Bytes(), nil
 }
 
 // contentMtimer is the narrow interface the sitemap recipe needs from a

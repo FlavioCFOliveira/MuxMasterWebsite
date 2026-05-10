@@ -227,7 +227,7 @@ func TestSitemapRecipeConformance(t *testing.T) {
 		"/security":        "security.md",
 		"/compatibility":   "compatibility.md",
 		"/contributing":    "contributing.md",
-	})
+	}, true)
 	body, err := rec.Build(deps)
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -348,7 +348,7 @@ func TestPrerenderRoundTrip(t *testing.T) {
 	deps := fixtureDeps(t)
 	recipes := []Recipe{
 		LLMsRecipe(),
-		SitemapRecipe(fixtureLoader(t), nil),
+		SitemapRecipe(fixtureLoader(t), nil, true),
 		RobotsRecipe(),
 	}
 	if err := deps.Renderer.Prerender(recipes, deps); err != nil {

@@ -114,10 +114,16 @@ func TestSmokeFullSite(t *testing.T) {
 			bodyMarkers: []string{"# MuxMaster", "## /docs/routing", "# Full content"},
 		},
 		{
+			// In the test server (Env=development → productionRobots=false),
+			// the sitemap intentionally emits an empty urlset because every
+			// page is noindex,nofollow until the canonical domain is
+			// ratified (per task #45). Production-mode population is covered
+			// by the dedicated render-package test TestSitemapRecipeConfor-
+			// mance which calls SitemapRecipe(..., true).
 			path:        "/sitemap.xml",
 			wantStatus:  http.StatusOK,
 			wantCT:      "application/xml; charset=utf-8",
-			bodyMarkers: []string{"<urlset", "<loc>", "/docs/routing"},
+			bodyMarkers: []string{"<urlset"},
 		},
 		{
 			path:        "/robots.txt",
