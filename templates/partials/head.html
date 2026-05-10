@@ -6,6 +6,7 @@
   {{if .Canonical}}<link rel="canonical" href="{{.Canonical}}">{{end}}
   {{if .Robots}}<meta name="robots" content="{{.Robots}}">{{end}}
 
+  {{if .Canonical}}
   <meta property="og:type" content="{{.OGType}}">
   <meta property="og:title" content="{{.FullTitle}}">
   <meta property="og:description" content="{{.Description}}">
@@ -23,6 +24,7 @@
   <meta name="twitter:description" content="{{.Description}}">
   <meta name="twitter:image" content="{{.OGImage}}">
   <meta name="twitter:image:alt" content="MuxMaster — high-performance HTTP router for Go">
+  {{end}}
 
   <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#09090b" media="(prefers-color-scheme: dark)">
