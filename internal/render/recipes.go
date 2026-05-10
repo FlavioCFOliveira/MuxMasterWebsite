@@ -60,6 +60,7 @@ func DocsIndexRecipe(loader *content.Loader, ogImagePath string, productionRobot
 			}
 			page.JSONLD = BuildJSONLD(JSONLDInputs{
 				Page: page, Family: "collection", BuildTime: deps.BuildTime,
+				HasPart: itemsAsAbsoluteURLs(items, deps.BaseURL),
 			})
 			return deps.Renderer.ExecuteTemplate("section-index.html", Data{Meta: page, Body: body})
 		},
@@ -99,6 +100,7 @@ func ExamplesIndexRecipe(loader *content.Loader, ogImagePath string, productionR
 			}
 			page.JSONLD = BuildJSONLD(JSONLDInputs{
 				Page: page, Family: "collection", BuildTime: deps.BuildTime,
+				HasPart: itemsAsAbsoluteURLs(items, deps.BaseURL),
 			})
 			return deps.Renderer.ExecuteTemplate("section-index.html", Data{Meta: page, Body: body})
 		},
@@ -414,6 +416,16 @@ func basePage(deps Deps, path, title, description, ogType, ogImagePath string, p
 // filterRoutes selects routes whose path lives directly under prefix and
 // returns them in a stable order (path lex order). The prefix itself is
 // excluded so an index page does not list itself.
+// itemsAsAbsoluteURLs converts a slice of RouteInfo to the absolute URLs of
+// each route, used as the input to CollectionPage.hasPart on section indexes.
+func itemsAsAbsoluteURLs(items []RouteInfo, baseURL string) []string {
+	out := make([]string, 0, len(items))
+	for _, it := range items {
+		out = append(out, baseURL+it.Path)
+	}
+	return out
+}
+
 func filterRoutes(routes []RouteInfo, section, indexPath string) []RouteInfo {
 	out := make([]RouteInfo, 0, len(routes))
 	for _, r := range routes {

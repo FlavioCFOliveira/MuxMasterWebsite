@@ -24,6 +24,7 @@ type JSONLDInputs struct {
 	BuildTime    time.Time // process start time, used as datePublished
 	LastModified time.Time // mtime of the underlying content file (when applicable)
 	HowToSource  []byte    // optional; if present the generator scans for `## Step N — name` headings
+	HasPart      []string  // for "collection" family: canonical absolute URLs of the items the page lists; emitted as CollectionPage.hasPart.
 }
 
 // BuildJSONLD returns one or more JSON-LD objects (each pre-stringified) for
@@ -257,18 +258,28 @@ func buildArticleJSONLD(in JSONLDInputs) []string {
 func buildCollectionJSONLD(in JSONLDInputs) []string {
 	base := in.Page.BaseURL
 	canonical := in.Page.Canonical
+	hasPart := make([]idRef, 0, len(in.HasPart))
+	for _, u := range in.HasPart {
+		hasPart = append(hasPart, idRef{ID: u})
+	}
 	collection := struct {
-		Context     string `json:"@context"`
-		Type        string `json:"@type"`
-		ID          string `json:"@id"`
-		Name        string `json:"name"`
-		Description string `json:"description"`
-		URL         string `json:"url"`
-		IsPartOf    idRef  `json:"isPartOf"`
+		Context     string  `json:"@context"`
+		Type        string  `json:"@type"`
+		ID          string  `json:"@id"`
+		Name        string  `json:"name"`
+		Description string  `json:"description"`
+		URL         string  `json:"url"`
+		InLanguage  string  `json:"inLanguage"`
+		IsPartOf    idRef   `json:"isPartOf"`
+		Publisher   idRef   `json:"publisher"`
+		HasPart     []idRef `json:"hasPart,omitempty"`
 	}{
 		Context: schema, Type: "CollectionPage", ID: canonical + "#collection",
 		Name: in.Page.Title, Description: in.Page.Description, URL: canonical,
-		IsPartOf: idRef{ID: jsonSiteID(base)},
+		InLanguage: "en",
+		IsPartOf:   idRef{ID: jsonSiteID(base)},
+		Publisher:  idRef{ID: jsonOrgID(base)},
+		HasPart:    hasPart,
 	}
 	return []string{mustJSON(collection), breadcrumbJSON(in.Page)}
 }
