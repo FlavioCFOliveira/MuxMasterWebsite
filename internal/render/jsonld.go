@@ -110,9 +110,15 @@ func buildEntityGraph(in JSONLDInputs) []string {
 		Name        string `json:"name"`
 		URL         string `json:"url"`
 		Description string `json:"description"`
+		InLanguage  string `json:"inLanguage"`
+		Publisher   idRef  `json:"publisher"`
 	}{
 		Context: schema, Type: "WebSite", ID: jsonSiteID(base),
-		Name: "MuxMaster", URL: base + "/", Description: in.Page.Description,
+		Name:        "MuxMaster",
+		URL:         base + "/",
+		Description: in.Page.Description,
+		InLanguage:  "en",
+		Publisher:   idRef{ID: jsonOrgID(base)},
 	}
 	type targetProductT struct {
 		Type                string `json:"@type"`
