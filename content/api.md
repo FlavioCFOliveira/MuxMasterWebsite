@@ -1069,3 +1069,93 @@ type OAuth2Options struct {
     OAuth2Options configures the OAuth2Introspect middleware.
 
 ```
+
+## Common questions
+
+<section data-conversation="api-overview">
+
+### What does `mux.New()` return?
+
+`mux.New()` returns a `*mux.Mux` — the value that holds the radix tree, the middleware stack, and the configuration options. It implements `http.Handler`, so any standard-library construct that consumes a handler (`http.Server`, `httptest.NewServer`, `http.StripPrefix`, etc.) accepts it directly.
+
+</section>
+
+<section data-conversation="api-routes">
+
+### How do I register a route on a method other than GET?
+
+Call the matching helper on the mux: `m.POST`, `m.PUT`, `m.PATCH`, `m.DELETE`, `m.HEAD`, `m.OPTIONS`. Each takes the same `(pattern, handler)` arguments as `m.GET` and registers the handler against the same radix tree under the corresponding method bucket.
+
+### How do I declare a path parameter?
+
+Prefix the path segment with a colon — for example `/users/:id`. Read the matched value inside the handler with `mux.Param(r, "id")`. Catch-all parameters use the `*` prefix and must be the last segment of the pattern.
+
+</section>
+
+<section data-conversation="api-middleware">
+
+### How do I attach middleware to every route on a router?
+
+Call `m.Use(middleware)` before registering routes. The middleware wraps every handler the router dispatches; attach it in the order you want it to run on the request path (the first `Use` call is the outermost layer).
+
+### What's the difference between `Use` and `Pre`?
+
+`Pre` middleware runs before the radix-tree lookup — it sees the raw URL and can rewrite it (the canonical use case is `RealIP` and `CleanPath`). `Use` middleware runs after route resolution — it sees the matched handler and can short-circuit, log, or wrap the response.
+
+</section>
+
+<section data-conversation="api-groups">
+
+### How do I create a route group with a shared prefix?
+
+Call `m.Group("/api/v1")`. The returned `*Group` exposes the same routing methods as the mux; routes registered on the group inherit the prefix and any group-scoped middleware.
+
+### Can I attach middleware to only the routes inside a group?
+
+Yes — call `g.Use(middleware)` on the group. The middleware wraps every handler registered on the group (including nested sub-groups) and does not affect routes outside the group.
+
+</section>
+
+<section data-conversation="api-errors">
+
+### How do I return an error from a handler instead of writing the response manually?
+
+Register the handler with `m.HandleFuncE(method, pattern, handler)` where the handler signature is `func(http.ResponseWriter, *http.Request) error`. A non-nil return invokes the configured `ErrorHandler`, which translates the error to an HTTP response.
+
+### How do I customise the default error response?
+
+Set `mux.Config.ErrorHandler` (or pass `mux.WithErrorHandler` at construction). The handler receives the original error plus the response writer and request; it is responsible for writing the final status, headers, and body.
+
+</section>
+
+<section data-conversation="api-response">
+
+### How do I write a JSON response from a handler?
+
+Call `mux.JSON(w, status, value)` — the helper sets `Content-Type: application/json; charset=utf-8`, encodes `value` with the standard library's encoder, writes the status, and returns any encoder error so the caller can decide whether to log it.
+
+### How do I serve a conditional-GET response?
+
+Call `mux.IfNoneMatch(w, r, etag)` (or `IfModifiedSince`) before writing the body. The helper returns true and writes the 304 short-circuit when the request's conditional header matches; on false, the handler proceeds to write the full response.
+
+</section>
+
+<section data-conversation="api-fast">
+
+### When should I use `FastHandler` instead of `http.HandlerFunc`?
+
+Use `mux.FastHandler` only on routes that need to bypass the standard `http.ResponseWriter` allocation cost on the hottest paths (typical use case: a health probe or a synthetic load endpoint). For ordinary application code, prefer `http.HandlerFunc` so middleware composition stays straightforward.
+
+</section>
+
+<section data-conversation="api-introspection">
+
+### How do I list every registered route at runtime?
+
+Call `m.Routes()`. The result is a slice of `RouteInfo` values describing each method/pattern pair, the registration order, and the middleware stack the handler sees. Suitable for an admin endpoint or a startup audit.
+
+### How do I read request counters from a live router?
+
+Call `m.Stats()`. The map is keyed by route pattern and exposes hit counters, plus the global request total and the count of 404s. Suitable for scraping into a metrics endpoint.
+
+</section>
