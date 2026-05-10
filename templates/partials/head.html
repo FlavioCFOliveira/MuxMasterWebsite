@@ -4,6 +4,7 @@
   <title>{{.FullTitle}}</title>
   <meta name="description" content="{{.Description}}">
   {{if .Canonical}}<link rel="canonical" href="{{.Canonical}}">{{end}}
+  {{if .HasMarkdown}}<link rel="alternate" type="text/markdown" href="{{.Canonical}}.md">{{end}}
   {{if .Robots}}<meta name="robots" content="{{.Robots}}">{{end}}
 
   {{if .Canonical}}

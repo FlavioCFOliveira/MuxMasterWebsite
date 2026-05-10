@@ -38,6 +38,7 @@ type Page struct {
 	CSSPath     string   // Hashed CSS bundle URL.
 	BaseURL     string   // SITE_BASE_URL for absolute references.
 	UpstreamURL string   // Optional link to the upstream source file on GitHub.
+	HasMarkdown bool     // True when the page exposes a Markdown companion at <Canonical>.md.
 }
 
 // FullTitle returns the title with the canonical " — MuxMaster" suffix.

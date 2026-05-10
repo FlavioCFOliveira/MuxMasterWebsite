@@ -124,6 +124,7 @@ func DocPageRecipe(spec DocPageSpec, loader *content.Loader, ogImagePath string,
 			page := basePage(deps, spec.Path, spec.Title, spec.Description, spec.OGType, ogImagePath, productionRobots)
 			page.Breadcrumbs = breadcrumbsForDoc(spec)
 			page.UpstreamURL = spec.UpstreamURL
+			page.HasMarkdown = spec.HasMarkdown
 
 			// mtime is best-effort. Embedded files report a zero time on
 			// embed.FS; the body footer falls back to the build time so
