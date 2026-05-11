@@ -139,14 +139,14 @@ jobs:
 
           BASE=http://localhost:8080
           fail=0
-          # Resolve the image's baked SITE_BASE_URL — this is the value
-          # every canonical/sitemap/robots artefact must emit.
-          IMAGE_BASE=$(docker exec muxmaster-smoke /srv/muxmaster-website --print-base-url 2>/dev/null || true)
-          if [ -z "$IMAGE_BASE" ]; then
-            # Fallback: read from the ENV declared in the image. Works on
-            # any image even if the binary lacks --print-base-url.
-            IMAGE_BASE=$(docker inspect "$IMAGE" --format '{{range .Config.Env}}{{println .}}{{end}}' | awk -F= '/^SITE_BASE_URL=/ {print $2}')
-          fi
+          # Resolve the image's baked SITE_BASE_URL by reading the ENV
+          # declared in the image config. This is the value every
+          # canonical / sitemap / robots / llms artefact must emit. We
+          # MUST NOT use `docker exec ... <binary> --some-flag` here:
+          # the binary ignores unknown flags and starts a second server
+          # inside the running container, whose first stdout line then
+          # contaminates the capture.
+          IMAGE_BASE=$(docker inspect "$IMAGE" --format '{{range .Config.Env}}{{println .}}{{end}}' | awk -F= '/^SITE_BASE_URL=/ {print $2}')
           if [ -z "$IMAGE_BASE" ]; then
             echo "::error::could not determine SITE_BASE_URL for image"
             fail=1

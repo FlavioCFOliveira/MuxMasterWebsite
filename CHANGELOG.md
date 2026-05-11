@@ -4,6 +4,26 @@ All notable changes to the MuxMaster documentation website are recorded in this 
 
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html). The website's `MAJOR.MINOR` mirrors the MuxMaster release it documents; the website's `PATCH` digit is independent and advances for website-only operational fixes. See `specification/overview.md § Version cadence` for the full cadence policy.
 
+## [v1.0.7] — 2026-05-11
+
+Operational PATCH on top of `v1.0.6`. CI-only fix: the extended release smoke-test introduced in `v1.0.6` (SEO-002) was itself buggy and rejected the otherwise-correct `v1.0.6` image. The smoke probe is corrected here so the gate it was designed to be can actually defend the release. The runtime image content is functionally identical to `v1.0.6`; consumers who already pulled `:v1.0.6` do not need to redeploy to `:v1.0.7` for any user-facing reason. No MuxMaster release is documented by this entry: MuxMaster remains at `v1.0.1` (released 2026-05-08).
+
+### Fixed
+
+- **Release smoke-test no longer captures startup-log JSON as `SITE_BASE_URL`.** The `v1.0.6` smoke first tried `docker exec muxmaster-smoke /srv/muxmaster-website --print-base-url` and fell back to `docker inspect` only when that command exited non-zero. The binary has no such flag and silently ignored it; instead it started a second server inside the running container and wrote the startup configuration log to stdout. Because the command exited zero, the capture succeeded — but it captured the JSON log line whose `site_base_url` field then contaminated every downstream check (`canonical=https://muxmaster.net/ does not match SITE_BASE_URL={"time":"..."}`). The fix removes the `docker exec` attempt entirely and reads `SITE_BASE_URL` from `docker inspect --format '{{range .Config.Env}}...'` as the single source of truth. The image's runtime `ENV` is by definition what every emitted URL must agree with.
+
+### Note on `v1.0.6`
+
+- The `v1.0.6` image was built and pushed to `ghcr.io/flaviocfoliveira/muxmaster-website:v1.0.6` and `:latest` successfully; only the post-push smoke gate failed, and the failure was in the smoke script, not in the image. The `v1.0.6` GitHub Release page is therefore absent, but the image artefact, its tag, and its CHANGELOG entry are intact. Operators tracking `:v1.0.6` are running the correct artefact; operators tracking `:latest` are now pulled forward to `:v1.0.7` (same artefact, with the smoke fix landing in the release workflow).
+
+### Test evidence
+
+- The fixed smoke step runs against the freshly published image, exercises every probe family introduced in `v1.0.6`, and now correctly resolves `SITE_BASE_URL` from `docker inspect`. The original `v1.0.6` runtime smoke (the local `docker build` + `docker run` smoke described in `v1.0.6` *Test evidence*) was already passing — the local test did not exercise the GitHub-Actions-only docker-exec path, which is what hid the bug.
+
+### Deployment note
+
+`v1.0.7` is a CI-hygiene release. No runtime change. Operators on `:v1.0.6` may stay; operators on `:latest` are now on `v1.0.7` automatically.
+
 ## [v1.0.6] — 2026-05-11
 
 Operational PATCH on top of `v1.0.5`. Bundles seven findings raised by the `seo-specialist` + `geo-specialist` production audit of the post-`v1.0.5` site: a factual API-name correction in public documentation, four new AI crawlers in `robots.txt`, two new reserved-path artefacts (`/favicon.ico`, `/.well-known/security.txt`), a structured `Organization.logo` schema, and a substantially extended release smoke-test that fails the release on any future regression of the `v1.0.4` / `v1.0.5` / scheme-mismatch class. Two audit findings (the `Vary: Accept-Encoding` duplicate, sourced upstream in MuxMaster `middleware/compress.go`; and the `data-conversation` HTML wrappers, already present in every doc page that emits `FAQPage`) are documented under Known issues. No MuxMaster release is documented by this entry: MuxMaster remains at `v1.0.1` (released 2026-05-08).
