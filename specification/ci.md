@@ -2,7 +2,7 @@
 title: CI pipeline contract
 purpose: Define the continuous-integration pipeline that gates every pull request, with particular focus on the blocking structured-data validation step mandated by structured-data.md § Validation.
 owners: seo-specialist + geo-specialist (jointly own the structured-data validation gate); release-manager (owns the rest of the pipeline).
-last-updated: 2026-05-10
+last-updated: 2026-05-11
 status: ratified
 ---
 
@@ -55,10 +55,17 @@ The workflow lives at `.github/workflows/ci.yml`. The structured-data step depen
 
 Steps 5 and 6 are the structured-data validation gate; failure of either MUST block merge.
 
+## Warning-only quality gates
+
+A second CI job runs after the test-and-validate job and reports — but does not block — additional quality signals:
+
+1. **Lighthouse CI.** `@lhci/cli` runs against eight representative pages (landing, docs index, getting-started, routing, API, examples index, jwt example, benchmarks) with the desktop preset. Thresholds: performance ≥ 0.90, accessibility ≥ 0.95, best-practices ≥ 0.95, SEO ≥ 0.95. Reports are uploaded as a build artefact (30-day retention).
+2. **pa11y.** WCAG 2.2 AA scan across the same set plus `/404`.
+
+Both run with `continue-on-error: true` so a regression is visible (warning annotation on the PR) without blocking the merge. After one green week on `main`, both gates flip to blocking (the `continue-on-error` lines come off).
+
 ## Out of scope (today)
 
-- Lighthouse / Core Web Vitals automated runs (tracked separately; will land alongside the CI host migration when production traffic justifies it).
 - HTML5 validity gate via `nu-validator` (planned; not blocking today).
-- Accessibility scoring via `pa11y` or `axe` (planned; not blocking today).
 
 These items live under `out-of-scope.md` until they are scheduled.

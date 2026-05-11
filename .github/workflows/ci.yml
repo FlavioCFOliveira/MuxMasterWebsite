@@ -10,8 +10,10 @@
 #      defects, when present, land in the test log; reviewers download
 #      the artefact from the PR).
 #
-# Out of scope today: Lighthouse, nu-validator, pa11y. Tracked in
-# spec/ci.md § Out of scope.
+# Out of scope today: nu-validator. Lighthouse and pa11y now run as
+# a warning-only job (rmp #81). The job is allowed to fail without
+# blocking merge; once a green week is on record the warning posture
+# flips to blocking.
 #
 # The image-build step (rmp #75) ensures Dockerfile regressions
 # (broken Tailwind step, missing assets, multi-stage path drift) are
@@ -85,3 +87,72 @@ jobs:
           name: jsonld-validation-output
           path: test-output.log
           retention-days: 30
+
+  lighthouse-and-pa11y:
+    name: Lighthouse + pa11y (warning-only — rmp #81)
+    runs-on: ubuntu-latest
+    needs: test-and-validate
+    # Warning-only for now: Lighthouse / pa11y scores are reported but
+    # the job is allowed to fail without blocking merge. Once a green
+    # week is on record the `continue-on-error: true` lines come off
+    # and the gate becomes blocking (spec/ci.md § Out of scope).
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Setup Node (for lhci + pa11y)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build site assets
+        run: make css
+
+      - name: Start server in background
+        run: |
+          go run ./cmd/muxmaster-website &
+          echo $! > /tmp/srv.pid
+          # Wait up to 30s for the listener to come up — the prerender
+          # pass blocks until every public route is materialised.
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/healthz > /dev/null; then
+              echo "server ready after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Run Lighthouse CI
+        continue-on-error: true
+        run: |
+          npm install -g @lhci/cli@0.14
+          lhci autorun --config=.lighthouserc.json || true
+
+      - name: Run pa11y
+        continue-on-error: true
+        run: |
+          npm install -g pa11y-ci@3
+          pa11y-ci --config .pa11yci.json || true
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f /tmp/srv.pid ]; then
+            kill "$(cat /tmp/srv.pid)" || true
+          fi
+
+      - name: Upload Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-reports
+          path: .lighthouseci/
+          retention-days: 30
+          if-no-files-found: ignore

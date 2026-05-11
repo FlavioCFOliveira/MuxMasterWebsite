@@ -1,0 +1,21 @@
+{
+  "defaults": {
+    "standard": "WCAG2AA",
+    "timeout": 30000,
+    "wait": 500,
+    "chromeLaunchConfig": {
+      "args": ["--no-sandbox", "--disable-dev-shm-usage"]
+    }
+  },
+  "urls": [
+    "http://localhost:8080/",
+    "http://localhost:8080/docs/",
+    "http://localhost:8080/docs/getting-started",
+    "http://localhost:8080/docs/routing",
+    "http://localhost:8080/api",
+    "http://localhost:8080/examples/",
+    "http://localhost:8080/examples/jwt",
+    "http://localhost:8080/benchmarks",
+    "http://localhost:8080/404"
+  ]
+}
