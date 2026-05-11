@@ -8,6 +8,16 @@ status: ratified
 
 # Deployment
 
+## Terminology
+
+Three layers determine the effective value of each runtime environment variable. Subsequent sections refer to them by name:
+
+- **Binary default.** The value compiled into the `muxmaster-website` Go binary when no environment variable is set. Sourced from the project's Go configuration package. Appropriate for local development (`go run`, `make dev`), where the operator is the only consumer of the resulting URLs.
+- **Image default.** The value baked into the official Docker image (`ghcr.io/flaviocfoliveira/muxmaster-website`) via an `ENV` directive in the runtime stage of the Dockerfile. The official image is published as the artefact of this repository, whose only public instance is the production site. The image default therefore mirrors the canonical production origin, so that an unconfigured run of the published image already produces correct URLs for that instance.
+- **Runtime override.** Any value supplied by the operator at container start (Docker `-e VAR=value`, Kubernetes `env:` entry, Compose `environment:` block, systemd `Environment=`, etc.). A runtime override always wins over both the image default and the binary default; the image default always wins over the binary default when the image is the execution context.
+
+This three-layer model applies to every variable in the table below. Where the image default differs from the binary default, both values are listed explicitly.
+
 ## Container model
 
 The site is shipped as a Docker image built with a multi-stage Dockerfile.
@@ -30,6 +40,7 @@ The site is shipped as a Docker image built with a multi-stage Dockerfile.
   - The full `/content/` tree as committed in this repository (mirrored upstream content plus site-original content).
 - Runs as a non-root user (the distroless image's UID 65532).
 - Exposes port `80` (cleartext HTTP/1.1 and h2c HTTP/2). Binding to a privileged port from a non-root user is permitted by attaching the file capability `cap_net_bind_service=ep` to the binary in the builder stage; the capability is preserved across the BuildKit `COPY --from=builder` into the distroless runtime stage. No other capability is granted, and the runtime container has no shell, no package manager, and no writable filesystem beyond the kernel-mandated minimum.
+- Declares image defaults via `ENV` directives in the runtime stage of the Dockerfile. The runtime stage MUST set `ENV SITE_BASE_URL=https://muxmaster.net` and `ENV PORT=80`. These image defaults reflect the fact that the official image is the artefact of this repository and is published to host the canonical production instance; they remain overridable at container start, as defined under `## Terminology`.
 - The runtime image is **self-contained**. It does not require any external filesystem mount, the upstream `../MuxMaster` tree, or any other directory beyond what the builder stage produced. Every public route is pre-rendered at startup from `/content/` (see `rendering-and-caching.md`).
 
 ### Content delivery
@@ -45,14 +56,22 @@ Content is part of the repository under `/content/` and is therefore embedded in
 
 ## Runtime environment variables
 
-| Variable | Purpose | Default | Required |
-| --- | --- | --- | --- |
-| `SITE_BASE_URL` | Absolute base URL of the site, used for canonical, OG, JSON-LD, sitemap, and llms.txt. In production this MUST be set to `https://muxmaster.net` (the canonical domain ratified on 2026-05-11). | `http://localhost:8080` | Yes |
-| `LOG_LEVEL` | One of `debug`, `info`, `warn`, `error`. | `info` | No |
-| `PORT` | TCP port to bind. The compiled binary defaults to `8080` for local development (`go run`, `make dev`); the production Docker image overrides this to `80` via the `ENV PORT=80` directive in the runtime stage. Either value can be replaced by setting `PORT` at runtime. | `8080` binary; `80` Docker image | No |
-| `ENV` | One of `development`, `staging`, `production`. Controls whether `noindex` is forced when `SITE_BASE_URL` is not the canonical production domain (`https://muxmaster.net`). | `development` | No |
+| Variable | Purpose | Binary default | Image default | Required |
+| --- | --- | --- | --- | --- |
+| `SITE_BASE_URL` | Absolute base URL of the site, used for canonical, OG, JSON-LD, sitemap, and llms.txt. The canonical production value is `https://muxmaster.net` (ratified on 2026-05-11). | `http://localhost:8080` | `https://muxmaster.net` | No when running the official Docker image (the image default is the canonical production value); Yes for any other execution context (`go run`, custom builds, alternative deployments) whose canonical origin differs from the binary default. |
+| `LOG_LEVEL` | One of `debug`, `info`, `warn`, `error`. | `info` | `info` | No |
+| `PORT` | TCP port to bind. | `8080` | `80` | No |
+| `ENV` | One of `development`, `staging`, `production`. Controls whether `noindex` is forced when `SITE_BASE_URL` is not the canonical production domain (`https://muxmaster.net`). | `development` | `development` | No |
 
 `MUXMASTER_SOURCE_DIR` is **not** a runtime variable. It is consumed only by the `content-curator` agent at development time (see `content-sources.md`).
+
+### `SITE_BASE_URL` resolution
+
+The effective value of `SITE_BASE_URL` is resolved in the order defined under `## Terminology`: runtime override wins over image default, image default wins over binary default.
+
+- The **binary default** is `http://localhost:8080`. It serves local development (`go run`, `make dev`, custom builds executed outside the official image), where every URL produced by the running process is consumed only by the developer running it. The Go configuration package MUST NOT change this default to a remote host, because doing so would publish canonical references for production from a process that is not, in fact, production.
+- The **image default** is `https://muxmaster.net`, declared as an `ENV` directive in the runtime stage of the Dockerfile (see `## Runtime stage`). It applies because the published image (`ghcr.io/flaviocfoliveira/muxmaster-website`) is the artefact of this repository, and the only public instance that artefact is intended to host is the production site at the canonical apex. Baking the canonical value into the image removes the previous failure mode in which an unconfigured run of the official image rendered `localhost:8080` into `<link rel=canonical>`, `og:url`, `og:image`, `sitemap.xml`, `llms.txt`, and JSON-LD `@id` URIs served to the public internet.
+- A **runtime override** remains available in every container orchestrator. Staging, preview, and alternative deployments of the same image MUST set `SITE_BASE_URL` to their own origin (for example, `-e SITE_BASE_URL=https://staging.muxmaster.net` for Docker, or an `env:` entry with the same name in a Kubernetes pod spec). When the override differs from the canonical production value, `ENV` MUST also be set to `staging` or `development` so that `noindex` is forced and staging never advertises canonical-production identifiers (see `## Production launch gate`, `seo.md`, and `structured-data.md`).
 
 The server MUST log all environment-variable values at startup (`info` level) except for any future secret. None are secret on day one.
 

@@ -59,7 +59,8 @@ COPY --from=builder /workspace/templates    /srv/templates
 
 ENV PORT=80 \
     LOG_LEVEL=info \
-    ENV=production
+    ENV=production \
+    SITE_BASE_URL=https://muxmaster.net
 
 EXPOSE 80
 
