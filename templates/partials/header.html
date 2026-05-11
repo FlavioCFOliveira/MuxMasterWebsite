@@ -19,14 +19,32 @@
       <a href="/benchmarks" class="inline-flex items-center min-h-11 px-2 hover:underline">Benchmarks</a>
       <a href="https://github.com/FlavioCFOliveira/MuxMaster" rel="noopener" target="_blank" class="inline-flex items-center min-h-11 px-2 hover:underline">GitHub<span class="sr-only"> (opens in a new tab)</span></a>
       <span class="rounded bg-yellow-200 px-2 py-0.5 text-xs font-mono text-zinc-900" aria-label="MuxMaster version">{{.Version}}</span>
-      <label for="dark-toggle" class="cursor-pointer rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700">Theme</label>
+      <label for="dark-toggle" class="cursor-pointer rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700" aria-label="Toggle colour theme">
+        {{/* The two spans encode the active state with the existing
+             `dark` custom-variant (see static/css/app.css): the
+             sun-and-Light span is shown in light mode, the moon-and-
+             Dark span is shown in dark mode. Keyboard and screen-
+             reader users perceive the state change because the
+             visible text changes on toggle. */}}
+        <span class="inline dark:hidden" aria-hidden="true">☀ Light</span>
+        <span class="hidden dark:inline" aria-hidden="true">☾ Dark</span>
+      </label>
     </nav>
 
     {{/* Mobile-only chrome: version + theme toggle stay visible (small),
          the nav links collapse into a <details> disclosure. */}}
     <div class="ml-auto flex items-center gap-2 sm:hidden">
       <span class="rounded bg-yellow-200 px-2 py-0.5 text-xs font-mono text-zinc-900" aria-label="MuxMaster version">{{.Version}}</span>
-      <label for="dark-toggle" class="cursor-pointer rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700">Theme</label>
+      <label for="dark-toggle" class="cursor-pointer rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700" aria-label="Toggle colour theme">
+        {{/* The two spans encode the active state with the existing
+             `dark` custom-variant (see static/css/app.css): the
+             sun-and-Light span is shown in light mode, the moon-and-
+             Dark span is shown in dark mode. Keyboard and screen-
+             reader users perceive the state change because the
+             visible text changes on toggle. */}}
+        <span class="inline dark:hidden" aria-hidden="true">☀ Light</span>
+        <span class="hidden dark:inline" aria-hidden="true">☾ Dark</span>
+      </label>
     </div>
 
     <details class="basis-full sm:hidden">
