@@ -34,9 +34,34 @@ All content is prepared editorially in this repository by the agents in this dev
 
 ## Version cadence
 
-- The website is released with the **same semantic version as the MuxMaster release it documents**. A new website release tag is cut for every MuxMaster release; the website version follows MuxMaster's version in lockstep. Intra-version website-only changes (for example a typo fix between two MuxMaster releases) are not represented by a separate pre-release suffix today; they ship on `main` and are folded into the next mirrored release.
-- The version *label* shown in the page chrome (header and footer) is read at server startup from `/content/changelog.md` (rule: first heading of the form `## vMAJOR.MINOR.PATCH` that is not a pre-release suffix). The `content-curator` agent commits `/content/changelog.md` mirrored from `../MuxMaster/CHANGELOG.md` during a sync (see `content-sources.md`). Restart is required to roll the label forward. This rule is independent of the website's own release tag.
-- The website's own release history lives in `/CHANGELOG.md` at the repository root (Keep a Changelog 1.1.0 format) and in annotated Git tags of the form `vMAJOR.MINOR.PATCH`. The current value as of 2026-05-11 is **v1.0.1** (mirrors MuxMaster v1.0.1, released 2026-05-08).
+The website carries its own semantic version (`vMAJOR.MINOR.PATCH`), tagged on this repository and listed in `/CHANGELOG.md` at the repository root (Keep a Changelog 1.1.0 format). The relationship between this version and the upstream MuxMaster version is governed by the rules below.
+
+### Policy
+
+- **MAJOR and MINOR are locked to MuxMaster.** When MuxMaster releases `vX.Y.<any>`, the next website release MUST adopt the same `X.Y` pair. The website never advances its MAJOR or MINOR independently, and never lags behind MuxMaster's MAJOR or MINOR once the documentation for the new release has been merged.
+- **PATCH is independent.** The website MAY cut a new PATCH release at any time to ship website-only operational fixes — for example continuous-integration changes, Docker image fixes, deployment adjustments, accessibility corrections, copy edits, or site infrastructure work — without waiting for a MuxMaster release. The website's PATCH number is therefore not required to match MuxMaster's PATCH number, and the two will routinely diverge. A state in which the website is at `v1.0.2` while MuxMaster is at `v1.0.1` is expected, not anomalous.
+- **MuxMaster releases still trigger a website release.** Every MuxMaster release MUST be followed by a website release that documents it. That release adopts MuxMaster's `MAJOR.MINOR` and sets the website's PATCH to the next value in the website's own sequence (it does not reset to MuxMaster's PATCH).
+
+### Worked example
+
+- Website at `v1.0.1`, MuxMaster at `v1.0.1`.
+- The website ships a Docker fix. The website releases `v1.0.2`; MuxMaster remains at `v1.0.1`. This is permitted under the new policy.
+- MuxMaster later releases `v1.1.0`. The next website release MUST adopt `1.1` and is tagged `v1.1.0` (the website's PATCH resets only because MINOR advanced, per standard SemVer rules; it does not mirror MuxMaster's PATCH).
+- MuxMaster then releases `v1.1.1`. The next website release is tagged `v1.1.1` if no website-only PATCH was cut in between, or `v1.1.2` (or higher) if one or more website-only PATCH releases were already published on the `1.1` line.
+
+### Supersession of the previous lockstep rule
+
+The previous rule — that the website is released with the same full semantic version as the MuxMaster release it documents, in lockstep across all three digits — is **superseded** as of website `v1.0.2` (2026-05-11). The lockstep rule was ratified in the website `v1.0.1` CHANGELOG entry; that historical entry is immutable under Keep a Changelog and MUST NOT be edited retroactively. The supersession is recorded in the website `v1.0.2` CHANGELOG entry by the `release-manager` agent at tag time.
+
+### Version label in the page chrome (unchanged)
+
+The version *label* shown in the header and footer is a separate concept from the website's own release tag and is unaffected by this policy. The label is read at server startup from `/content/changelog.md` (rule: first Markdown heading of the form `## vMAJOR.MINOR.PATCH` that is not a pre-release suffix). The `content-curator` agent commits `/content/changelog.md` mirrored from `../MuxMaster/CHANGELOG.md` during a sync (see `content-sources.md`). The label therefore tracks the **MuxMaster** version the site documents, not the website's own tag. A restart is required for the label to roll forward. See `url-and-versioning.md` § Version label rule.
+
+### Current state
+
+- Website release as of 2026-05-11: **v1.0.2** (website-only PATCH; ships operational fixes on top of `v1.0.1`).
+- MuxMaster release being documented as of 2026-05-11: **v1.0.1** (released 2026-05-08).
+- The version label shown in the page chrome is therefore **v1.0.1**, sourced from MuxMaster's CHANGELOG mirrored into `/content/changelog.md`.
 
 ## Language and tone rules (per CLAUDE.md §0)
 
