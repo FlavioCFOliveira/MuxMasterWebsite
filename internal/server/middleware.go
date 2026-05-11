@@ -39,6 +39,15 @@ func slogAccessLog(logger *slog.Logger) func(http.Handler) http.Handler {
 			rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 			next.ServeHTTP(rec, r)
 
+			// route_id is the matched route pattern, populated by MuxMaster
+			// on the dispatched (cloned) request. The dispatcher does not
+			// mutate the outer request, so this Pre-positioned access log
+			// reads RoutePattern from the pre-dispatch context — which is
+			// always empty. The field is emitted with the empty string for
+			// schema-stability so log consumers always see the key; a
+			// follow-up will move the access log to Use middleware (or
+			// pass the pattern out via a context container) to populate
+			// it for matched routes. 404s remain empty by design.
 			logger.LogAttrs(r.Context(), slog.LevelInfo, "request",
 				slog.String("method", r.Method),
 				slog.String("path", r.URL.Path),
