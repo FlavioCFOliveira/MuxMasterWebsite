@@ -11,9 +11,14 @@
 # runtime — the curated copy under /content/ is committed to this
 # repository (specification/deployment.md, specification/content-sources.md).
 
-FROM golang:1.26-alpine AS builder
-
-RUN apk add --no-cache ca-certificates curl make bash git
+# Builder runs on Debian-based golang:1.26 (glibc) rather than the alpine
+# variant. The Tailwind v4 standalone binary published at
+# github.com/tailwindlabs/tailwindcss/releases is linked against glibc;
+# downloading it inside an alpine (musl) image yields a binary that
+# silently fails to execute. The Debian-based image also ships make,
+# curl, bash, and git out of the box. The runtime stage below is still
+# distroless static-debian12, so the production image size is unaffected.
+FROM golang:1.26 AS builder
 
 WORKDIR /workspace
 
