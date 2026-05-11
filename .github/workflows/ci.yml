@@ -47,6 +47,13 @@ jobs:
       - name: go vet
         run: go vet ./...
 
+      # The renderer requires a hashed CSS bundle at static/css/app.<hash>.css
+      # (produced by Tailwind v4 standalone via `make css`); server tests
+      # instantiate the renderer at New() and fail hard when the bundle is
+      # missing. Build it before the tests run.
+      - name: Build CSS bundle
+        run: make css
+
       # The structured-data validation gate (spec/ci.md § Validation)
       # runs as part of `go test`. TestJSONLDValidationGate exercises
       # every prerendered HTML page through both the schema.org
