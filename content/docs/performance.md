@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # Performance
 
 MuxMaster is designed to add negligible overhead to the standard `net/http` stack. This document explains the design decisions behind its performance, how to measure it, and how it compares to other Go HTTP routers.

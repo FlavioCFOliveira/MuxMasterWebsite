@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # Middleware
 
 Middleware in MuxMaster is any function with the signature:

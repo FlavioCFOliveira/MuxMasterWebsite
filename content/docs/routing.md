@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # Routing Reference
 
 MuxMaster dispatches HTTP requests using a radix tree (compressed prefix trie). Each HTTP method has its own tree. Route lookup is O(k) in the length of the URL path, independent of the total number of registered routes.

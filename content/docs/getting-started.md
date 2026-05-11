@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # Getting Started with MuxMaster
 
 This guide walks you through building a small but realistic REST API with MuxMaster from scratch. By the end you will have a working server with route groups, middleware, path parameters, JSON responses, and centralized error handling.

@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # Observability
 
 MuxMaster ships with two first-class observability primitives — a

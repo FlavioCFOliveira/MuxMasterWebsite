@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # Cache example
 
 Three complementary response-caching techniques on the same router: an in-memory TTL cache that avoids re-computing expensive responses within a configurable window, `Cache-Control` headers that instruct clients and intermediaries to keep their own copy, and ETag-driven conditional GETs that let unchanged resources skip the body entirely with a 304. Reach for this example when handler work is expensive and idempotent within a short horizon.

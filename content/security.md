@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # Security Policy
 
 ## Supported Versions

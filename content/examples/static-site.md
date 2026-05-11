@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # Static site example
 
 A documentation static-site server that exercises the full HTTP vocabulary for static delivery: conditional GETs (304 via `ETag` / `Last-Modified`), range requests (206 partial content), HEAD, OPTIONS / CORS, gzip via `Accept-Encoding`, security headers, rate-limited backlog, RealIP behind a reverse proxy, clean-path normalisation, custom HTML 404, redirect chains, sub-handler mount for versioned documentation, and route inspection. Reach for this example when serving any non-trivial static asset tree.

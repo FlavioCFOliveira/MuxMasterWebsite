@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # Graceful shutdown example
 
 The production-recommended pattern for serving a MuxMaster router behind `http.Server`: signal-driven shutdown, in-flight request drain, the full set of slowloris-defeating timeouts, and a cooperative handler that observes `ctx.Done()` so the timeout middleware can preempt long-running work (`SECURITY.md` MM-2026-0019).

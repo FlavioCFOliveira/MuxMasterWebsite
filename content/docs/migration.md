@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # Migration Guide
 
 This guide shows how to migrate an existing Go application to MuxMaster from three common routers: **gorilla/mux**, **chi**, and **httprouter**.

@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # Changelog
 
 All notable changes to this project will be documented in this file.

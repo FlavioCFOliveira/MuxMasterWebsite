@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # Configuration Reference
 
 All configuration is done by setting fields on `*Mux` after calling `muxmaster.New()`. Every field has a sensible default suitable for production use.

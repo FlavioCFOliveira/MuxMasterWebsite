@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # Server Side Render example
 
 A multi-page guestbook rendered by Go's `html/template`, demonstrating layout inheritance, the POST–Redirect–GET pattern with flash messages, form re-population on validation failure, embedded static assets via `embed.FS`, and a themed 404 page. Reach for this example when serving HTML pages directly from MuxMaster — the same pattern powers this documentation website.

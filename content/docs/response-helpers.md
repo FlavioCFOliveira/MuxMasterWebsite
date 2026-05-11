@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # Response Helpers
 
 MuxMaster provides a small set of functions that write complete HTTP responses in one call. They set the appropriate `Content-Type` header, call `WriteHeader`, and write the body.

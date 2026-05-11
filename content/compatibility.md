@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # Compatibility & Versioning
 
 MuxMaster follows [Semantic Versioning 2.0.0](https://semver.org/) and the

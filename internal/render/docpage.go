@@ -2,6 +2,7 @@ package render
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/FlavioCFOliveira/MuxMasterWebsite/internal/content"
@@ -138,6 +139,15 @@ func DocPageRecipe(spec DocPageSpec, loader *content.Loader, ogImagePath string,
 			// no-fabricated-values rule (spec/structured-data.md § Date
 			// sources for embedded content); the omission is reported via
 			// an HTML-comment audit trail by BuildJSONLD.
+			// Parse the leading YAML frontmatter (when present) for
+			// datePublished / dateModified. Resolution order per
+			// spec/structured-data.md § Date sources for embedded content:
+			// (1) front-matter, (2) git-log mtime / filesystem mtime,
+			// (3) omit with audit-trail HTML comment. We honour (1) and
+			// (2) here; (3) is the natural fallthrough when both are
+			// zero.
+			fm := parseFrontmatter(src)
+
 			sourceMtime, _ := loader.Mtime(spec.ContentPath)
 			lastMod := sourceMtime
 			if lastMod.IsZero() {
@@ -197,13 +207,22 @@ func DocPageRecipe(spec DocPageSpec, loader *content.Loader, ogImagePath string,
 			// sequence. Pages without that shape produce zero bytes and
 			// no HowTo block is emitted.
 			howToSrc := src
+			// Resolve datePublished and dateModified per the doctrine:
+			// front-matter beats build-time mtime; both zero → omit.
+			datePublished := fm.DatePublished
+			dateModified := fm.DateModified
+			if dateModified.IsZero() {
+				dateModified = sourceMtime // still zero on embed.FS; renderer omits with audit trail
+			}
+
 			page.JSONLD = BuildJSONLD(JSONLDInputs{
-				Page:         page,
-				Family:       family,
-				BuildTime:    deps.BuildTime,
-				DateModified: sourceMtime, // zero → omit; never substituted with BuildTime.
-				HowToSource:  howToSrc,
-				RenderedHTML: htmlBody, // FAQPage scanner reads <section data-conversation>.
+				Page:          page,
+				Family:        family,
+				BuildTime:     deps.BuildTime,
+				DatePublished: datePublished,
+				DateModified:  dateModified,
+				HowToSource:   howToSrc,
+				RenderedHTML:  htmlBody, // FAQPage scanner reads <section data-conversation>.
 			})
 
 			return deps.Renderer.ExecuteTemplate("doc-page.html", Data{Meta: page, Body: body})
@@ -227,6 +246,79 @@ func MarkdownCompanionRecipe(routePath, contentPath string, loader *content.Load
 			return stripFrontmatter(src), nil
 		},
 	}
+}
+
+// frontmatter is the small subset of YAML keys the renderer reads from a
+// content file's leading `---` block. Only the keys named here are
+// recognised; the full file is still served verbatim via the .md
+// companion path, so other keys are passed through to the markdown
+// pipeline (where stripFrontmatter removes the block on its way to
+// goldmark). Date fields are parsed as RFC 3339 / date-only strings.
+type frontmatter struct {
+	DatePublished time.Time
+	DateModified  time.Time
+}
+
+// parseFrontmatter reads the leading `---` YAML block of src and returns
+// the recognised keys (currently datePublished and dateModified). Files
+// without a frontmatter block return a zero-value frontmatter and no
+// error. Malformed dates are silently ignored — the doctrine's
+// resolution order (front-matter → git-log → omit with audit comment)
+// handles missing values; a bad value is treated the same as missing.
+func parseFrontmatter(src []byte) frontmatter {
+	var fm frontmatter
+	if len(src) < 4 || string(src[:4]) != "---\n" {
+		return fm
+	}
+	rest := src[4:]
+	// Find the closing `---` line (same shape as stripFrontmatter).
+	var block string
+	for i := 0; i < len(rest); i++ {
+		if rest[i] != '\n' {
+			continue
+		}
+		j := i + 1
+		if j+3 <= len(rest) && string(rest[j:j+3]) == "---" {
+			block = string(rest[:i])
+			break
+		}
+	}
+	if block == "" {
+		return fm
+	}
+	for _, line := range strings.Split(block, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, val, ok := strings.Cut(line, ":")
+		if !ok {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		val = strings.Trim(strings.TrimSpace(val), `"'`)
+		switch key {
+		case "datePublished":
+			if t, err := parseFrontmatterDate(val); err == nil {
+				fm.DatePublished = t
+			}
+		case "dateModified":
+			if t, err := parseFrontmatterDate(val); err == nil {
+				fm.DateModified = t
+			}
+		}
+	}
+	return fm
+}
+
+// parseFrontmatterDate accepts either a full RFC 3339 timestamp or a
+// date-only ("YYYY-MM-DD") form. Date-only values are anchored at
+// midnight UTC.
+func parseFrontmatterDate(s string) (time.Time, error) {
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return t, nil
+	}
+	return time.Parse("2006-01-02", s)
 }
 
 // stripFrontmatter removes a leading YAML frontmatter block delimited by

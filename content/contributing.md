@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # Contributing to MuxMaster
 
 Thank you for your interest in contributing. This guide covers everything you need to get started.

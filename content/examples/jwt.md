@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # JWT example
 
 Bearer-token authentication via the `JWTAuth` middleware, configured with `RequireExpiry: true` per RFC 8725 §4.4. The example issues HS256 tokens with the standard library only (MuxMaster validates tokens but intentionally does not issue them — issuance is application-specific) and protects an `/api` group with the validating middleware.

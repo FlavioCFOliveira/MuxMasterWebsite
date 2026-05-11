@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # MuxMaster
 
 A radix-tree HTTP router for Go. Zero dependencies, O(k) lookups.

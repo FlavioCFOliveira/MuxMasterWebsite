@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # OAuth2 example
 
 OAuth 2.0 token introspection via the `OAuth2Introspect` middleware (RFC 7662). Reach for it when bearer tokens must be validated against an authorisation server rather than verified locally. The example also demonstrates the four invariants of the hardened token-handling stack required by `SECURITY.md` CDX-S8-001.

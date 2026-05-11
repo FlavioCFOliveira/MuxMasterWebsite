@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # Public API
 
 The public API of MuxMaster: every exported type, function, method, and field, with the signatures and short behavioural notes the compiler sees. The package implements an `http.Handler`-compatible HTTP router built on a radix tree, plus typed parameter accessors, response helpers, and an introspection API.

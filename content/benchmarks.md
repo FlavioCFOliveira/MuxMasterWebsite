@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # Benchmarks
 
 > This page reflects the upstream `README.md` `## Benchmarks` section as of **2026-05-08** at upstream commit **`7827183`** (release **v1.0.1**). Numbers are reproduced verbatim from the upstream source. To re-run the suite, follow the reproduce instructions below.

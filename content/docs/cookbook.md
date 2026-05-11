@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # Cookbook
 
 This page collects ready-to-use patterns for common production scenarios.

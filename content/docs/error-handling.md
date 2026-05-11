@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # Error Handling
 
 MuxMaster provides a structured approach to error handling that eliminates boilerplate in individual handlers while giving you full control over how errors are serialized and logged.

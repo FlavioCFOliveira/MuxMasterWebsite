@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # Groups and Sub-Routers
 
 Groups allow you to organize routes that share a common URL prefix and/or a common set of middleware. Sub-routers extend this further by allowing completely independent `*Mux` instances to be mounted at a path.

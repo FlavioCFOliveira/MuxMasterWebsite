@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # REST API example
 
 A bookstore REST API that exercises every MuxMaster feature in one program: every HTTP method, path / regex / catch-all parameters, group composition, scoped middleware, the error-returning handler family, FastHandler + FastMiddleware, route introspection (`Routes`, `Lookup`, `Walk`), `Mount` for sub-handlers, and the production-grade middleware stack (`RealIP`, `RequestID`, `Logger`, `Recoverer`, `Timeout`, throttles, gzip, CORS, BasicAuth, NoCache, security headers). Reach for this example as the canonical "how do I structure a CRUD service?" reference.

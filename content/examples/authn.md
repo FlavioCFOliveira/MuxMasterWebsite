@@ -1,3 +1,7 @@
+---
+datePublished: 2026-05-08
+---
+
 # Authn example
 
 Two authentication strategies on the same router: HTTP Basic Auth (paired with `ThrottlePerIP` to defend against credential-stuffing per `SECURITY.md` MM-2026-0027) and an API-key middleware that hashes its keys with SHA-256 at construction time so per-request cost is one hash plus a `[32]byte` map lookup. Reach for this example when a service needs simple username-and-password or shared-key protection without a full session layer.
