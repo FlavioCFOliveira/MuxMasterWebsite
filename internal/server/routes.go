@@ -227,8 +227,15 @@ func (s *Server) registerRoutes(m *muxm.Mux) {
 // staticCacheHandler serves files from staticDir, applying per-path
 // Cache-Control headers. The hashed CSS bundle gets a one-year immutable
 // cache; everything else gets a conservative one-day default.
+//
+// Directory paths (resolved to a directory rather than a regular file)
+// return 404 rather than the http.FileServer default of rendering the
+// directory's HTML index. Surface enumeration is an information-
+// disclosure vector that contradicts the site's strict CSP posture; the
+// only legitimate way to reach a static asset is its full URL.
 func (s *Server) staticCacheHandler() http.HandlerFunc {
-	fileServer := http.FileServer(http.Dir(s.staticDir))
+	root := http.Dir(s.staticDir)
+	fileServer := http.FileServer(root)
 	hashedCSS := s.renderer.CSSPath()
 	return func(w http.ResponseWriter, r *http.Request) {
 		filepathParam := muxm.PathParam(r, "filepath")
@@ -238,6 +245,13 @@ func (s *Server) staticCacheHandler() http.HandlerFunc {
 		if r.URL.Path != "" && r.URL.Path[0] != '/' {
 			r.URL.Path = "/" + r.URL.Path
 		}
+		// Reject any path that resolves to a directory. http.FileServer's
+		// default is to render an HTML index of the directory; the static
+		// tree of this site is not intended to be enumerable.
+		if isDirectory(root, r.URL.Path) {
+			http.NotFound(w, r)
+			return
+		}
 		if "/static"+r.URL.Path == hashedCSS {
 			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		} else {
@@ -245,4 +259,26 @@ func (s *Server) staticCacheHandler() http.HandlerFunc {
 		}
 		fileServer.ServeHTTP(w, r)
 	}
+}
+
+// isDirectory reports whether name resolves to a directory inside root.
+// An empty name (root URL "/static/") and a trailing-slash path both
+// resolve to a directory and MUST be rejected by callers that do not
+// want to expose directory enumeration. Errors opening name fall
+// through as "not a directory" so the caller's regular http.FileServer
+// path handles the 404 with its existing semantics.
+func isDirectory(root http.FileSystem, name string) bool {
+	if name == "" || name == "/" || strings.HasSuffix(name, "/") {
+		return true
+	}
+	f, err := root.Open(name)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	stat, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return stat.IsDir()
 }

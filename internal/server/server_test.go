@@ -162,6 +162,51 @@ func TestSmokeFullSite(t *testing.T) {
 	}
 }
 
+// TestStaticDirectoryListingsBlocked verifies that the /static handler
+// rejects directory paths with 404 rather than serving http.FileServer's
+// default HTML index. Directory enumeration would leak the asset surface
+// and contradict the strict CSP posture set in middleware.go (rmp #69).
+func TestStaticDirectoryListingsBlocked(t *testing.T) {
+	t.Parallel()
+	srv := newTestServer(t)
+	ts := httptest.NewServer(srv.httpServer.Handler)
+	t.Cleanup(ts.Close)
+
+	// Every directory under /static/ must return 404, including the root
+	// and any sub-directory the fixture happens to expose.
+	dirs := []string{
+		"/static/",
+		"/static/css/",
+		"/static/img/",
+		"/static/favicon/",
+	}
+	for _, path := range dirs {
+		t.Run(path, func(t *testing.T) {
+			resp, err := http.Get(ts.URL + path)
+			if err != nil {
+				t.Fatalf("GET %s: %v", path, err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusNotFound {
+				t.Errorf("GET %s: status=%d, want %d (directory listing must be blocked)", path, resp.StatusCode, http.StatusNotFound)
+			}
+		})
+	}
+
+	// The hashed CSS bundle, which is an actual file, must still 200.
+	cssPath := srv.renderer.CSSPath()
+	t.Run("hashed-css-still-served", func(t *testing.T) {
+		resp, err := http.Get(ts.URL + cssPath)
+		if err != nil {
+			t.Fatalf("GET %s: %v", cssPath, err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("GET %s: status=%d, want 200 (real asset must still serve)", cssPath, resp.StatusCode)
+		}
+	})
+}
+
 // TestNormalisationRedirects verifies the URL normalisation 301s required by
 // specification/url-and-versioning.md "Redirects".
 func TestNormalisationRedirects(t *testing.T) {
