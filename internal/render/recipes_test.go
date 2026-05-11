@@ -272,6 +272,43 @@ func TestSitemapRecipeConformance(t *testing.T) {
 	}
 }
 
+// TestSitemapRecipeProductionVsDevelopment verifies the production gating
+// ratified in task #45: in non-production environments the sitemap emits
+// an empty <urlset> (every page is noindex,nofollow until the canonical
+// domain is decided), and in production it emits the full URL list. The
+// audit on 2026-05-11 flagged that the only existing test exercises the
+// production branch; without this paired test, a regression that flipped
+// the gating polarity would ship silently (rmp #85).
+func TestSitemapRecipeProductionVsDevelopment(t *testing.T) {
+	t.Parallel()
+	deps := fixtureDeps(t)
+	mapping := map[string]string{
+		"/docs/routing": "docs/routing.md",
+		"/api":          "api.md",
+	}
+
+	// Production: non-empty urlset.
+	prodBody, err := SitemapRecipe(fixtureLoader(t), mapping, true).Build(deps)
+	if err != nil {
+		t.Fatalf("production Build: %v", err)
+	}
+	if !strings.Contains(string(prodBody), "<loc>") {
+		t.Errorf("production sitemap missing <loc>; body=%s", string(prodBody))
+	}
+
+	// Development: empty urlset (still valid XML, still 200).
+	devBody, err := SitemapRecipe(fixtureLoader(t), mapping, false).Build(deps)
+	if err != nil {
+		t.Fatalf("development Build: %v", err)
+	}
+	if strings.Contains(string(devBody), "<loc>") {
+		t.Errorf("development sitemap MUST NOT carry <loc> entries; body=%s", string(devBody))
+	}
+	if !strings.Contains(string(devBody), "<urlset") {
+		t.Errorf("development sitemap missing <urlset> open tag; body=%s", string(devBody))
+	}
+}
+
 func TestRobotsRecipeListsExpectedBots(t *testing.T) {
 	t.Parallel()
 	deps := fixtureDeps(t)
