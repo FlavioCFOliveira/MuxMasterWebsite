@@ -2,7 +2,7 @@
 title: Open questions
 purpose: Register every TBD item that the specification carries today, with the reason it is open, the impact it has, and the owner responsible for closing it.
 owners: specification-manager (registry); the named owner per question (resolution).
-last-updated: 2026-05-08
+last-updated: 2026-05-11
 status: live (re-read every session)
 ---
 
@@ -10,13 +10,15 @@ status: live (re-read every session)
 
 This register lists every TBD the specification has carried. Items still open are marked as such; items that have been ratified are kept visible with a `RESOLVED` status, the resolution date, and the ratified value, so the resolution history is preserved. The specification's other files refer back to this register where they encounter a `TBD`. Implementation MUST NOT silently invent values for any item still marked open; resolution requires explicit ratification.
 
-**Status summary as of 2026-05-11:** seven items registered; three resolved (items 2, 3, 4); one superseded (item 6, by the 2026-05-08 content-pivot ratification); three still open (items 1, 5, 7).
+**Status summary as of 2026-05-11:** seven items registered; four resolved (items 1, 2, 3, 4); one superseded (item 6, by the 2026-05-08 content-pivot ratification); two still open (items 5, 7).
 
 ## 1. Canonical production domain
 
+- **Status.** RESOLVED on 2026-05-11.
+- **Ratified value.** `https://muxmaster.net` (HTTPS, apex, no trailing slash). `www.muxmaster.net` is expected to issue a `301 Moved Permanently` redirect to the apex at the reverse-proxy layer; the apex is the single canonical host emitted in every canonical link, Open Graph URL, sitemap entry, llms.txt link, and JSON-LD `@id`.
 - **Question.** Which domain will host the public production site?
-- **Why open.** A domain has not been selected and registered.
-- **Blocks.**
+- **Why was open.** A domain had not been selected and registered.
+- **Blocks (now cleared).**
   - Public production launch (gate stated in `deployment.md`).
   - `<link rel="canonical">` absolute URLs.
   - Open Graph `og:url` and absolute `og:image` URLs.
@@ -26,7 +28,7 @@ This register lists every TBD the specification has carried. Items still open ar
   - JSON-LD `@id` URIs and `WebSite.url`.
   - HSTS preload submission (the domain must exist first).
 - **Owner.** Project owner (Flavio CF Oliveira).
-- **Resolution path.** Owner selects a domain, registers it, configures DNS to point at the production deployment, and ratifies the value as the `SITE_BASE_URL` for `ENV=production`. The `specification-manager` then records the chosen domain in `deployment.md` and removes this entry.
+- **Resolution path.** The project owner ratified `https://muxmaster.net` on 2026-05-11. The apex was preferred over the `www` subdomain to keep canonical URIs as short as possible and to keep the apex as the single authoritative origin; the `www` host redirects to the apex at the proxy layer. `specification-manager` recorded the ratified value in `deployment.md`, `seo.md`, `structured-data.md`, `geo.md`, `overview.md`, and this entry. The atomic update of `<link rel=canonical>`, `og:url`, `og:image`, `sitemap.xml`, `llms.txt`, `llms-full.txt`, and JSON-LD `@id` URIs is now an implementation rollout step, not a specification blocker.
 
 ## 2. Exact accent colour hexes
 

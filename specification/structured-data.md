@@ -2,7 +2,7 @@
 title: Structured Data Doctrine
 purpose: Define the unified JSON-LD contract for the MuxMaster documentation website — schema-by-page-family table, entity graph, field-completeness rules, auxiliary schemas, and the blocking CI validation gate.
 owners: seo-specialist (rich-result eligibility); geo-specialist (AI-ingestion accuracy). Co-owned. Both must approve any change to this file.
-last-updated: 2026-05-10
+last-updated: 2026-05-11
 status: ratified
 ---
 
@@ -37,7 +37,7 @@ Cross-cutting rules:
 
 ## Entity graph
 
-The site reifies four project-level entities. Each is **emitted in full only on `/`**, with a stable `@id` URI of the form `https://<canonical>/#<fragment>`. Every other page references these nodes by `@id` instead of redefining them inline. The canonical domain is **TBD** (`open-questions.md` item 1); until it is decided, `<canonical>` resolves to the value of `SITE_BASE_URL` and the pages MUST NOT be marked indexable.
+The site reifies four project-level entities. Each is **emitted in full only on `/`**, with a stable `@id` URI of the form `https://muxmaster.net/#<fragment>`. Every other page references these nodes by `@id` instead of redefining them inline. The canonical domain was ratified on 2026-05-11 as `https://muxmaster.net` (HTTPS, apex, no trailing slash — see `open-questions.md` item 1, RESOLVED, and `deployment.md`). In `development` and `staging`, where `SITE_BASE_URL` is not the canonical production origin, the `@id` URIs MUST be rewritten to use `SITE_BASE_URL` so that staging never advertises canonical-production identifiers, and the pages MUST NOT be marked indexable.
 
 ### MuxMaster module — `SoftwareSourceCode`
 
@@ -189,7 +189,7 @@ Content files served via Go's `embed.FS` carry a zero `mtime` because the embedd
 | Field | Source |
 | --- | --- |
 | `name` | The publishing organisation name, as declared in the upstream repository's `LICENSE` and `README`. |
-| `url` | The site's canonical URL (the value of `SITE_BASE_URL` resolved against the canonical domain). |
+| `url` | The site's canonical URL: `https://muxmaster.net` in production; the value of `SITE_BASE_URL` in `development` and `staging`. |
 | `logo` | The canonical logo URL on the site (mirrored from the upstream `assets/logo-muxmaster.png` — see `brand-and-visual.md`). |
 | `sameAs` | An array including at minimum the GitHub organisation or user page that hosts the upstream repository. |
 

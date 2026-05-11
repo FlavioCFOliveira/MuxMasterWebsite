@@ -3,7 +3,7 @@ title: Deployment
 purpose: Define the Docker model, runtime contract, environment variables, reverse-proxy expectations, health endpoint, log shape, and the production launch gate.
 owners: specification-manager; review by seo-specialist (HTTPS/HTTP/2/security headers), tailwind-specialist (CSS bundle delivery).
 last-updated: 2026-05-11
-status: ratified (production launch blocked on canonical-domain TBD)
+status: ratified
 ---
 
 # Deployment
@@ -47,10 +47,10 @@ Content is part of the repository under `/content/` and is therefore embedded in
 
 | Variable | Purpose | Default | Required |
 | --- | --- | --- | --- |
-| `SITE_BASE_URL` | Absolute base URL of the site, used for canonical, OG, JSON-LD, sitemap, and llms.txt. | `http://localhost:8080` | Yes |
+| `SITE_BASE_URL` | Absolute base URL of the site, used for canonical, OG, JSON-LD, sitemap, and llms.txt. In production this MUST be set to `https://muxmaster.net` (the canonical domain ratified on 2026-05-11). | `http://localhost:8080` | Yes |
 | `LOG_LEVEL` | One of `debug`, `info`, `warn`, `error`. | `info` | No |
 | `PORT` | TCP port to bind. | `8080` | No |
-| `ENV` | One of `development`, `staging`, `production`. Controls whether `noindex` is forced when `SITE_BASE_URL` is not the canonical domain. | `development` | No |
+| `ENV` | One of `development`, `staging`, `production`. Controls whether `noindex` is forced when `SITE_BASE_URL` is not the canonical production domain (`https://muxmaster.net`). | `development` | No |
 
 `MUXMASTER_SOURCE_DIR` is **not** a runtime variable. It is consumed only by the `content-curator` agent at development time (see `content-sources.md`).
 
@@ -65,6 +65,7 @@ The container is intended to run behind a reverse proxy (nginx, Caddy, Traefik, 
 - HTTP/2 (and HTTP/3 where the proxy supports it) on the public side. The container speaks h2c on its loopback or container network.
 - **Brotli compression** on the public side. The container MAY emit `Content-Encoding: gzip` directly when the proxy is not configured for Brotli.
 - HSTS preload (the container also emits `Strict-Transport-Security`, see `seo.md`; the proxy MAY override).
+- A `301 Moved Permanently` redirect from `https://www.muxmaster.net` (and from `http://www.muxmaster.net` and `http://muxmaster.net`) to the apex `https://muxmaster.net`. The apex is the single canonical origin; the `www` host MUST NOT serve content directly. This redirect is implemented at the reverse-proxy layer and is not visible to the container.
 
 The container MUST trust the proxy's `X-Forwarded-*` headers only when configured to do so. The trust is opt-in via the `TRUSTED_PROXY_CIDRS` environment variable (comma-separated list of CIDR prefixes). Empty (or unset) means no proxy is trusted and `r.RemoteAddr` is used verbatim — the safe default. In production deployments behind a reverse proxy, the operator MUST set `TRUSTED_PROXY_CIDRS` to the edge-proxy network(s); the binary then runs `mwm.RealIP(prefixes...)` before the access logger so a forged `X-Forwarded-For` from a non-trusted peer is ignored. In development the variable stays unset.
 
@@ -92,7 +93,10 @@ The container MUST trust the proxy's `X-Forwarded-*` headers only when configure
 
 ## Production launch gate
 
-- The site MUST NOT be served to the public until the canonical domain is decided (`open-questions.md` item 1).
-- Until then, all environments MUST set `ENV=staging` (or `development`) and the rendered HTML MUST include `<meta name="robots" content="noindex,nofollow">`.
+The canonical production domain was ratified on 2026-05-11 as `https://muxmaster.net` (see `open-questions.md` item 1, RESOLVED). The specification-level blocker on public launch is therefore closed; the remaining gate items below are an **implementation rollout** step, not a specification blocker.
+
+- In any environment that is not the production deployment on `https://muxmaster.net`, `ENV` MUST be `staging` or `development` and the rendered HTML MUST include `<meta name="robots" content="noindex,nofollow">`.
 - The `sitemap.xml` MUST be empty (no `<url>` entries) when `ENV` is not `production`.
-- Once the canonical domain is decided, the following MUST be updated atomically: `<link rel=canonical>`, `og:url`, `og:image` absolute URLs, `sitemap.xml`, `llms.txt`, `llms-full.txt`, JSON-LD `@id` URIs.
+- The transition from staging to production MUST update the following artefacts **atomically** in the same deploy (no partial-update state in which some artefacts already point at `https://muxmaster.net` while others still point at the staging origin): `<link rel=canonical>`, `og:url`, `og:image` absolute URLs, `sitemap.xml`, `llms.txt`, `llms-full.txt`, JSON-LD `@id` URIs.
+- DNS for `muxmaster.net` and `www.muxmaster.net` MUST resolve to the production deployment before `ENV=production` is flipped, and the `www` host MUST already serve the `301` redirect described under `## Reverse-proxy expectations`.
+- HSTS preload submission (https://hstspreload.org) is recommended once production has served `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload` for at least one continuous week from `https://muxmaster.net`.

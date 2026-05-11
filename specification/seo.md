@@ -2,7 +2,7 @@
 title: SEO contract
 purpose: Define the search-engine optimisation contract for every page family — head metadata, structured data, sitemap, robots, security headers, and Core Web Vitals targets.
 owners: seo-specialist (final review); review by ux-specialist (anchor-text descriptiveness), geo-specialist (structured-data overlap with GEO).
-last-updated: 2026-05-10
+last-updated: 2026-05-11
 status: ratified
 ---
 
@@ -16,13 +16,13 @@ Every indexable HTML page MUST include the following inside `<head>`:
 - `<meta name="viewport" content="width=device-width, initial-scale=1">`.
 - A unique `<title>`. Format: `<Page title> — MuxMaster`. Maximum 60 visible characters where practical.
 - A unique `<meta name="description" content="...">`. 110 to 160 characters. Plain, factual, no ellipsis-truncation.
-- `<link rel="canonical" href="<absolute URL on the canonical domain>">`. The canonical domain is **TBD** (`open-questions.md` item 1). Until it is decided, the canonical link MUST use the value of `SITE_BASE_URL` and the page MUST NOT be marked indexable in production.
+- `<link rel="canonical" href="<absolute URL on the canonical domain>">`. The canonical domain was ratified on 2026-05-11 as `https://muxmaster.net` (HTTPS, apex, no trailing slash — see `open-questions.md` item 1, RESOLVED, and `deployment.md` § Runtime environment variables). The `<link rel="canonical">` value MUST therefore be `https://muxmaster.net<path>` on every indexable page in production. In `development` and `staging` (where `SITE_BASE_URL` is not the canonical production domain), the page MUST NOT be marked indexable and the canonical link MUST mirror the value of `SITE_BASE_URL` so that staging and production never advertise the same canonical URL.
 - Open Graph: `og:type` (`website` for `/`, `article` everywhere else), `og:title`, `og:description`, `og:url` (absolute), `og:image` (absolute, pointing at the generated 1200×630 OG image — see `brand-and-visual.md`), `og:site_name` ("MuxMaster"), `og:locale` ("en_US").
 - Twitter Card: `twitter:card` (`summary_large_image`), `twitter:title`, `twitter:description`, `twitter:image`.
 - `<meta name="theme-color" content="...">` matching the dark and light themes (two entries with `media` attributes).
 - Favicons (see `brand-and-visual.md`).
 
-Pages that MUST NOT be indexed (until the canonical domain is decided, or because they are operational): the page MUST emit `<meta name="robots" content="noindex,nofollow">` and the route MUST be excluded from `sitemap.xml`. `/healthz` is in this category permanently.
+Pages that MUST NOT be indexed (because the deployment is not the canonical production origin at `https://muxmaster.net`, or because they are operational): the page MUST emit `<meta name="robots" content="noindex,nofollow">` and the route MUST be excluded from `sitemap.xml`. `/healthz` is in this category permanently.
 
 ## Semantic HTML5
 

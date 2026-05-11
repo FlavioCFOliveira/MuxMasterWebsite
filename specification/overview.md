@@ -2,7 +2,7 @@
 title: Overview
 purpose: Describe the website's purpose, audiences, missions, and the integrity rules that govern its content.
 owners: specification-manager; review by seo-specialist, geo-specialist, tailwind-specialist, ux-specialist.
-last-updated: 2026-05-08
+last-updated: 2026-05-11
 status: ratified
 ---
 
@@ -34,9 +34,9 @@ All content is prepared editorially in this repository by the agents in this dev
 
 ## Version cadence
 
-- The site does not maintain its own semantic version separate from MuxMaster. It surfaces the **latest released MuxMaster version** as a plain text label in the header and footer (e.g. `v1.0.1`).
-- The version label is read at server startup from `/content/changelog.md` (rule: first heading of the form `## vMAJOR.MINOR.PATCH` that is not a pre-release suffix). The `content-curator` agent commits `/content/changelog.md` mirrored from `../MuxMaster/CHANGELOG.md` during a sync (see `content-sources.md`). Restart is required to roll the label forward.
-- The current value as of 2026-05-08 is **v1.0.1** (released 2026-05-08).
+- The website is released with the **same semantic version as the MuxMaster release it documents**. A new website release tag is cut for every MuxMaster release; the website version follows MuxMaster's version in lockstep. Intra-version website-only changes (for example a typo fix between two MuxMaster releases) are not represented by a separate pre-release suffix today; they ship on `main` and are folded into the next mirrored release.
+- The version *label* shown in the page chrome (header and footer) is read at server startup from `/content/changelog.md` (rule: first heading of the form `## vMAJOR.MINOR.PATCH` that is not a pre-release suffix). The `content-curator` agent commits `/content/changelog.md` mirrored from `../MuxMaster/CHANGELOG.md` during a sync (see `content-sources.md`). Restart is required to roll the label forward. This rule is independent of the website's own release tag.
+- The website's own release history lives in `/CHANGELOG.md` at the repository root (Keep a Changelog 1.1.0 format) and in annotated Git tags of the form `vMAJOR.MINOR.PATCH`. The current value as of 2026-05-11 is **v1.0.1** (mirrors MuxMaster v1.0.1, released 2026-05-08).
 
 ## Language and tone rules (per CLAUDE.md §0)
 
@@ -54,10 +54,10 @@ All content is prepared editorially in this repository by the agents in this dev
 
 ## TBD register (initial)
 
-The five items below were registered as TBDs. They are tracked in detail, with current status, in `open-questions.md`. Production launch is blocked by item 1.
+The five items below were registered as TBDs. They are tracked in detail, with current status, in `open-questions.md`. As of 2026-05-11 the canonical-domain blocker is closed; the remaining open item from this initial register is item 5 (landing page copy).
 
-1. **Canonical production domain.** Open. Required for `<link rel=canonical>`, Open Graph `og:url` and absolute `og:image`, `sitemap.xml`, `llms.txt`, `llms-full.txt`, JSON-LD `@id` URIs.
-2. **Exact accent colour hexes** extracted from the logo PNG (cyan and yellow). Open. Required to lock the design tokens.
+1. **Canonical production domain.** Resolved on 2026-05-11 as `https://muxmaster.net` (HTTPS, apex, no trailing slash). Used for `<link rel=canonical>`, Open Graph `og:url` and absolute `og:image`, `sitemap.xml`, `llms.txt`, `llms-full.txt`, and JSON-LD `@id` URIs.
+2. **Exact accent colour hexes.** Resolved on 2026-05-11 as Tailwind's stock cyan and yellow scales (see `brand-and-visual.md`).
 3. **Go module path of this repository.** Resolved on 2026-05-08 as `github.com/FlavioCFOliveira/MuxMasterWebsite`.
 4. **Binary name** for the compiled site server. Resolved on 2026-05-08 as `muxmaster-website`.
 5. **Landing page copy** — value proposition headline, subhead, and primary CTA wording. Open.
