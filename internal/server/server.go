@@ -127,6 +127,7 @@ func (s *Server) Prerender() error {
 		render.LLMsFullRecipe(s.loader, routeContentPaths()),
 		render.SitemapRecipe(s.loader, routeContentPaths(), productionRobots),
 		render.RobotsRecipe(),
+		render.SecurityTxtRecipe(),
 		render.NotFoundRecipe(ogImagePath, productionRobots),
 		render.ServerErrorRecipe(ogImagePath, productionRobots),
 	}

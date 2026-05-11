@@ -321,9 +321,11 @@ func TestRobotsRecipeListsExpectedBots(t *testing.T) {
 	for _, bot := range []string{
 		"GPTBot", "ChatGPT-User", "OAI-SearchBot",
 		"ClaudeBot", "anthropic-ai",
-		"PerplexityBot", "Google-Extended", "Applebot-Extended",
+		"PerplexityBot", "Perplexity-User",
+		"Google-Extended", "Applebot-Extended",
 		"CCBot", "Bytespider", "Diffbot",
 		"OmgiliBot", "Amazonbot", "meta-externalagent",
+		"FacebookBot", "cohere-ai", "MistralAI-User",
 	} {
 		if !strings.Contains(s, "User-agent: "+bot) {
 			t.Errorf("robots.txt missing User-agent: %s", bot)

@@ -1092,7 +1092,7 @@ Call the matching helper on the mux: `m.POST`, `m.PUT`, `m.PATCH`, `m.DELETE`, `
 
 ### How do I declare a path parameter?
 
-Prefix the path segment with a colon — for example `/users/:id`. Read the matched value inside the handler with `mux.Param(r, "id")`. Catch-all parameters use the `*` prefix and must be the last segment of the pattern.
+Prefix the path segment with a colon — for example `/users/:id`. Read the matched value inside the handler with `muxmaster.PathParam(r, "id")`. Catch-all parameters use the `*` prefix and must be the last segment of the pattern.
 
 </section>
 

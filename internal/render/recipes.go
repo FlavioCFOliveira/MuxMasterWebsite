@@ -317,6 +317,7 @@ func RobotsRecipe() Recipe {
 		"ClaudeBot",
 		"anthropic-ai",
 		"PerplexityBot",
+		"Perplexity-User",
 		"Google-Extended",
 		"Applebot-Extended",
 		"CCBot",
@@ -325,6 +326,9 @@ func RobotsRecipe() Recipe {
 		"OmgiliBot",
 		"Amazonbot",
 		"meta-externalagent",
+		"FacebookBot",
+		"cohere-ai",
+		"MistralAI-User",
 	}
 	return Recipe{
 		Path:        "/robots.txt",
@@ -336,6 +340,29 @@ func RobotsRecipe() Recipe {
 			}
 			b.WriteString("User-agent: *\nAllow: /\nDisallow: /healthz\n\n")
 			fmt.Fprintf(&b, "Sitemap: %s/sitemap.xml\n", deps.BaseURL)
+			return []byte(b.String()), nil
+		},
+	}
+}
+
+// SecurityTxtRecipe builds /.well-known/security.txt per RFC 9116 §2.5.
+// The Expires field is twelve months ahead of the build time; per
+// specification/url-and-versioning.md "Reserved paths" it MUST be
+// refreshed before it lapses (the release contract). Contact points at
+// the upstream MuxMaster security-advisory channel because vulnerability
+// reports against the website overlap heavily with reports against the
+// router itself.
+func SecurityTxtRecipe() Recipe {
+	return Recipe{
+		Path:        "/.well-known/security.txt",
+		ContentType: "text/plain; charset=utf-8",
+		Build: func(deps Deps) ([]byte, error) {
+			expires := time.Now().UTC().AddDate(1, 0, 0).Format("2006-01-02T15:04:05Z")
+			var b strings.Builder
+			fmt.Fprintf(&b, "Contact: https://github.com/FlavioCFOliveira/MuxMaster/security/advisories/new\n")
+			fmt.Fprintf(&b, "Expires: %s\n", expires)
+			fmt.Fprintf(&b, "Preferred-Languages: en\n")
+			fmt.Fprintf(&b, "Canonical: %s/.well-known/security.txt\n", deps.BaseURL)
 			return []byte(b.String()), nil
 		},
 	}

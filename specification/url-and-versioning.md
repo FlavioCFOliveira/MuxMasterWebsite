@@ -43,8 +43,9 @@ The following paths are reserved by the site and MUST NOT collide with documenta
 - `/healthz` — health endpoint (operational).
 - `/robots.txt`, `/sitemap.xml`.
 - `/llms.txt`, `/llms-full.txt`.
-- `/assets/...` — versioned static assets (CSS, favicons, OG image, logo).
-- `/favicon.ico` — served from a redirect to a hashed PNG/ICO under `/assets/`, or directly from a fixed location; either way the path is reserved.
+- `/static/...` — versioned static assets (CSS, favicons, OG image, logo).
+- `/favicon.ico` — served as a `301 Moved Permanently` to `/static/favicon/favicon-32.png` with `Cache-Control: public, max-age=86400`. The legacy `.ico` path is reserved so that browsers, RSS readers, bookmark engines, and aggregators that probe it by reflex receive a single small redirect instead of a 404 body. The redirect is path-only; the host header is never echoed back to the client, mirroring the defensive pattern of `normalisationRedirects` in `redirects.go`.
+- `/.well-known/security.txt` — RFC 9116 vulnerability-reporting contact, served as `text/plain; charset=utf-8` with `Cache-Control: public, max-age=86400`. Required fields per RFC 9116 §2.5: `Contact` (URL of the project's security advisory channel), `Expires` (no more than twelve months ahead of the deploy date), `Preferred-Languages: en`, `Canonical: https://muxmaster.net/.well-known/security.txt`. The `Expires` value MUST be refreshed before it lapses; this is part of the release contract and is verified by the release smoke-test.
 
 ## Version label rule
 

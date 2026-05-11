@@ -96,15 +96,30 @@ jobs:
 
       # Smoke-test the published image. The binary exposes a `--healthcheck`
       # flag that probes the local listener and exits 0 only when the
-      # prerender pass has completed and /healthz responds.
+      # prerender pass has completed and /healthz responds; the extended
+      # HTTP probes below catch the regression classes that /healthz cannot
+      # detect on its own:
+      #   - CSS bundle unreadable by the nonroot UID (the v1.0.4 class:
+      #     403 Forbidden on /static/css/app.<hash>.css).
+      #   - Derived image assets missing from the runtime image (the
+      #     v1.0.5 class: 404 Not Found on /static/img/logo-*.png,
+      #     /static/img/og-image.png, /static/favicon/*.png).
+      #   - SITE_BASE_URL inconsistency: every canonical/sitemap/robots/
+      #     llms artefact must agree with the image's baked SITE_BASE_URL
+      #     (the regression detected by the v1.0.5 audit).
+      # The container is mapped 8080:80 because the runtime listens on :80
+      # (since v1.0.2). SITE_BASE_URL stays at the image default for the
+      # check so the scheme assertion measures the IMAGE, not a runtime
+      # override.
       - name: Smoke-test the published image
         env:
           IMAGE: ghcr.io/flaviocfoliveira/muxmaster-website:${{ github.ref_name }}
         run: |
           set -euo pipefail
           docker pull "$IMAGE"
-          docker run -d --name muxmaster-smoke -p 8080:8080 "$IMAGE"
-          # Wait up to 30s for the renderer to finish and /healthz to bind.
+          docker run -d --name muxmaster-smoke -p 8080:80 "$IMAGE"
+
+          # (1) --healthcheck must pass within 30 s.
           ok=0
           for i in $(seq 1 30); do
             if docker exec muxmaster-smoke /srv/muxmaster-website --healthcheck; then
@@ -114,13 +129,116 @@ jobs:
             fi
             sleep 1
           done
-          docker logs muxmaster-smoke || true
-          docker stop muxmaster-smoke || true
-          docker rm muxmaster-smoke || true
           if [ "$ok" -ne 1 ]; then
+            docker logs muxmaster-smoke || true
+            docker stop muxmaster-smoke || true
+            docker rm muxmaster-smoke || true
             echo "::error::published image failed --healthcheck within 30s"
             exit 1
           fi
+
+          BASE=http://localhost:8080
+          fail=0
+          # Resolve the image's baked SITE_BASE_URL — this is the value
+          # every canonical/sitemap/robots artefact must emit.
+          IMAGE_BASE=$(docker exec muxmaster-smoke /srv/muxmaster-website --print-base-url 2>/dev/null || true)
+          if [ -z "$IMAGE_BASE" ]; then
+            # Fallback: read from the ENV declared in the image. Works on
+            # any image even if the binary lacks --print-base-url.
+            IMAGE_BASE=$(docker inspect "$IMAGE" --format '{{range .Config.Env}}{{println .}}{{end}}' | awk -F= '/^SITE_BASE_URL=/ {print $2}')
+          fi
+          if [ -z "$IMAGE_BASE" ]; then
+            echo "::error::could not determine SITE_BASE_URL for image"
+            fail=1
+          fi
+          echo "asserting all emitted URLs match SITE_BASE_URL=$IMAGE_BASE"
+
+          # (2) Public HTML pages must return 200 with a non-trivial body.
+          for path in / /docs/ /docs/getting-started /api /examples/ /examples/rest-api /benchmarks /changelog /security /compatibility /contributing; do
+            tmp=$(mktemp)
+            code=$(curl -s -o "$tmp" -w '%{http_code}' "$BASE$path" || echo "000")
+            bytes=$(wc -c < "$tmp")
+            rm -f "$tmp"
+            if [ "$code" != "200" ]; then
+              echo "::error::$path returned $code (expected 200)"
+              fail=1
+            elif [ "$bytes" -lt 1000 ]; then
+              echo "::error::$path body suspiciously small ($bytes B)"
+              fail=1
+            fi
+          done
+
+          # (3) Derived static images (catches the v1.0.5 class).
+          for path in /static/img/logo.png /static/img/logo-32.png /static/img/logo-64.png \
+                      /static/img/logo-128.png /static/img/logo-192.png /static/img/logo-256.png \
+                      /static/img/logo-384.png /static/img/og-image.png \
+                      /static/favicon/favicon-32.png /static/favicon/favicon-192.png \
+                      /static/favicon/favicon-512.png /static/favicon/apple-touch-icon-180.png; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE$path" || echo "000")
+            if [ "$code" != "200" ]; then
+              echo "::error::$path returned $code (expected 200)"
+              fail=1
+            fi
+          done
+
+          # (4) Hashed CSS bundle must be readable by the runtime UID
+          # (catches the v1.0.4 class). Discover the path via the homepage
+          # HTML so the test is independent of the actual hash.
+          css_path=$(curl -s "$BASE/" | grep -oE '/static/css/app\.[a-f0-9]+\.css' | head -1)
+          if [ -z "$css_path" ]; then
+            echo "::error::could not find hashed CSS path in homepage"
+            fail=1
+          else
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE$css_path" || echo "000")
+            if [ "$code" != "200" ]; then
+              echo "::error::hashed CSS bundle $css_path returned $code (expected 200)"
+              fail=1
+            fi
+          fi
+
+          # (5) Reserved-path artefacts that must exist (favicon, security.txt).
+          for path in /favicon.ico /.well-known/security.txt; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE$path" || echo "000")
+            case "$path:$code" in
+              /favicon.ico:301)        ;; # redirect to favicon-32.png
+              /.well-known/security.txt:200) ;;
+              *) echo "::error::$path returned $code (expected 301 or 200 per path)"; fail=1 ;;
+            esac
+          done
+
+          # (6) Canonical scheme matches the image's baked SITE_BASE_URL.
+          if [ -n "$IMAGE_BASE" ]; then
+            canonical=$(curl -s "$BASE/" | grep -oE 'rel="canonical" href="[^"]+"' | head -1 | grep -oE 'https?://[^"]+')
+            case "$canonical" in
+              "$IMAGE_BASE"|"$IMAGE_BASE"/*) ;;
+              *) echo "::error::canonical=$canonical does not match SITE_BASE_URL=$IMAGE_BASE"; fail=1 ;;
+            esac
+          fi
+
+          # (7) sitemap.xml and robots.txt Sitemap directive carry the
+          # same scheme as the image's baked SITE_BASE_URL.
+          if [ -n "$IMAGE_BASE" ]; then
+            sitemap_loc=$(curl -s "$BASE/sitemap.xml" | grep -oE '<loc>https?://[^<]+</loc>' | head -1 | sed -E 's,</?loc>,,g')
+            case "$sitemap_loc" in
+              "$IMAGE_BASE"|"$IMAGE_BASE"/*) ;;
+              *) echo "::error::sitemap.xml <loc>=$sitemap_loc does not match SITE_BASE_URL=$IMAGE_BASE"; fail=1 ;;
+            esac
+            robots_sitemap=$(curl -s "$BASE/robots.txt" | awk '/^Sitemap:/ {print $2; exit}')
+            case "$robots_sitemap" in
+              "$IMAGE_BASE/sitemap.xml") ;;
+              *) echo "::error::robots.txt Sitemap=$robots_sitemap does not match $IMAGE_BASE/sitemap.xml"; fail=1 ;;
+            esac
+          fi
+
+          docker logs muxmaster-smoke || true
+          docker stop muxmaster-smoke || true
+          docker rm muxmaster-smoke || true
+
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::release smoke-test failed"
+            exit 1
+          fi
+          echo "release smoke-test: OK"
 
       # Extract the section of CHANGELOG.md for the tag being released and
       # use it as the GitHub Release body. The awk program prints the

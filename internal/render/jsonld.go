@@ -191,19 +191,41 @@ func buildEntityGraph(in JSONLDInputs) []string {
 			jsonLegacySoftwareID(base),
 		},
 	}
+	// Organization.logo is emitted as a structured ImageObject (not a bare
+	// URL string) so that consumers — Google's Organization rich-result
+	// pipeline, AI ingestion graphs, schema.org validators — receive the
+	// width and height up-front without fetching the binary. Google's
+	// Organization documentation prefers the ImageObject form whenever the
+	// aspect ratio is determinate, which it is here (the 384x384 PNG is
+	// generated deterministically from the canonical logo source by
+	// tools/imagegen). The bare-URL form remains valid schema.org, but the
+	// structured form is strictly more useful and equally cheap.
+	type imageObject struct {
+		Type       string `json:"@type"`
+		URL        string `json:"url"`
+		ContentURL string `json:"contentUrl"`
+		Width      int    `json:"width"`
+		Height     int    `json:"height"`
+	}
 	org := struct {
-		Context string   `json:"@context"`
-		Type    string   `json:"@type"`
-		ID      string   `json:"@id"`
-		Name    string   `json:"name"`
-		URL     string   `json:"url"`
-		Logo    string   `json:"logo"`
-		SameAs  []string `json:"sameAs,omitempty"`
+		Context string      `json:"@context"`
+		Type    string      `json:"@type"`
+		ID      string      `json:"@id"`
+		Name    string      `json:"name"`
+		URL     string      `json:"url"`
+		Logo    imageObject `json:"logo"`
+		SameAs  []string    `json:"sameAs,omitempty"`
 	}{
 		Context: schema, Type: "Organization", ID: jsonOrgID(base),
 		Name: "FlavioCFOliveira",
 		URL:  "https://github.com/FlavioCFOliveira",
-		Logo: base + "/static/img/logo-384.png",
+		Logo: imageObject{
+			Type:       "ImageObject",
+			URL:        base + "/static/img/logo-384.png",
+			ContentURL: base + "/static/img/logo-384.png",
+			Width:      384,
+			Height:     384,
+		},
 		// Authoritative third-party identity URL for the publisher.
 		// Additional entries (project page, public technical blog) are
 		// added here only as they become verifiable; never invented.

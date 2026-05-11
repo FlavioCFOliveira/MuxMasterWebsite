@@ -65,3 +65,20 @@ const LandingDescription = "MuxMaster is a high-performance, zero-dependency HTT
 func (s *Server) isProduction() bool {
 	return string(s.cfg.Env) == "production"
 }
+
+// faviconRedirectHandler serves /favicon.ico as a 301 redirect to the 32x32
+// hashed favicon. Per specification/url-and-versioning.md "Reserved paths":
+// browsers, RSS readers, bookmark engines, and various aggregators probe
+// /favicon.ico by reflex even when the page declares modern <link rel=icon>
+// alternatives. Returning a 7 KB HTML 404 body for every such probe wastes
+// bandwidth and pollutes logs; a 301 to the smallest existing favicon variant
+// is small, cacheable for a day, and resolves the request in a single hop.
+// The redirect Location is path-only — the host header is never echoed back
+// to the client, mirroring the defensive pattern of normalisationRedirects.
+func faviconRedirectHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Location", "/static/favicon/favicon-32.png")
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		w.WriteHeader(http.StatusMovedPermanently)
+	}
+}

@@ -188,6 +188,12 @@ func (s *Server) registerRoutes(m *muxm.Mux) {
 	getHead(m, "/sitemap.xml", s.renderer.ServePrerendered("/sitemap.xml", cacheControlSitemap, http.StatusOK))
 	getHead(m, "/llms.txt", s.renderer.ServePrerendered("/llms.txt", cacheControlText, http.StatusOK))
 	getHead(m, "/llms-full.txt", s.renderer.ServePrerendered("/llms-full.txt", cacheControlText, http.StatusOK))
+	getHead(m, "/.well-known/security.txt", s.renderer.ServePrerendered("/.well-known/security.txt", cacheControlText, http.StatusOK))
+
+	// Reserved legacy paths (see specification/url-and-versioning.md
+	// "Reserved paths"). /favicon.ico must respond — every browser, RSS
+	// reader, and aggregator probes it by reflex.
+	getHead(m, "/favicon.ico", faviconRedirectHandler())
 
 	// Landing.
 	getHead(m, "/", s.renderer.ServePrerendered("/", cacheControlLanding, http.StatusOK))

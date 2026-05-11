@@ -65,6 +65,10 @@ The full `robots.txt` is co-owned with `seo.md`. The AI-crawler portion MUST exp
 - `OmgiliBot` (Webz)
 - `Amazonbot` (Amazon)
 - `meta-externalagent` (Meta)
+- `Perplexity-User` (Perplexity on-demand fetch)
+- `FacebookBot` (Meta crawler — explicit complement to `meta-externalagent`, which only covers Meta's generative agent)
+- `cohere-ai` (Cohere)
+- `MistralAI-User` (Mistral on-demand fetch)
 
 For each, the entry takes the form:
 

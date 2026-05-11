@@ -274,6 +274,6 @@ The seven-line program in step 1 above is the minimum. Construct the router with
 
 ### How do I read a path parameter?
 
-Declare the parameter in the route pattern with a colon prefix (for example `/users/:id`) and read it inside the handler with `mux.Param(r, "id")`. The helper returns the matched segment as a string; cast or parse it inside the handler if you need a typed value.
+Declare the parameter in the route pattern with a colon prefix (for example `/users/:id`) and read it inside the handler with `muxmaster.PathParam(r, "id")`. The helper returns the matched segment as a string; for a typed parameter use `muxmaster.ParamsFromContext(r.Context()).Int("id")` (and the matching `.Bool`, `.UUID`, and `.Float` helpers).
 
 </section>
