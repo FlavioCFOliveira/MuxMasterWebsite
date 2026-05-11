@@ -80,6 +80,7 @@ The container MUST trust the proxy's `X-Forwarded-*` headers only when configure
 
 - Format: JSON via `log/slog` (Go standard library). Output: stdout.
 - Required fields per request log: `time` (RFC 3339), `level`, `msg`, `method`, `path`, `status`, `bytes`, `duration_ms`, `remote_addr` (post-proxy resolution), `user_agent`, `referer`, `route_id` (the matched route pattern).
+- `bytes` is the **post-compression** body size — the value on the wire. The access logger wraps the response writer in the outermost middleware position; the compression middleware runs further down the Pre chain, so by the time bytes are counted they have already passed through gzip when the client advertised `Accept-Encoding: gzip`. Bandwidth accounting and CDN tuning therefore work on the value as-is; identity responses log their raw size.
 - Errors include `err` and a stable `error_kind`.
 - Logs MUST NOT include request bodies or response bodies.
 - One log line per completed request. Startup, shutdown, and configuration logs are emitted at `info`.
