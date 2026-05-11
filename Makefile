@@ -23,7 +23,19 @@ CSS_DIR := static/css
 GO_LDFLAGS := -s -w -X main.buildID=$(shell date -u +%Y%m%dT%H%M%SZ)
 GO_FLAGS   := -trimpath -ldflags='$(GO_LDFLAGS)'
 
-.PHONY: all build run dev test vet lint tidy css css-watch tailwind-install logo assets docker-build clean
+.PHONY: all build run dev test vet lint tidy css css-watch tailwind-install logo assets static-perms docker-build clean
+
+# Normalise filesystem permissions across the entire static/ tree: every
+# directory becomes 0755 and every file becomes 0644. Invoked as the
+# final step of every recipe that creates or modifies files under
+# static/ so the production Docker image — which runs as the distroless
+# nonroot UID 65532 (since v1.0.2, commit 4c5a1f6) — can always read
+# every static asset. See the v1.0.4 entry in CHANGELOG.md for the
+# original bug (mktemp 0600 + mv preserving mode → 403 Forbidden on the
+# CSS bundle). The sweep is intentionally tree-wide rather than
+# per-file: any future tool that lands content under static/ is covered
+# without needing to remember to chmod its own outputs.
+NORMALIZE_STATIC_PERMS = find static -type d -exec chmod 0755 {} + && find static -type f -exec chmod 0644 {} +
 
 # Upstream logo source. The website vendors a single canonical PNG copy at
 # static/img/logo.png; every other image artefact (sized header logos,
@@ -46,6 +58,8 @@ tailwind-install:
 
 # Build the CSS bundle once and write it to a content-hashed filename.
 # The Go server discovers the hashed filename at startup (see internal/render).
+# The final permission sweep is handled by NORMALIZE_STATIC_PERMS — see
+# the comment on that variable for the rationale.
 css: tailwind-install
 	@mkdir -p $(CSS_DIR)
 	@rm -f $(CSS_DIR)/app.*.css
@@ -54,6 +68,7 @@ css: tailwind-install
 		HASH=$$(sha256sum $$TMP_OUT | cut -c1-12) && \
 		mv $$TMP_OUT $(CSS_DIR)/app.$$HASH.css && \
 		echo "wrote $(CSS_DIR)/app.$$HASH.css"
+	@$(NORMALIZE_STATIC_PERMS)
 
 css-watch: tailwind-install
 	@mkdir -p $(CSS_DIR)
@@ -70,6 +85,7 @@ logo:
 	@mkdir -p static/img
 	@cp $(UPSTREAM_LOGO) static/img/logo.png
 	@echo "vendored $(UPSTREAM_LOGO) into static/img/logo.png"
+	@$(NORMALIZE_STATIC_PERMS)
 
 # Build the build-time image generator and run it against static/img/logo.png.
 # Produces: logo-{32,64,80,128}.png, favicon-{32,192,512}.png,
@@ -80,6 +96,13 @@ $(ASSETS_TOOL): tools/imagegen/main.go
 
 assets: $(ASSETS_TOOL) static/img/logo.png
 	@./$(ASSETS_TOOL)
+	@$(NORMALIZE_STATIC_PERMS)
+
+# Manual sweep, exposed for debugging and for ad-hoc invocation after any
+# operation that touches static/ outside the standard recipes.
+static-perms:
+	@$(NORMALIZE_STATIC_PERMS)
+	@echo "normalised permissions under static/ (dirs 0755, files 0644)"
 
 build: css assets
 	@mkdir -p $(BIN_DIR)

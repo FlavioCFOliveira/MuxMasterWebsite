@@ -4,6 +4,35 @@ All notable changes to the MuxMaster documentation website are recorded in this 
 
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html). The website's `MAJOR.MINOR` mirrors the MuxMaster release it documents; the website's `PATCH` digit is independent and advances for website-only operational fixes. See `specification/overview.md § Version cadence` for the full cadence policy.
 
+## [v1.0.4] — 2026-05-11
+
+Operational PATCH on top of `v1.0.3`. Fixes a production bug in which the hashed CSS bundle (`/static/css/app.<hash>.css`) was served as `403 Forbidden` by the official Docker image, leaving every page on `https://muxmaster.net` unstyled. The `Makefile` now enforces a uniform permission model across the entire `static/` tree — every directory `0755`, every file `0644` — so the non-root runtime UID introduced in `v1.0.2` can always read every static asset, regardless of which build tool produced it or what its default mode was. No MuxMaster release is documented by this entry: MuxMaster remains at `v1.0.1` (released 2026-05-08).
+
+### Fixed
+
+- **Hashed CSS bundle is now readable by the non-root runtime user.** The `css` recipe in the `Makefile` produced the hashed bundle via `mktemp` followed by `mv`. `mktemp(1)` creates its temporary file with mode `0600` (POSIX security default), and `mv(1)` preserves the source mode on the destination, so the final `static/css/app.<hash>.css` landed on disk with mode `0600`. While the binary ran as root inside the container (every release up to and including `v1.0.1`), a `0600` root-owned bundle was readable at request time and the bug was invisible. The migration to the distroless non-root runtime in `v1.0.2` (UID 65532, commit `4c5a1f6`) inverted that: `os.Open` of a `0600` root-owned file from UID 65532 returns `EACCES`, which Go's `http.FileServer` maps to `403 Forbidden\n` (a 14-byte plain-text body), and every public page on `https://muxmaster.net` was served unstyled because the CSS link in its `<head>` resolved to that 403.
+
+### Changed
+
+- **`Makefile` — uniform permission model for the `static/` tree.** The `Makefile` now exposes a `NORMALIZE_STATIC_PERMS` helper (`find static -type d -exec chmod 0755 {} + && find static -type f -exec chmod 0644 {} +`) that is invoked as the final step of every recipe that creates or modifies content under `static/` — currently `css`, `logo`, and `assets`. A new phony target `static-perms` exposes the same sweep for manual invocation. The sweep is deliberately tree-wide rather than per-file: any future tool that lands content under `static/` is automatically covered without needing to remember to `chmod` its own outputs, and any future producer recipe inherits the contract by chaining the same helper. The single point of enforcement removes the class of bug that produced this release: a build tool's per-file default mode (such as `mktemp`'s `0600`) can no longer leak into a deployed artefact.
+
+### Known issues
+
+- **Nine outstanding lint findings (8 `errcheck`, 1 `staticcheck`) inherited from `v1.0.1`.** All nine findings predate this release and live in files untouched by the `v1.0.4` commit. The release contract enforced in CI (`go build`, `go vet`, `go test -race`, the JSON-LD validation gate) is green at the release commit; `golangci-lint` is not currently a CI gate. The findings are tracked as technical debt for a dedicated `chore(lint)` cleanup in a future website-only PATCH; they do not affect runtime behaviour and are documented here for transparency.
+
+### Test evidence
+
+- **Permission-sweep proof** — every file under `static/` was deliberately set to `0600` (with a parent directory at `0700`) and `make css` was then run. After the recipe completed, `find static -type f ! -perm 0644` reported zero results and `find static -type d ! -perm 0755` reported zero results. The sweep covered all 19 files (the hashed CSS bundle, the source `app.css`, eight sized PNGs in `static/img/`, five favicon/apple-touch-icon PNGs in `static/favicon/`, the vendored `logo.png`, the generated `og-image.png`, and the two `.gitkeep` files) and all four directories (`static`, `static/css`, `static/img`, `static/favicon`).
+- **Standalone target** — `make static-perms` reports `normalised permissions under static/ (dirs 0755, files 0644)` and restores `0644` on a file previously set to `0600`.
+- `make css` — pass (Tailwind v4 production bundle built; `stat -c '%a' static/css/app.cda7aa064711.css` reports `644`).
+- `make vet` — pass (no diagnostics).
+- `make build` — pass (binary linked successfully).
+- `go test -race -count=1 ./...` — pass across all 6 packages (`cmd/muxmaster-website`, `internal/config`, `internal/content`, `internal/meta`, `internal/render`, `internal/server`), `0 FAIL`, `0 SKIP`.
+
+### Deployment note
+
+This fix only affects production HTML once an operator pulls the new image tag (`:v1.0.4` or the moving `:latest`) and restarts the running container. Existing deployments built from `v1.0.3` or earlier continue to serve `403 Forbidden` for the hashed CSS until that redeploy happens.
+
 ## [v1.0.3] — 2026-05-11
 
 Operational PATCH on top of `v1.0.2`. Fixes a production bug in which the official Docker image served `localhost:8080` URLs in every public canonical reference — `<link rel="canonical">`, `og:url`, `og:image`, `sitemap.xml`, `llms.txt`, `llms-full.txt`, and JSON-LD `@id` URIs — because the published image relied on the binary's development default for `SITE_BASE_URL`. The runtime stage now bakes `SITE_BASE_URL=https://muxmaster.net` so that an unconfigured run of `ghcr.io/flaviocfoliveira/muxmaster-website` already produces correct production URLs. No MuxMaster release is documented by this entry: MuxMaster remains at `v1.0.1` (released 2026-05-08).
