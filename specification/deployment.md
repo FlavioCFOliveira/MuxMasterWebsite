@@ -2,7 +2,7 @@
 title: Deployment
 purpose: Define the Docker model, runtime contract, environment variables, reverse-proxy expectations, health endpoint, log shape, and the production launch gate.
 owners: specification-manager; review by seo-specialist (HTTPS/HTTP/2/security headers), tailwind-specialist (CSS bundle delivery).
-last-updated: 2026-05-08
+last-updated: 2026-05-11
 status: ratified (production launch blocked on canonical-domain TBD)
 ---
 
@@ -71,7 +71,7 @@ The container MUST trust the proxy's `X-Forwarded-*` headers only when configure
 ## Health endpoint
 
 - `GET /healthz` MUST return `200 OK` with body `ok\n` and `Content-Type: text/plain; charset=utf-8` once the server has finished startup checks (required files under `/content/` present, templates parsed, CSS bundle resolved, version label read, every public route pre-rendered to bytes).
-- Before startup checks complete, `GET /healthz` MUST return `503 Service Unavailable`.
+- The HTTP listener is **bound only after** startup checks complete. Any probe that arrives during the not-ready window sees a TCP connection refusal, which every container orchestrator (Kubernetes, Nomad, Docker Compose, systemd) already interprets as a not-ready signal and retries. A 503 response is therefore neither emitted nor required: by the time `/healthz` can answer at all, it answers `200 OK`.
 - `Cache-Control: no-store` on this route.
 - The route is excluded from `sitemap.xml`, `robots.txt`, `llms.txt`, and `llms-full.txt`.
 - A separate **readiness** endpoint is not provided; `/healthz` doubles as readiness. A liveness/readiness split is a candidate for a later revision.
