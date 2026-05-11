@@ -10,7 +10,7 @@ status: live (re-read every session)
 
 This register lists every TBD the specification has carried. Items still open are marked as such; items that have been ratified are kept visible with a `RESOLVED` status, the resolution date, and the ratified value, so the resolution history is preserved. The specification's other files refer back to this register where they encounter a `TBD`. Implementation MUST NOT silently invent values for any item still marked open; resolution requires explicit ratification.
 
-**Status summary as of 2026-05-08:** seven items registered; two resolved (items 3, 4); one superseded (item 6, by the 2026-05-08 content-pivot ratification); four still open (items 1, 2, 5, 7).
+**Status summary as of 2026-05-11:** seven items registered; three resolved (items 2, 3, 4); one superseded (item 6, by the 2026-05-08 content-pivot ratification); three still open (items 1, 5, 7).
 
 ## 1. Canonical production domain
 
@@ -30,14 +30,17 @@ This register lists every TBD the specification has carried. Items still open ar
 
 ## 2. Exact accent colour hexes
 
-- **Question.** What are the exact hex values of the cyan and yellow accents extracted from the logo PNG?
-- **Why open.** The hexes have not been measured from the source PNG. The briefing characterises them ("cyan #29b6f6-ish, yellow #ffeb3b-ish") but those are approximations, not ratified design tokens.
-- **Blocks.**
-  - Locking the Tailwind v4 design tokens (`@theme`).
-  - Final accessibility verification of contrast ratios in light and dark themes.
-  - The Open Graph image (which uses the accents).
-- **Owner.** `tailwind-specialist` proposes the exact hexes after sampling the logo PNG; the project owner ratifies them.
-- **Resolution path.** `tailwind-specialist` runs a colour-sampling pass on `${MUXMASTER_SOURCE_DIR}/assets/logo-muxmaster.png`, proposes one cyan and one yellow hex with rationale, and submits them for ratification. The `specification-manager` then records the values in `brand-and-visual.md`.
+- **Status.** RESOLVED on 2026-05-11.
+- **Ratified values.** Tailwind's stock cyan and yellow scales:
+  - Cyan on light surfaces (`#0e7490`, `cyan-700`) — 5.36 : 1 on `#ffffff`, WCAG AA.
+  - Cyan on dark surfaces (`#67e8f9`, `cyan-300`) — 13.7 : 1 on `#09090b`, WCAG AAA.
+  - Yellow badge background (`#fef08a`, `yellow-200`) — 15.1 : 1 with `#18181b` text, WCAG AAA.
+  - Yellow as text on light surfaces (`#854d0e`, `yellow-800`) — 5.84 : 1 on `#ffffff`, WCAG AA.
+- **Question.** What were the exact hex values of the cyan and yellow accents to lock as design tokens?
+- **Why was open.** The hexes had not been measured from the source PNG; the briefing described them only approximately.
+- **Blocks (now cleared).** Tailwind v4 design tokens, accessibility verification (all four pairs measured and recorded above), and the Open Graph image (which uses Tailwind's stock palette consistently).
+- **Owner.** `tailwind-specialist` proposed the ratification during the 2026-05-11 production-readiness audit; the project owner ratified the proposal.
+- **Resolution path.** The four ratified pairs are recorded in `brand-and-visual.md § Accents` as the authoritative reference. Templates reference them via Tailwind utilities; the unused `--color-accent-*` tokens previously in `static/css/app.css @theme` are removed.
 
 ## 3. Go module path of this repository
 

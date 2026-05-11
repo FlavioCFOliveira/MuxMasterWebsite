@@ -2,8 +2,8 @@
 title: Brand and visual identity
 purpose: Define the visual identity — logo handling, palette, dark mode, typography, code-block style, and asset generation.
 owners: tailwind-specialist (primary); ux-specialist (experiential verification); seo-specialist (font loading, CLS).
-last-updated: 2026-05-08
-status: ratified (TBD on exact accent hexes)
+last-updated: 2026-05-11
+status: ratified
 ---
 
 # Brand and visual identity
@@ -29,11 +29,20 @@ status: ratified (TBD on exact accent hexes)
   - Light theme: page background `zinc-50`, surface `white`, body text `zinc-900`, secondary text `zinc-600`, border `zinc-200`.
   - Dark theme: page background `zinc-950`, surface `zinc-900`, body text `zinc-100`, secondary text `zinc-400`, border `zinc-800`.
 
-### Accents (TBD on exact hexes)
+### Accents (ratified 2026-05-11)
 
-- **Cyan** (links, primary CTAs, focus ring tint): derived from the cyan in the logo. Exact hex is **TBD** (`open-questions.md` item 2).
-- **Yellow** (badges, highlights, version label backdrop): derived from the yellow in the logo. Exact hex is **TBD** (`open-questions.md` item 2).
-- Both accents MUST be tested against the neutral palette in light and dark themes for WCAG AA contrast (see `accessibility-and-standards.md`).
+The accent palette is Tailwind's stock cyan and yellow scales. The exact hex values plus their measured WCAG contrast ratios against the neutral surfaces are:
+
+| Role | Hex | Tailwind class | Pair | Measured ratio | WCAG |
+| --- | --- | --- | --- | --- | --- |
+| Cyan, links and CTAs on light surfaces | `#0e7490` | `cyan-700` | text on `#ffffff` | **5.36 : 1** | AA (normal text) |
+| Cyan, links and CTAs on dark surfaces | `#67e8f9` | `cyan-300` | text on `#09090b` (`zinc-950`) | **13.7 : 1** | AAA |
+| Yellow, badge background (paired with `zinc-900` text) | `#fef08a` | `yellow-200` | text `#18181b` on this background | **15.1 : 1** | AAA |
+| Yellow, text on light surfaces (badges, highlights) | `#854d0e` | `yellow-800` | text on `#ffffff` | **5.84 : 1** | AA (normal text) |
+
+The values above are the source of truth. Templates reference them through the Tailwind utilities `bg-cyan-700`, `text-cyan-700`, `bg-cyan-300`, `text-cyan-300`, `bg-yellow-200`, `text-yellow-800`, etc.
+
+The `--color-accent-cyan-strong` and `--color-accent-yellow-strong` CSS tokens that previously lived in `static/css/app.css @theme` are removed: they duplicated the Tailwind utilities without being referenced anywhere, creating drift. Future palette changes are made by editing the Tailwind utility classes the templates use directly; the spec table above is the authoritative reference.
 
 ## Dark mode
 

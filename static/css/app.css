@@ -16,21 +16,16 @@
 @source "./content";
 
 /*
- * Brand accent tokens. Sampled from
- * /data/dev/github.com/FlavioCFOliveira/MuxMaster/assets/logo-muxmaster.png
- * by the tailwind-specialist (cluster modes; verified by mean of opaque
- * pixels). The base accents are the brand identity colours and may not be
- * WCAG-AA-safe on every surface; the *-strong tokens are the adjacent
- * hues used for body links, CTA backgrounds, and focus outlines, where
- * AA contrast is mandatory.
+ * Brand accent palette.
+ *
+ * The accent palette is Tailwind's stock cyan and yellow scales (ratified
+ * 2026-05-11 in spec/brand-and-visual.md § Accents). Templates reference
+ * the palette through the Tailwind utilities directly — `bg-cyan-700`,
+ * `text-cyan-300`, `bg-yellow-200`, `text-yellow-800`, etc. Custom
+ * `--color-accent-*` tokens lived here previously but duplicated the
+ * utilities without being referenced, creating drift; they have been
+ * removed. The spec table is the authoritative reference.
  */
-@theme {
-  --color-accent-cyan: #28a5d7;          /* logo identity, decorative use only */
-  --color-accent-cyan-strong: #0e7490;   /* links, CTA bg, focus outline (5.36:1 vs white) */
-  --color-accent-cyan-light: #67e8f9;    /* dark-mode link / focus (13.7:1 vs zinc-950) */
-  --color-accent-yellow: #f8e026;        /* logo identity, badge bg paired with text-zinc-900 */
-  --color-accent-yellow-strong: #854d0e; /* yellow as text on light surfaces (5.84:1) */
-}
 
 /*
  * No-JS dark-mode variant.
