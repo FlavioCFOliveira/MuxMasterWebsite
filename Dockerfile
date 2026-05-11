@@ -45,4 +45,11 @@ ENV PORT=8080 \
 
 EXPOSE 8080
 
+# The distroless runtime has neither curl nor wget; the binary itself
+# does the HTTP self-GET via --healthcheck. interval/timeout/start-period
+# are set so a hung process is detected within ~90s of failure while
+# allowing a generous 5s window for startup prerender.
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD ["/srv/muxmaster-website", "--healthcheck"]
+
 ENTRYPOINT ["/srv/muxmaster-website"]

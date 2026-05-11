@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -23,10 +24,42 @@ import (
 var buildID = "dev"
 
 func main() {
+	// `--healthcheck` is the in-container probe used by the Dockerfile
+	// HEALTHCHECK directive. The distroless runtime image has neither
+	// curl nor wget; the binary itself does the HTTP self-GET to
+	// /healthz and exits 0 on 200, 1 otherwise. Implemented as the very
+	// first thing in main so the probe path does not touch config /
+	// content / server.
+	if len(os.Args) > 1 && (os.Args[1] == "--healthcheck" || os.Args[1] == "-healthcheck") {
+		os.Exit(healthcheck())
+	}
 	if err := run(); err != nil {
 		fmt.Fprintf(os.Stderr, "fatal: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// healthcheck probes /healthz on the in-container listener (PORT env or
+// 8080 default) and returns 0 when the response is 200 OK, 1 otherwise.
+// The function is intentionally minimal — no imports beyond net/http
+// and os — so the binary remains small and the probe is fast.
+func healthcheck() int {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get("http://127.0.0.1:" + port + "/healthz")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "healthcheck: %v\n", err)
+		return 1
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		fmt.Fprintf(os.Stderr, "healthcheck: status=%d\n", resp.StatusCode)
+		return 1
+	}
+	return 0
 }
 
 func run() error {
