@@ -66,7 +66,7 @@ The container is intended to run behind a reverse proxy (nginx, Caddy, Traefik, 
 - **Brotli compression** on the public side. The container MAY emit `Content-Encoding: gzip` directly when the proxy is not configured for Brotli.
 - HSTS preload (the container also emits `Strict-Transport-Security`, see `seo.md`; the proxy MAY override).
 
-The container MUST trust the proxy's `X-Forwarded-*` headers only when configured to do so. The default in production MUST be that they are trusted; the development default MUST be that they are not.
+The container MUST trust the proxy's `X-Forwarded-*` headers only when configured to do so. The trust is opt-in via the `TRUSTED_PROXY_CIDRS` environment variable (comma-separated list of CIDR prefixes). Empty (or unset) means no proxy is trusted and `r.RemoteAddr` is used verbatim — the safe default. In production deployments behind a reverse proxy, the operator MUST set `TRUSTED_PROXY_CIDRS` to the edge-proxy network(s); the binary then runs `mwm.RealIP(prefixes...)` before the access logger so a forged `X-Forwarded-For` from a non-trusted peer is ignored. In development the variable stays unset.
 
 ## Health endpoint
 

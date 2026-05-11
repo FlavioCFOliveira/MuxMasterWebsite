@@ -56,18 +56,12 @@ func slogAccessLog(logger *slog.Logger) func(http.Handler) http.Handler {
 }
 
 func clientAddr(r *http.Request) string {
-	// X-Forwarded-For trust is governed by the reverse proxy contract; the
-	// left-most entry is conventionally the original client. RealIP middleware
-	// (with trusted CIDRs) is the production-grade resolver and is added by
-	// the deployment overlay, not here.
-	if v := r.Header.Get("X-Forwarded-For"); v != "" {
-		for i := 0; i < len(v); i++ {
-			if v[i] == ',' {
-				return v[:i]
-			}
-		}
-		return v
-	}
+	// r.RemoteAddr is the resolved client address. When a trusted proxy
+	// is in front (config.TrustedProxyCIDRs is non-empty), the upstream
+	// RealIP middleware rewrites r.RemoteAddr from X-Forwarded-For
+	// before this access logger runs. When no proxy is trusted, the
+	// raw peer address is used and any forged X-Forwarded-For from the
+	// network is ignored. See spec/deployment.md § Reverse-proxy contract.
 	return r.RemoteAddr
 }
 

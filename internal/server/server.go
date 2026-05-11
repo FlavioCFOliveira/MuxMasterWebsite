@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"strconv"
 	"time"
 
@@ -60,10 +61,22 @@ func New(cfg *config.Config, logger *slog.Logger, loader *content.Loader, versio
 	m.CaseInsensitive = false
 
 	// Pre-routing middleware. Order matters: Recoverer outermost, then
-	// RequestID so panics are logged with the request id, then the access
+	// RequestID so panics are logged with the request id, then RealIP
+	// (so subsequent layers including the access log observe the real
+	// client IP when a trusted proxy is in front), then the access
 	// logger, then security headers, then compression.
 	m.Pre(mwm.RecovererWithLogger(logger))
 	m.Pre(mwm.RequestID())
+	if len(cfg.TrustedProxyCIDRs) > 0 {
+		// Pass each prefix by address — RealIP's variadic signature
+		// expects *netip.Prefix. Empty list means no proxy is trusted
+		// and we skip RealIP entirely so r.RemoteAddr is the raw peer.
+		prefixes := make([]*netip.Prefix, len(cfg.TrustedProxyCIDRs))
+		for i := range cfg.TrustedProxyCIDRs {
+			prefixes[i] = &cfg.TrustedProxyCIDRs[i]
+		}
+		m.Pre(mwm.RealIP(prefixes...))
+	}
 	m.Pre(slogAccessLog(logger))
 	m.Pre(securityHeaders)
 	m.Pre(mwm.Compress(5))

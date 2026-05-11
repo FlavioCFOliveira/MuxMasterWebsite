@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -35,6 +36,13 @@ type Config struct {
 	SiteBaseURL string
 	LogLevel    slog.Level
 	Env         Env
+	// TrustedProxyCIDRs is the list of CIDR prefixes from which
+	// X-Forwarded-* headers will be honoured. Empty means no proxy is
+	// trusted and r.RemoteAddr is used verbatim — the safe default for
+	// development. Production deployments set TRUSTED_PROXY_CIDRS to
+	// the edge-proxy network(s); a forged X-Forwarded-For from a
+	// non-trusted peer is then ignored.
+	TrustedProxyCIDRs []netip.Prefix
 }
 
 // Load reads configuration from the environment, applying defaults.
@@ -76,10 +84,38 @@ func Load() (*Config, error) {
 		}
 	}
 
+	if v := os.Getenv("TRUSTED_PROXY_CIDRS"); v != "" {
+		cidrs, err := parseCIDRs(v)
+		if err != nil {
+			return nil, err
+		}
+		cfg.TrustedProxyCIDRs = cidrs
+	}
+
 	if cfg.SiteBaseURL == "" {
 		return nil, errors.New("config: SITE_BASE_URL must not be empty")
 	}
 	return cfg, nil
+}
+
+// parseCIDRs parses a comma-separated list of CIDR prefixes; empty
+// entries are skipped so trailing commas and surrounding whitespace do
+// not break the input. Returns an error naming the first bad entry.
+func parseCIDRs(s string) ([]netip.Prefix, error) {
+	parts := strings.Split(s, ",")
+	out := make([]netip.Prefix, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		px, err := netip.ParsePrefix(p)
+		if err != nil {
+			return nil, fmt.Errorf("config: invalid TRUSTED_PROXY_CIDRS entry %q: %w", p, err)
+		}
+		out = append(out, px)
+	}
+	return out, nil
 }
 
 // LogAttrs returns the configuration as slog attributes for the startup log.

@@ -158,6 +158,48 @@ func TestParseLevelAllAccepted(t *testing.T) {
 	}
 }
 
+func TestLoadTrustedProxyCIDRs(t *testing.T) {
+	withEnv(t, map[string]string{"TRUSTED_PROXY_CIDRS": "127.0.0.0/8, 10.0.0.0/8 , 192.168.0.0/16,"}, func() {
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		if len(cfg.TrustedProxyCIDRs) != 3 {
+			t.Fatalf("got %d cidrs, want 3", len(cfg.TrustedProxyCIDRs))
+		}
+		want := []string{"127.0.0.0/8", "10.0.0.0/8", "192.168.0.0/16"}
+		for i, p := range cfg.TrustedProxyCIDRs {
+			if p.String() != want[i] {
+				t.Errorf("cidr[%d]=%q, want %q", i, p.String(), want[i])
+			}
+		}
+	})
+}
+
+func TestLoadTrustedProxyCIDRsEmptyByDefault(t *testing.T) {
+	withEnv(t, nil, func() {
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		if len(cfg.TrustedProxyCIDRs) != 0 {
+			t.Errorf("default TrustedProxyCIDRs must be empty (no proxy is trusted), got %v", cfg.TrustedProxyCIDRs)
+		}
+	})
+}
+
+func TestLoadInvalidTrustedProxyCIDR(t *testing.T) {
+	withEnv(t, map[string]string{"TRUSTED_PROXY_CIDRS": "not-a-cidr"}, func() {
+		_, err := Load()
+		if err == nil {
+			t.Fatalf("expected error for TRUSTED_PROXY_CIDRS=not-a-cidr")
+		}
+		if !strings.Contains(err.Error(), "invalid TRUSTED_PROXY_CIDRS entry") {
+			t.Errorf("error %v does not mention 'invalid TRUSTED_PROXY_CIDRS entry'", err)
+		}
+	})
+}
+
 func TestLogAttrs(t *testing.T) {
 	cfg := &Config{Port: 8080, SiteBaseURL: "https://x.example", LogLevel: slog.LevelInfo, Env: EnvStaging}
 	attrs := cfg.LogAttrs()
