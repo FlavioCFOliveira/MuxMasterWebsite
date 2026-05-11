@@ -122,5 +122,28 @@ func funcMap() template.FuncMap {
 	return template.FuncMap{
 		"safeHTML": func(s string) template.HTML { return template.HTML(s) }, //nolint:gosec // input is fully trusted: rendered from /content/ at startup.
 		"json":     func(s string) template.JS { return template.JS(s) },     //nolint:gosec // pre-encoded JSON, escape handled at construction time.
+		// jsonldblock pre-renders a single JSON-LD <script> tag plus its
+		// optional audit-trail HTML comment as one template.HTML chunk.
+		// Why a dedicated func: html/template strips HTML comments by
+		// default; emitting the comment through `{{if .Comment}}<!-- ... -->`
+		// loses it before reaching the response. Concatenating the comment
+		// and the script tag here, then returning them as template.HTML
+		// (a trusted-string type), keeps the comment in the rendered output
+		// — the audit trail mandated by spec/structured-data.md § Field
+		// completeness must be visible to reviewers and validators.
+		"jsonldblock": jsonldBlockHTML,
 	}
+}
+
+// jsonldBlockHTML renders a meta.JSONLDBlock as the literal HTML chunk
+// `<!-- <Comment> -->\n<script type="application/ld+json">{{JSON}}</script>`.
+// When Comment is empty only the script tag is emitted. The JSON body is
+// pre-encoded by the renderer (deterministic, marshalled from named
+// structs at startup); both inputs are fully trusted.
+func jsonldBlockHTML(b meta.JSONLDBlock) template.HTML {
+	if b.Comment == "" {
+		return template.HTML(`<script type="application/ld+json">` + b.JSON + `</script>`) //nolint:gosec
+	}
+	return template.HTML("<!-- " + b.Comment + " -->\n  " + //nolint:gosec
+		`<script type="application/ld+json">` + b.JSON + `</script>`)
 }

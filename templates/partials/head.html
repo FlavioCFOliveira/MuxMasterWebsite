@@ -38,8 +38,7 @@
   <link rel="stylesheet" href="{{.CSSPath}}">
 
   {{range .JSONLD}}
-  {{if .Comment}}<!-- {{.Comment}} -->
-  {{end}}<script type="application/ld+json">{{json .JSON}}</script>
+  {{jsonldblock .}}
   {{end}}
 </head>
 {{end}}

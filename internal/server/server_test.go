@@ -162,6 +162,41 @@ func TestSmokeFullSite(t *testing.T) {
 	}
 }
 
+// TestJSONLDAuditCommentEmitted verifies that the HTML-comment audit
+// trail mandated by spec/structured-data.md § Field completeness reaches
+// the rendered response. html/template strips HTML comments by default;
+// the renderer's jsonldblock template func bypasses that via
+// template.HTML so reviewers and validators can see intentional
+// omissions (rmp #70).
+func TestJSONLDAuditCommentEmitted(t *testing.T) {
+	t.Parallel()
+	srv := newTestServer(t)
+	ts := httptest.NewServer(srv.httpServer.Handler)
+	t.Cleanup(ts.Close)
+
+	// /docs/routing has no datePublished front-matter today, so the
+	// renderer attaches an "omitted: datePublished on TechArticle ..."
+	// audit comment to the article block. The comment must reach the
+	// rendered HTML above the corresponding <script> tag.
+	resp, err := http.Get(ts.URL + "/docs/routing")
+	if err != nil {
+		t.Fatalf("GET /docs/routing: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	s := string(body)
+	if !strings.Contains(s, "<!-- omitted: datePublished on TechArticle") {
+		t.Errorf("rendered HTML missing JSON-LD audit comment for datePublished omission")
+	}
+	// And the comment must precede the script tag (sanity-check the
+	// adjacency the spec mandates).
+	commentIdx := strings.Index(s, "<!-- omitted: datePublished")
+	scriptIdx := strings.Index(s[commentIdx:], `<script type="application/ld+json">`)
+	if scriptIdx <= 0 {
+		t.Errorf("audit comment is not immediately followed by its <script> tag")
+	}
+}
+
 // TestStaticDirectoryListingsBlocked verifies that the /static handler
 // rejects directory paths with 404 rather than serving http.FileServer's
 // default HTML index. Directory enumeration would leak the asset surface
