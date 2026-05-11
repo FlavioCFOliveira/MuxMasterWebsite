@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	muxm "github.com/FlavioCFOliveira/MuxMaster"
 	mwm "github.com/FlavioCFOliveira/MuxMaster/middleware"
 )
 
@@ -48,6 +49,7 @@ func slogAccessLog(logger *slog.Logger) func(http.Handler) http.Handler {
 				slog.String("user_agent", r.UserAgent()),
 				slog.String("referer", r.Referer()),
 				slog.String("request_id", mwm.GetRequestID(r.Context())),
+				slog.String("route_id", muxm.RoutePattern(r)),
 			)
 		})
 	}
