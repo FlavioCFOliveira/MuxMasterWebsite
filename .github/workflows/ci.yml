@@ -12,6 +12,10 @@
 #
 # Out of scope today: Lighthouse, nu-validator, pa11y. Tracked in
 # spec/ci.md § Out of scope.
+#
+# The image-build step (rmp #75) ensures Dockerfile regressions
+# (broken Tailwind step, missing assets, multi-stage path drift) are
+# caught at PR time rather than at deploy time.
 
 name: ci
 
@@ -52,6 +56,22 @@ jobs:
 
       - name: go build
         run: go build ./...
+
+      # Build the production container so any Dockerfile regression is
+      # caught at PR time (rmp #75). The image is not pushed anywhere;
+      # build-only, no registry write permission. Buildx is used for
+      # the layer cache.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build container image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: muxmaster-website:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       # Upload the full test log as a build artefact so reviewers can
       # audit the per-page validator output even on a green PR (warnings
