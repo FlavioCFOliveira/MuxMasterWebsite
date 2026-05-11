@@ -13,10 +13,12 @@ coverage.*
 /static/css/app.*.css
 
 # Image artefacts produced by `make assets` from the canonical
-# static/img/logo.png source. The source PNG is committed; every
-# derivative (sized header logos, favicons, apple-touch-icons, the
-# 1200x630 OG composition) is regenerated deterministically at build
-# time and never committed.
+# tools/imagegen/source.png build input. The source PNG is committed
+# (under tools/imagegen/ rather than under static/, because it is a
+# build input not a runtime asset and must not be publicly served);
+# every derivative (sized header logos, favicons, apple-touch-icons,
+# the 1200x630 OG composition) is regenerated deterministically at
+# build time and never committed.
 /static/img/logo-*.png
 /static/img/logo-*.webp
 /static/img/logo-*.avif

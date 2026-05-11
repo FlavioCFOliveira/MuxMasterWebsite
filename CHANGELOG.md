@@ -4,6 +4,36 @@ All notable changes to the MuxMaster documentation website are recorded in this 
 
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html). The website's `MAJOR.MINOR` mirrors the MuxMaster release it documents; the website's `PATCH` digit is independent and advances for website-only operational fixes. See `specification/overview.md § Version cadence` for the full cadence policy.
 
+## [v1.0.8] — 2026-05-11
+
+Operational PATCH on top of `v1.0.7`. Lands the first two of the four audit findings deferred from `v1.0.6`: the homepage now emits a `FAQPage` JSON-LD block with six answer-first Q→A pairs (GEO-002), and the 1.6 MB `static/img/logo.png` build input is no longer publicly served (SEO-008). Two findings (GEO-003 markdown companions for the three index pages; GEO-009 `APIReference` / `Dataset` / `ItemList` with per-symbol `DefinedTerm`) remain deferred to a follow-up release because they require either new content authoring or a structured-content parser for `content/api.md`. No MuxMaster release is documented by this entry: MuxMaster remains at `v1.0.1` (released 2026-05-08).
+
+### Changed
+
+- **GEO-002 — homepage now emits a `FAQPage` JSON-LD with six answer-first Q→A pairs.** The pairs cover the questions an AI ingestion pipeline is most likely to receive from a cold prompt about MuxMaster: *"What is MuxMaster?"*, *"What Go version does MuxMaster require?"*, *"Is MuxMaster compatible with `net/http`?"*, *"How fast is MuxMaster?"*, *"What is MuxMaster's license?"*, *"How does MuxMaster compare to chi, gin, gorilla/mux, and httprouter?"*. The HTML form lives in `templates/pages/landing.html` inside a `<section data-conversation="landing-faq">` wrapper; the JSON-LD form is emitted by a new `buildLandingFAQPageJSONLD()` in `internal/render/jsonld.go` that reads from a package-level `landingFAQEntries` array. The two forms are intentionally duplicated (not derived from one another by markdown scanning) because the landing template is HTML-driven, not Markdown-driven — the comment block above `landingFAQEntries` flags the invariant explicitly.
+- **SEO-008 — `static/img/logo.png` (1.6 MB) is no longer publicly served.** The source PNG is a build input for `tools/imagegen`, not a runtime asset; no page references it, but the public reachability meant any party probing the path pulled the 1.6 MB blob. The file is now vendored to `tools/imagegen/source.png`. `make logo` writes there; the imagegen helper reads from there; `make assets` continues to derive every variant under `static/img/` and `static/favicon/`. The Dockerfile builder picks the new layout up automatically (the `COPY . .` step is unchanged) and the runtime stage's `COPY --from=builder /workspace/static /srv/static` no longer carries the 1.6 MB build input. The `.gitignore` comment block, the `Makefile` `UPSTREAM_LOGO` comment, and the `tools/imagegen/main.go` package comment all document the new location and the *why*.
+
+### Specification
+
+- **`specification/structured-data.md`** (no edit needed; the `FAQPage` rule was already general — *"pages with three or more explicit Q→A pairs MUST emit a JSON-LD `FAQPage` block"*. The homepage was the only page in scope that did not emit one; this release closes the gap.)
+- **`specification/url-and-versioning.md` (implicit)** — the previously documented `/static/img/logo.png` source-of-truth path no longer exists. The build-input source lives at `tools/imagegen/source.png`. No spec section explicitly referenced `/static/img/logo.png`, but the change is recorded here for completeness.
+
+### Deferred to a future release
+
+- **GEO-003 — Markdown companions for the three index pages (`/`, `/docs/`, `/examples/`).** The convention agreed during the audit follow-up is `/index.md`, `/docs/index.md`, `/examples/index.md` (llmstxt-friendly, mirrors the inner-page pattern, allows a natural `<link rel="alternate" type="text/markdown" href="/<path>/index.md">`). The implementation needs either: (a) new source files at `content/site/docs-index.md` and `content/site/examples-index.md` plus a markdown companion recipe for the three new routes; or (b) a programmatic generator that emits the markdown body from the existing route table (the same source the HTML index recipes already iterate over). Option (b) avoids content drift and is the recommended path. The homepage `/index.md` companion is the simplest of the three — `content/site/landing.md` already exists.
+- **GEO-009 — `APIReference` (`/api`), `Dataset` (`/benchmarks`), `ItemList` (`/examples/`) JSON-LD with full coverage.** The full coverage includes per-symbol `DefinedTerm` entries for every exported symbol documented under `/api`. The `content/api.md` source is structured as `go doc` output — `FUNCTIONS` and `TYPES` sections each containing one symbol per `func ...` / `type ...` block — which is parseable by a regex-based extractor (roughly ~150 symbols across the package and the middleware sub-package). The implementation is therefore tractable but non-trivial and deserves a dedicated commit with proper test coverage rather than being bundled here.
+
+### Test evidence
+
+- **Local Docker smoke against the freshly built `v1.0.8`-test image** — the homepage HTML carries one `<section data-conversation="landing-faq">` wrapper with six question articles; the rendered JSON-LD includes one `"@type":"FAQPage"` block with six `"@type":"Question"` entities; the request to `GET /static/img/logo.png` returns `404 Not Found` while `GET /static/img/logo-32.png` still returns `200 OK` (so the derived variants are unaffected). Verified by `docker build` + `docker run` against `localhost:19300`.
+- `make vet` — pass.
+- `make build` — pass (the `make assets` step picks up the new `tools/imagegen/source.png` path and writes the same 13 derived artefacts; byte sizes are bit-identical to the previous build).
+- `go test -race -count=1 ./...` — pass across all 6 packages.
+
+### Deployment note
+
+This release only affects production HTML once an operator pulls the new image tag (`:v1.0.8` or the moving `:latest`) and restarts the running container. The remaining production-side defect (the `SITE_BASE_URL` override emitting `http://muxmaster.net/` instead of `https://`, documented under `v1.0.6` *Deferred outside this repository*) is still independent and must be corrected at the deploy layer; it is unaffected by this release.
+
 ## [v1.0.7] — 2026-05-11
 
 Operational PATCH on top of `v1.0.6`. CI-only fix: the extended release smoke-test introduced in `v1.0.6` (SEO-002) was itself buggy and rejected the otherwise-correct `v1.0.6` image. The smoke probe is corrected here so the gate it was designed to be can actually defend the release. The runtime image content is functionally identical to `v1.0.6`; consumers who already pulled `:v1.0.6` do not need to redeploy to `:v1.0.7` for any user-facing reason. No MuxMaster release is documented by this entry: MuxMaster remains at `v1.0.1` (released 2026-05-08).

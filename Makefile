@@ -38,7 +38,8 @@ GO_FLAGS   := -trimpath -ldflags='$(GO_LDFLAGS)'
 NORMALIZE_STATIC_PERMS = find static -type d -exec chmod 0755 {} + && find static -type f -exec chmod 0644 {} +
 
 # Upstream logo source. The website vendors a single canonical PNG copy at
-# static/img/logo.png; every other image artefact (sized header logos,
+# tools/imagegen/source.png (a build input, not a runtime asset, hence
+# outside static/); every other image artefact (sized header logos,
 # favicons, apple-touch-icons, the 1200x630 Open Graph composition) is
 # produced from it deterministically by `make assets`.
 UPSTREAM_LOGO := ../MuxMaster/assets/logo-muxmaster.png
@@ -74,27 +75,31 @@ css-watch: tailwind-install
 	@mkdir -p $(CSS_DIR)
 	@$(TAILWIND_BIN) -i $(CSS_SRC) -o $(CSS_DIR)/app.dev.css --watch
 
-# Vendor the upstream logo into the static tree. The source is the canonical
-# 1024x1024 RGBA PNG in ../MuxMaster/assets/, copied to static/img/logo.png.
-# `make assets` then derives every sized variant from it.
+# Vendor the upstream logo into the build-input tree. The source is the
+# canonical 1024x1024 RGBA PNG in ../MuxMaster/assets/, copied to
+# tools/imagegen/source.png. `make assets` then derives every sized
+# variant under static/. The source PNG deliberately does NOT live under
+# static/ because it is a build input, not a runtime asset: serving it
+# publicly would expose a 1.6 MB blob that no page references.
 logo:
 	@if [ ! -f "$(UPSTREAM_LOGO)" ]; then \
 		echo "missing $(UPSTREAM_LOGO); clone the MuxMaster repo next to this one" >&2; \
 		exit 1; \
 	fi
-	@mkdir -p static/img
-	@cp $(UPSTREAM_LOGO) static/img/logo.png
-	@echo "vendored $(UPSTREAM_LOGO) into static/img/logo.png"
-	@$(NORMALIZE_STATIC_PERMS)
+	@mkdir -p tools/imagegen
+	@cp $(UPSTREAM_LOGO) tools/imagegen/source.png
+	@chmod 0644 tools/imagegen/source.png
+	@echo "vendored $(UPSTREAM_LOGO) into tools/imagegen/source.png"
 
-# Build the build-time image generator and run it against static/img/logo.png.
-# Produces: logo-{32,64,80,128}.png, favicon-{32,192,512}.png,
-# apple-touch-icon-180.png, and og-image.png (1200x630). All deterministic.
+# Build the build-time image generator and run it against the build-input
+# source PNG. Produces: logo-{32,64,80,128,192,256,384}.png, favicon-{32,
+# 192,512}.png, apple-touch-icon-180.png, and og-image.png (1200x630).
+# All deterministic.
 $(ASSETS_TOOL): tools/imagegen/main.go
 	@mkdir -p $(BIN_DIR)
 	@go build -o $(ASSETS_TOOL) ./tools/imagegen
 
-assets: $(ASSETS_TOOL) static/img/logo.png
+assets: $(ASSETS_TOOL) tools/imagegen/source.png
 	@./$(ASSETS_TOOL)
 	@$(NORMALIZE_STATIC_PERMS)
 

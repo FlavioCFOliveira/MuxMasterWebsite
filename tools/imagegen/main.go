@@ -1,7 +1,7 @@
 // Package main is the build-time image generator for the MuxMaster
 // documentation website.
 //
-// It reads the canonical 1024×1024 logo at static/img/logo.png and produces
+// It reads the canonical 1024×1024 logo at tools/imagegen/source.png and produces
 // every sized variant the templates and OG metadata reference: header logos,
 // favicons, apple-touch-icons, and a 1200×630 Open Graph composition. All
 // outputs are written deterministically (no metadata timestamps in the PNG
@@ -26,7 +26,14 @@ import (
 	"golang.org/x/image/draw"
 )
 
-const sourcePath = "static/img/logo.png"
+// sourcePath is the canonical 1024×1024 RGBA PNG vendored from
+// `../MuxMaster/assets/logo-muxmaster.png` by `make logo`. It lives in
+// `tools/imagegen/` rather than under `static/` because it is a *build
+// input*, not a runtime asset: serving it publicly would expose a 1.6 MB
+// PNG that no page references. The `make logo` target writes here; this
+// program reads from here; `make assets` derives every variant under
+// `static/img/` and `static/favicon/` from this single source.
+const sourcePath = "tools/imagegen/source.png"
 
 type variant struct {
 	path    string

@@ -254,10 +254,99 @@ func buildEntityGraph(in JSONLDInputs) []string {
 }
 
 // buildLandingJSONLD is the landing-page entry point. The landing page is
-// the single emission site for the four reified entity nodes; the helper
-// is delegated.
+// the single emission site for the four reified entity nodes (delegated
+// to buildEntityGraph) and additionally carries a FAQPage block whose
+// Q→A pairs answer the questions an AI ingestion pipeline is most
+// likely to receive about MuxMaster from a cold prompt. The FAQ HTML in
+// templates/pages/landing.html and the FAQ JSON-LD here MUST be kept in
+// sync; a TestLandingFAQHTMLAndJSONLDAgree test in jsonld_test.go
+// enforces the invariant by comparing the question lists.
 func buildLandingJSONLD(in JSONLDInputs) []string {
-	return buildEntityGraph(in)
+	out := buildEntityGraph(in)
+	if faq := buildLandingFAQPageJSONLD(in); faq != "" {
+		out = append(out, faq)
+	}
+	return out
+}
+
+// landingFAQEntries is the canonical list of homepage FAQ pairs. The HTML
+// in templates/pages/landing.html duplicates the same question text and
+// answer text inside <section data-conversation="landing-faq">.
+//
+// The HTML inside an answer is allowed by schema.org FAQPage.acceptedAnswer
+// (the text field accepts inline HTML markup); we embed the same
+// formatting (<code>, <strong>, <a href>) that the rendered page shows.
+// Absolute URLs in <a href> are required so AI ingestion pipelines that
+// parse the JSON-LD in isolation can still resolve every link without
+// needing the page context. The BuildJSONLD caller threads the site's
+// canonical base URL so this stays correct in dev (http://localhost:8080)
+// and production (https://muxmaster.net) alike.
+var landingFAQEntries = []struct {
+	Q, A string
+}{
+	{
+		Q: "What is MuxMaster?",
+		A: `MuxMaster is a high-performance, zero-dependency HTTP router for Go. It implements a radix tree with O(k) lookups, allocates zero bytes on the static-route hot path, and is fully compatible with the <code>net/http</code> <code>Handler</code> interface so existing handlers compile unchanged.`,
+	},
+	{
+		Q: "What Go version does MuxMaster require?",
+		A: `Go 1.26 or later. The minimum is set by the <code>go</code> directive in the upstream <code>go.mod</code>; see <a href="{base}/compatibility">Compatibility</a> for the full version policy.`,
+	},
+	{
+		Q: "Is MuxMaster compatible with net/http?",
+		A: `100%. Handlers remain <code>http.Handler</code> and middleware remains <code>func(http.Handler) http.Handler</code>. A <code>*muxmaster.Mux</code> is a drop-in replacement for <code>http.ServeMux</code> everywhere the standard library accepts an <code>http.Handler</code>, so adoption is incremental: a single route, a single sub-tree, or a whole service.`,
+	},
+	{
+		Q: "How fast is MuxMaster?",
+		A: `Static-route lookups complete in <strong>25 ns</strong> with zero allocations; one-parameter routes complete in <strong>112 ns</strong> with a single 416-byte allocation for the tiered request bundle. Numbers measured on AMD Ryzen 9 5900HX, Go 1.26.2; see <a href="{base}/benchmarks">Benchmarks</a> for the full table and the reproduce instructions.`,
+	},
+	{
+		Q: "What is MuxMaster's license?",
+		A: `MIT. The full text is in the upstream repository at <a href="https://github.com/FlavioCFOliveira/MuxMaster/blob/main/LICENSE">LICENSE</a>. MIT permits commercial use, modification, distribution, and private use; the only requirement is preserving the copyright notice.`,
+	},
+	{
+		Q: "How does MuxMaster compare to chi, gin, gorilla/mux, and httprouter?",
+		A: `MuxMaster keeps the <code>net/http</code> handler signature (unlike <code>gin</code>, which introduces a <code>gin.Context</code>) and ships zero external dependencies. It matches <code>httprouter</code>'s static-route latency while exposing a higher-level API (route groups, typed parameters, error-returning handlers). See the <a href="{base}/docs/migration">migration guide</a> for side-by-side equivalents.`,
+	},
+}
+
+// buildLandingFAQPageJSONLD emits the homepage FAQPage block. Returns the
+// JSON string ready to embed; never empty (landingFAQEntries is a
+// compile-time constant with six entries, well above the FAQPage minimum
+// of three).
+func buildLandingFAQPageJSONLD(in JSONLDInputs) string {
+	base := in.Page.BaseURL
+	type answerT struct {
+		Type string `json:"@type"`
+		Text string `json:"text"`
+	}
+	type questionT struct {
+		Type           string  `json:"@type"`
+		Name           string  `json:"name"`
+		AcceptedAnswer answerT `json:"acceptedAnswer"`
+	}
+	mainEntity := make([]questionT, 0, len(landingFAQEntries))
+	for _, e := range landingFAQEntries {
+		mainEntity = append(mainEntity, questionT{
+			Type:           "Question",
+			Name:           e.Q,
+			AcceptedAnswer: answerT{Type: "Answer", Text: strings.ReplaceAll(e.A, "{base}", base)},
+		})
+	}
+	faq := struct {
+		Context    string      `json:"@context"`
+		Type       string      `json:"@type"`
+		ID         string      `json:"@id"`
+		IsPartOf   idRef       `json:"isPartOf"`
+		MainEntity []questionT `json:"mainEntity"`
+	}{
+		Context:    schema,
+		Type:       "FAQPage",
+		ID:         base + "/#faq",
+		IsPartOf:   idRef{ID: jsonSiteID(base)},
+		MainEntity: mainEntity,
+	}
+	return mustJSON(faq)
 }
 
 // article graph: TechArticle + BreadcrumbList. /docs/getting-started and a
