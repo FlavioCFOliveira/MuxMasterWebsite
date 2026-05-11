@@ -26,7 +26,19 @@ type JSONLDInputs struct {
 	DateModified  time.Time // truthful last-modified date sourced from front-matter or git-log build manifest; zero means omit per the doctrine.
 	HowToSource   []byte    // optional; if present the generator scans for `## Step N — name` headings
 	HasPart       []string  // for "collection" family: canonical absolute URLs of the items the page lists; emitted as CollectionPage.hasPart.
+	ItemListItems []ItemListItem // optional; when non-empty the collection family additionally emits an ItemList block with one ListItem per entry. The 1-indexed position is the slice order.
 	RenderedHTML  []byte    // optional; when present the FAQPage scanner walks <section data-conversation> regions to extract Q→A pairs into a single flat FAQPage block (spec/geo.md § Question-Oriented Content).
+}
+
+// ItemListItem is one entry in a collection-page ItemList JSON-LD block.
+// schema.org ListItem requires `name` (the human-readable label) and
+// `url` (the canonical absolute URL of the item); `description` is
+// optional and emitted with omitempty so empty descriptions do not
+// produce empty JSON fields.
+type ItemListItem struct {
+	Name        string
+	URL         string
+	Description string
 }
 
 // BuildJSONLD returns one or more JSON-LD objects (each pre-stringified) for
@@ -440,7 +452,63 @@ func buildCollectionJSONLD(in JSONLDInputs) []string {
 		Publisher:  idRef{ID: jsonOrgID(base)},
 		HasPart:    hasPart,
 	}
-	return []string{mustJSON(collection), breadcrumbJSON(in.Page)}
+	out := []string{mustJSON(collection), breadcrumbJSON(in.Page)}
+	if itemList := buildItemListJSONLD(in); itemList != "" {
+		out = append(out, itemList)
+	}
+	return out
+}
+
+// buildItemListJSONLD emits a schema.org ItemList block for a collection
+// page. Returns "" when in.ItemListItems is empty. The 1-indexed
+// position field is the canonical ListItem ordering signal that Google's
+// rich-result pipeline and most AI ingestion engines key on; without it
+// the items are treated as an unordered set, which loses the curated
+// learning sequence of /examples/ (REST → auth → operational).
+func buildItemListJSONLD(in JSONLDInputs) string {
+	if len(in.ItemListItems) == 0 {
+		return ""
+	}
+	canonical := in.Page.Canonical
+	type listItem struct {
+		Type        string `json:"@type"`
+		Position    int    `json:"position"`
+		Name        string `json:"name"`
+		URL         string `json:"url"`
+		Description string `json:"description,omitempty"`
+	}
+	items := make([]listItem, 0, len(in.ItemListItems))
+	for i, it := range in.ItemListItems {
+		items = append(items, listItem{
+			Type:        "ListItem",
+			Position:    i + 1,
+			Name:        it.Name,
+			URL:         it.URL,
+			Description: it.Description,
+		})
+	}
+	list := struct {
+		Context         string     `json:"@context"`
+		Type            string     `json:"@type"`
+		ID              string     `json:"@id"`
+		Name            string     `json:"name"`
+		Description     string     `json:"description"`
+		URL             string     `json:"url"`
+		NumberOfItems   int        `json:"numberOfItems"`
+		ItemListOrder   string     `json:"itemListOrder"`
+		ItemListElement []listItem `json:"itemListElement"`
+	}{
+		Context:         schema,
+		Type:            "ItemList",
+		ID:              canonical + "#list",
+		Name:            in.Page.Title,
+		Description:     in.Page.Description,
+		URL:             canonical,
+		NumberOfItems:   len(items),
+		ItemListOrder:   "https://schema.org/ItemListOrderAscending",
+		ItemListElement: items,
+	}
+	return mustJSON(list)
 }
 
 // api graph: TechArticle + BreadcrumbList + APIReference. /api references
@@ -455,6 +523,9 @@ func buildAPIJSONLD(in JSONLDInputs) []string {
 	out := buildArticleJSONLD(in)
 	base := in.Page.BaseURL
 	canonical := in.Page.Canonical
+	if dts := buildAPIDefinedTermSetJSONLD(in); dts != "" {
+		out = append(out, dts)
+	}
 	apiRef := struct {
 		Context              string `json:"@context"`
 		Type                 string `json:"@type"`
@@ -481,6 +552,100 @@ func buildAPIJSONLD(in JSONLDInputs) []string {
 		About:                 idRef{ID: jsonSoftwareID(base)},
 	}
 	return append(out, mustJSON(apiRef))
+}
+
+// apiDefinedTerms is the curated list of MuxMaster public-API symbols
+// surfaced as schema.org DefinedTerm entries on /api. Each entry pairs a
+// canonical fully-qualified symbol name with a one-sentence description
+// that an AI ingestion pipeline can quote verbatim.
+//
+// The list is curated rather than auto-extracted from content/api.md
+// because the source is rendered `go doc` plain text — multi-paragraph
+// descriptions with nested code blocks, indented elaboration, and
+// embedded examples — which does not map cleanly onto the
+// DefinedTerm.description field (which is a single short string). A
+// faithful auto-extraction would either truncate descriptions
+// arbitrarily or emit DefinedTerm objects whose bodies contain code
+// fences and example wrappers, neither of which is useful to a
+// downstream consumer. Curated entries are deliberately short,
+// fact-shaped, and answer the question "what is this symbol for" in one
+// sentence. When upstream MuxMaster adds or renames a symbol the
+// release-manager agent MUST update this list and run the JSON-LD
+// validation gate.
+var apiDefinedTerms = []struct {
+	Name        string
+	Description string
+}{
+	// Top-level package (github.com/FlavioCFOliveira/MuxMaster)
+	{"muxmaster.New", "Constructor returning a fresh *Mux ready for route registration."},
+	{"muxmaster.Mux", "Radix-tree HTTP request multiplexer; implements http.Handler so any net/http infrastructure that accepts a handler accepts a *Mux."},
+	{"muxmaster.Group", "Sub-router sharing a path prefix and middleware stack with its parent; created via Mux.Group and nestable via Group.Group."},
+	{"muxmaster.Params", "Slice of (Name, Value) pairs holding the parameters captured by a matched route. Returned by ParamsFromContext."},
+	{"muxmaster.PathParam", "Reads a single named path parameter from a request as a string; equivalent to ParamsFromContext(r.Context()).Get(name)."},
+	{"muxmaster.ParamsFromContext", "Extracts the full Params slice from a request context, exposing the typed helpers Int, Bool, UUID, and Float."},
+	{"muxmaster.RoutePattern", "Returns the registered route pattern that matched the request, or \"\" if none is stored in the context."},
+	{"muxmaster.HandlerFuncE", "Handler signature that returns an error; threaded through middleware and surfaced via Mux.ErrorHandler."},
+	{"muxmaster.HTTPError", "Typed error carrying an HTTP status code and a public-facing message; returned by HandlerFuncE handlers."},
+	{"muxmaster.FastHandler", "High-performance request handler that receives parameters as a direct argument, bypassing the context allocation overhead of http.Handler routes."},
+	{"muxmaster.FastMiddleware", "Middleware wrapping a FastHandler; composes like stdlib middleware but for FastHandler routes only."},
+	{"muxmaster.JSON", "Marshals a value to JSON and writes it with the given status code; sets Content-Type: application/json."},
+	{"muxmaster.Text", "Writes a string as plain text with the given status code; sets Content-Type: text/plain; charset=utf-8."},
+	{"muxmaster.XML", "Marshals a value to XML and writes it with the given status code; sets Content-Type: application/xml."},
+	{"muxmaster.NoContent", "Writes a 204 No Content response with no body."},
+	{"muxmaster.Redirect", "Sends an HTTP redirect to a target URL with the given status code; path-only to prevent off-site smuggling."},
+	{"muxmaster.ServeFiles", "Serves a directory tree with full conditional-GET (304 via ETag and Last-Modified) and range-request (206) semantics."},
+	// Middleware sub-package (github.com/FlavioCFOliveira/MuxMaster/middleware)
+	{"middleware.RequestID", "Assigns a unique ID to every request and exposes it via context for log correlation; uses the inbound X-Request-Id header when trusted."},
+	{"middleware.Recoverer", "Catches panics from downstream handlers, logs the stack trace, and emits a 500 response so a single bad handler does not crash the process."},
+	{"middleware.Logger", "Structured access-log middleware emitting one log line per completed request with method, path, status, bytes, and duration."},
+	{"middleware.Compress", "Negotiates Content-Encoding with the client and compresses the response body via gzip (or brotli when the build supports it) above a configurable size threshold."},
+	{"middleware.RealIP", "Rewrites r.RemoteAddr from X-Forwarded-For when the immediate peer is in the supplied CIDR allowlist; ignores the header otherwise."},
+	{"middleware.Timeout", "Wraps every handler in a per-request deadline using context.WithTimeout; emits 503 when the deadline fires before the handler returns."},
+	{"middleware.Throttle", "Limits the request rate per key (IP, header, custom selector) using a token-bucket implementation; rejects excess requests with 429."},
+	{"middleware.BasicAuth", "RFC 7617 HTTP Basic Authentication with a constant-time credential comparison and a configurable realm."},
+	{"middleware.JWTAuth", "Bearer-token authentication for HS256 / RS256 JWTs; requires the exp claim (RFC 8725 §4.4) by default."},
+	{"middleware.OAuth2Introspect", "RFC 7662 OAuth 2.0 token introspection against an authorisation server; caches positive responses with a configurable TTL."},
+	{"middleware.APIKey", "Validates a static API key passed via the X-API-Key header against a constant-time-compared allowlist."},
+	{"middleware.CORS", "Implements the W3C CORS preflight protocol with configurable origins, methods, headers, exposed headers, max-age, and credentials handling."},
+}
+
+// buildAPIDefinedTermSetJSONLD emits the curated DefinedTermSet for the
+// /api page. The set lists every entry in apiDefinedTerms as a
+// DefinedTerm; the parent DefinedTermSet is referenced by canonical#api.
+// Returns "" only when the apiDefinedTerms slice is empty (it is
+// compile-time non-empty, so this never returns "" in practice; the
+// guard exists to match the pattern used by buildFAQPageJSONLD and
+// buildDefinedTermSetJSONLD).
+func buildAPIDefinedTermSetJSONLD(in JSONLDInputs) string {
+	if len(apiDefinedTerms) == 0 {
+		return ""
+	}
+	type term struct {
+		Type        string `json:"@type"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
+	}
+	terms := make([]term, 0, len(apiDefinedTerms))
+	for _, t := range apiDefinedTerms {
+		terms = append(terms, term{Type: "DefinedTerm", Name: t.Name, Description: t.Description})
+	}
+	canonical := in.Page.Canonical
+	set := struct {
+		Context        string `json:"@context"`
+		Type           string `json:"@type"`
+		ID             string `json:"@id"`
+		Name           string `json:"name"`
+		Description    string `json:"description"`
+		HasDefinedTerm []term `json:"hasDefinedTerm"`
+	}{
+		Context:        schema,
+		Type:           "DefinedTermSet",
+		ID:             canonical + "#defined-terms",
+		Name:           "MuxMaster public API surface",
+		Description:    "Curated list of MuxMaster public-API symbols (functions, types, methods, middleware constructors), each with a one-sentence description an AI ingestion pipeline can quote verbatim.",
+		HasDefinedTerm: terms,
+	}
+	return mustJSON(set)
 }
 
 // benchmarks graph: TechArticle + BreadcrumbList + Dataset. The Dataset

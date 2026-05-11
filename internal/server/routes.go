@@ -197,10 +197,13 @@ func (s *Server) registerRoutes(m *muxm.Mux) {
 
 	// Landing.
 	getHead(m, "/", s.renderer.ServePrerendered("/", cacheControlLanding, http.StatusOK))
+	getHead(m, "/index.md", s.renderer.ServePrerendered("/index.md", cacheControlLanding, http.StatusOK))
 
-	// Section indexes.
+	// Section indexes (HTML + Markdown companion).
 	getHead(m, "/docs/", s.renderer.ServePrerendered("/docs/", cacheControlLanding, http.StatusOK))
+	getHead(m, "/docs/index.md", s.renderer.ServePrerendered("/docs/index.md", cacheControlLanding, http.StatusOK))
 	getHead(m, "/examples/", s.renderer.ServePrerendered("/examples/", cacheControlLanding, http.StatusOK))
+	getHead(m, "/examples/index.md", s.renderer.ServePrerendered("/examples/index.md", cacheControlLanding, http.StatusOK))
 
 	// Doc-page family: every Markdown-backed route plus its .md companion.
 	for _, r := range docRoutes() {

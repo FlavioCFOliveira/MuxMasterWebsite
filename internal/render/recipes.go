@@ -20,6 +20,12 @@ func LandingRecipe(landingDescription, ogImagePath string, productionRobots bool
 		ContentType: "text/html; charset=utf-8",
 		Build: func(deps Deps) ([]byte, error) {
 			page := basePage(deps, "/", "", landingDescription, "website", ogImagePath, productionRobots)
+			// The homepage exposes a Markdown companion at /index.md
+			// (built by LandingMarkdownRecipe from content/site/landing.md).
+			// MarkdownAlternateURL is set explicitly because the default
+			// `<Canonical>.md` would resolve to a stray-slash path.
+			page.HasMarkdown = true
+			page.MarkdownAlternateURL = deps.BaseURL + "/index.md"
 			page.JSONLD = BuildJSONLD(JSONLDInputs{
 				Page:      page,
 				Family:    "landing",
@@ -44,6 +50,10 @@ func DocsIndexRecipe(loader *content.Loader, ogImagePath string, productionRobot
 				"Documentation",
 				"Index of MuxMaster documentation: getting started, routing, groups, middleware, error handling, configuration, response helpers, performance, observability, migration, and a cookbook.",
 				"article", ogImagePath, productionRobots)
+			// Markdown companion at /docs/index.md (built by
+			// DocsIndexMarkdownRecipe from the route table).
+			page.HasMarkdown = true
+			page.MarkdownAlternateURL = deps.BaseURL + "/docs/index.md"
 			page.Breadcrumbs = []meta.Breadcrumb{
 				{Label: "Home", Href: "/"},
 				{Label: "Documentation"},
@@ -60,7 +70,8 @@ func DocsIndexRecipe(loader *content.Loader, ogImagePath string, productionRobot
 			}
 			page.JSONLD = BuildJSONLD(JSONLDInputs{
 				Page: page, Family: "collection", BuildTime: deps.BuildTime,
-				HasPart: itemsAsAbsoluteURLs(items, deps.BaseURL),
+				HasPart:       itemsAsAbsoluteURLs(items, deps.BaseURL),
+				ItemListItems: itemsAsItemList(items, deps.BaseURL),
 			})
 			return deps.Renderer.ExecuteTemplate("section-index.html", Data{Meta: page, Body: body})
 		},
@@ -84,6 +95,10 @@ func ExamplesIndexRecipe(loader *content.Loader, ogImagePath string, productionR
 				"Examples",
 				"Eight runnable MuxMaster examples covering REST APIs, authentication, JWT, OAuth2, caching, graceful shutdown, server-side rendering, and static sites.",
 				"article", ogImagePath, productionRobots)
+			// Markdown companion at /examples/index.md (built by
+			// ExamplesIndexMarkdownRecipe from the route table).
+			page.HasMarkdown = true
+			page.MarkdownAlternateURL = deps.BaseURL + "/examples/index.md"
 			page.Breadcrumbs = []meta.Breadcrumb{
 				{Label: "Home", Href: "/"},
 				{Label: "Examples"},
@@ -100,11 +115,29 @@ func ExamplesIndexRecipe(loader *content.Loader, ogImagePath string, productionR
 			}
 			page.JSONLD = BuildJSONLD(JSONLDInputs{
 				Page: page, Family: "collection", BuildTime: deps.BuildTime,
-				HasPart: itemsAsAbsoluteURLs(items, deps.BaseURL),
+				HasPart:       itemsAsAbsoluteURLs(items, deps.BaseURL),
+				ItemListItems: itemsAsItemList(items, deps.BaseURL),
 			})
 			return deps.Renderer.ExecuteTemplate("section-index.html", Data{Meta: page, Body: body})
 		},
 	}
+}
+
+// itemsAsItemList converts a slice of RouteInfo to the ItemList input
+// the JSON-LD layer consumes. Position is implicit (1-indexed slice
+// order, matching the order the section-index recipe already used). The
+// URL is the route's canonical absolute URL; the description is the
+// human-readable label from the route table.
+func itemsAsItemList(items []RouteInfo, baseURL string) []ItemListItem {
+	out := make([]ItemListItem, 0, len(items))
+	for _, it := range items {
+		out = append(out, ItemListItem{
+			Name:        it.Title,
+			URL:         baseURL + it.Path,
+			Description: it.Description,
+		})
+	}
+	return out
 }
 
 // optionalIntro renders the supplied content path to HTML when present,
@@ -123,6 +156,108 @@ func optionalIntro(loader *content.Loader, contentPath string) (string, error) {
 		return "", err
 	}
 	return string(htmlBytes), nil
+}
+
+// LandingMarkdownRecipe serves /index.md from content/site/landing.md.
+// The recipe strips any leading frontmatter block (same pattern as
+// MarkdownCompanionRecipe) and serves the body verbatim. This is the
+// Markdown-companion representation of the homepage, mandated by
+// specification/geo.md "Markdown companions" for every index page that
+// has an HTML representation.
+func LandingMarkdownRecipe(loader *content.Loader) Recipe {
+	return Recipe{
+		Path:        "/index.md",
+		ContentType: "text/markdown; charset=utf-8",
+		Build: func(_ Deps) ([]byte, error) {
+			src, err := loader.Load("site/landing.md")
+			if err != nil {
+				return nil, err
+			}
+			return stripFrontmatter(src), nil
+		},
+	}
+}
+
+// DocsIndexMarkdownRecipe builds /docs/index.md as a Markdown rendering
+// of the data the HTML /docs/ page already shows: an optional intro
+// block from content/site/docs-index.md (when present), followed by a
+// list of every documentation page in the route table, each as a
+// Markdown link with its description. The list is generated from
+// deps.Routes at startup, so it stays in sync with the route table
+// without manual edits.
+func DocsIndexMarkdownRecipe(loader *content.Loader) Recipe {
+	return Recipe{
+		Path:        "/docs/index.md",
+		ContentType: "text/markdown; charset=utf-8",
+		Build: func(deps Deps) ([]byte, error) {
+			return buildSectionIndexMarkdown(loader, deps, "docs", "/docs/", "Documentation", "site/docs-index.md", false)
+		},
+	}
+}
+
+// ExamplesIndexMarkdownRecipe builds /examples/index.md. Same shape as
+// DocsIndexMarkdownRecipe but ordered by RouteInfo.Order (the curated
+// learning sequence used by the HTML /examples/ page) rather than path
+// lex order.
+func ExamplesIndexMarkdownRecipe(loader *content.Loader) Recipe {
+	return Recipe{
+		Path:        "/examples/index.md",
+		ContentType: "text/markdown; charset=utf-8",
+		Build: func(deps Deps) ([]byte, error) {
+			return buildSectionIndexMarkdown(loader, deps, "examples", "/examples/", "Examples", "site/examples-index.md", true)
+		},
+	}
+}
+
+// buildSectionIndexMarkdown is the shared body of the two section-index
+// markdown recipes. The byOrder flag selects between path-lex order
+// (used by /docs/) and curated RouteInfo.Order (used by /examples/).
+func buildSectionIndexMarkdown(loader *content.Loader, deps Deps, section, indexPath, heading, introPath string, byOrder bool) ([]byte, error) {
+	var items []RouteInfo
+	if byOrder {
+		items = filterRoutesByOrder(deps.Routes, section, indexPath)
+	} else {
+		items = filterRoutes(deps.Routes, section, indexPath)
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "# %s\n\n", heading)
+	if loader != nil && loader.Exists(introPath) {
+		src, err := loader.Load(introPath)
+		if err != nil {
+			return nil, err
+		}
+		body := stripFrontmatter(src)
+		// Drop a leading "# Heading" line from the intro if it duplicates
+		// the heading we just emitted, to avoid two H1s in the companion.
+		b.Write(stripLeadingH1(body))
+		b.WriteString("\n\n")
+	}
+	for _, it := range items {
+		fmt.Fprintf(&b, "- [%s](%s) — %s\n", it.Title, it.Path, it.Description)
+	}
+	b.WriteByte('\n')
+	return []byte(b.String()), nil
+}
+
+// stripLeadingH1 removes a leading `# ...` line plus any blank lines that
+// immediately follow it. Used by buildSectionIndexMarkdown so the
+// optional intro file under content/site/ can carry its own H1 (matching
+// the editorial flow there) without producing a duplicate H1 in the
+// generated .md companion.
+func stripLeadingH1(src []byte) []byte {
+	s := string(src)
+	if !strings.HasPrefix(s, "# ") {
+		return src
+	}
+	nl := strings.IndexByte(s, '\n')
+	if nl < 0 {
+		return nil
+	}
+	s = s[nl+1:]
+	for strings.HasPrefix(s, "\n") {
+		s = s[1:]
+	}
+	return []byte(s)
 }
 
 // LLMsRecipe builds /llms.txt per https://llmstxt.org and the strict structure

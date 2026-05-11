@@ -39,6 +39,14 @@ type Page struct {
 	BaseURL     string   // SITE_BASE_URL for absolute references.
 	UpstreamURL string   // Optional link to the upstream source file on GitHub.
 	HasMarkdown bool     // True when the page exposes a Markdown companion at <Canonical>.md.
+	// MarkdownAlternateURL is the explicit Markdown-companion URL used by
+	// <link rel="alternate" type="text/markdown" href="...">. When empty
+	// the head template falls back to `<Canonical>.md`, which is correct
+	// for inner pages whose canonical does not end in `/`. Index pages
+	// (whose canonical ends in `/`) MUST set this explicitly because
+	// `<Canonical>.md` would produce a path with a stray slash before
+	// `.md` (for example `/docs/.md`).
+	MarkdownAlternateURL string
 }
 
 // FullTitle returns the title with the canonical " — MuxMaster" suffix.

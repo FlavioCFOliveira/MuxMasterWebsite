@@ -4,6 +4,39 @@ All notable changes to the MuxMaster documentation website are recorded in this 
 
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html). The website's `MAJOR.MINOR` mirrors the MuxMaster release it documents; the website's `PATCH` digit is independent and advances for website-only operational fixes. See `specification/overview.md § Version cadence` for the full cadence policy.
 
+## [v1.0.10] — 2026-05-11
+
+Operational PATCH on top of `v1.0.9`. Closes the final two findings deferred from the `v1.0.6` audit: GEO-003 (Markdown companions for the three index pages) and GEO-009 (`APIReference` + curated `DefinedTermSet` for `/api`, plus `ItemList` for `/docs/` and `/examples/`). `Dataset` on `/benchmarks` was already emitted by `buildBenchmarksJSONLD` from earlier releases; no change there. With this release every finding from the post-`v1.0.5` SEO/GEO audit is either resolved, deferred upstream (SEO-006), or deferred outside this repository (SEO-001 SITE_BASE_URL runtime override, SEO-003 `www` DNS). No MuxMaster release is documented by this entry: MuxMaster remains at `v1.0.1` (released 2026-05-08).
+
+### Added
+
+- **GEO-003 — Markdown companions for the three index pages.** New URLs: `/index.md` (served from `content/site/landing.md`), `/docs/index.md` and `/examples/index.md` (generated at startup from the route table, ordered the same way the HTML index page is ordered). Three new recipes — `LandingMarkdownRecipe`, `DocsIndexMarkdownRecipe`, `ExamplesIndexMarkdownRecipe` — share a `buildSectionIndexMarkdown` helper that optionally folds in an intro from `content/site/<section>-index.md` (with the leading `# Heading` line stripped to avoid a duplicate H1). Each of the three index page templates now emits `<link rel="alternate" type="text/markdown" href="...">` pointing at its companion; the head template uses a new `Page.MarkdownAlternateURL` field (set explicitly by the recipe) so that the index-page canonical (which ends in `/`) does not produce a malformed `<Canonical>.md` href. The convention `/index.md`, `/docs/index.md`, `/examples/index.md` was chosen over `/.md`, `/docs/.md`, `/examples/.md` because the former mirrors the way most documentation sites that serve Markdown lay out their canonical URLs, and matches the llmstxt.org expectation of clean, predictable paths.
+- **GEO-009 — `ItemList` JSON-LD on `/docs/` and `/examples/`.** Both collection-family pages now emit a schema.org `ItemList` block alongside the existing `CollectionPage` + `BreadcrumbList`. Every list entry is a `ListItem` with `position` (1-indexed, preserving the same order the rendered HTML uses), `name`, `url`, and `description`. The list carries `itemListOrder: https://schema.org/ItemListOrderAscending`. The new `JSONLDInputs.ItemListItems []ItemListItem` field and the corresponding `itemsAsItemList` helper in `recipes.go` are the only plumbing required; existing `buildCollectionJSONLD` was extended to append the `ItemList` when the slice is non-empty.
+- **GEO-009 — Curated `DefinedTermSet` JSON-LD on `/api`.** Twenty-nine `DefinedTerm` entries covering MuxMaster's public-API surface: top-level package symbols (`muxmaster.New`, `muxmaster.Mux`, `muxmaster.Group`, `muxmaster.Params`, `muxmaster.PathParam`, `muxmaster.ParamsFromContext`, `muxmaster.RoutePattern`, `muxmaster.HandlerFuncE`, `muxmaster.HTTPError`, `muxmaster.FastHandler`, `muxmaster.FastMiddleware`, `muxmaster.JSON`, `muxmaster.Text`, `muxmaster.XML`, `muxmaster.NoContent`, `muxmaster.Redirect`, `muxmaster.ServeFiles`) and middleware sub-package constructors (`middleware.RequestID`, `Recoverer`, `Logger`, `Compress`, `RealIP`, `Timeout`, `Throttle`, `BasicAuth`, `JWTAuth`, `OAuth2Introspect`, `APIKey`, `CORS`). Each `DefinedTerm.description` is a single sentence that an AI ingestion pipeline can quote verbatim. The list is curated rather than auto-extracted from `content/api.md` because the source is rendered `go doc` plain text — multi-paragraph descriptions with nested code blocks and indented elaboration — which does not map cleanly onto the single-string `DefinedTerm.description` field; a faithful auto-extraction would either truncate descriptions arbitrarily or carry code-fence wrappers into the JSON, neither of which is useful downstream. When upstream MuxMaster adds or renames a public symbol the release-manager agent MUST update `apiDefinedTerms` in `internal/render/jsonld.go`.
+
+### Specification
+
+- **`specification/structured-data.md` — page family table updated.** The `/api` row now lists `DefinedTermSet` as a required block (with the rationale for the curated-vs-auto-extracted decision in the cell text). The `/docs/` and `/examples/` rows now list `ItemList` as a required block, with notes on the curated learning order on `/examples/` and the alphabetical order on `/docs/`.
+
+### Test evidence
+
+- **Local Docker smoke against the freshly built `v1.0.10`-test image.** Container started on a free local port (`19500`):
+  - `GET /index.md` → `200 (3747 B, text/markdown; charset=utf-8)` — landing.md body served verbatim with frontmatter stripped.
+  - `GET /docs/index.md` → `200 (2090 B, text/markdown; charset=utf-8)` — emits `# Documentation\n\n` followed by 13 `- [Title](path) — description` lines in alphabetical order.
+  - `GET /examples/index.md` → `200 (1553 B, text/markdown; charset=utf-8)` — emits `# Examples\n\n` followed by 8 list items in the curated learning order (REST API → auth family → operational concerns).
+  - Each of the three index pages now carries `<link rel="alternate" type="text/markdown" href="https://muxmaster.net/{index path}.md">` in `<head>`.
+  - `/api` JSON-LD now contains both `"@type":"APIReference"` and `"@type":"DefinedTermSet"`, with 29 `"@type":"DefinedTerm"` entries.
+  - `/examples/` JSON-LD now contains 1 `ItemList` with 10 `ListItem` entries (the route table currently has 10 example entries; the count includes /examples/server-side-render and /examples/static-site which were added after the original audit).
+  - `/docs/` JSON-LD now contains 1 `ItemList` with 13 `ListItem` entries.
+  - `/benchmarks` continues to emit `Dataset` (no change required; was already correct).
+- `make vet` — pass.
+- `make build` — pass.
+- `go test -race -count=1 ./...` — pass across all 6 packages, including the updated server test fixture that now provides `site/landing.md` (required by `LandingMarkdownRecipe`).
+
+### Deployment note
+
+This release only affects production HTML and machine-readable artefacts once an operator pulls the new image tag (`:v1.0.10` or the moving `:latest`) and restarts the running container. The remaining production-side defect (the `SITE_BASE_URL` override emitting `http://muxmaster.net/`, documented under `v1.0.6` *Deferred outside this repository*) is still independent and must be corrected at the deploy layer.
+
 ## [v1.0.9] — 2026-05-11
 
 Operational PATCH on top of `v1.0.8`. CI-only fix: the release smoke-test introduced in `v1.0.6` still expected `/static/img/logo.png` to return `200`, but the SEO-008 fix landed in `v1.0.8` correctly makes that path return `404` (the source PNG is now a build input under `tools/imagegen/source.png`, not a runtime asset). The smoke is now aligned with the v1.0.8 contract: derived assets must return `200`, and the source PNG must return `404`. Image content is functionally identical to `v1.0.8`. No MuxMaster release is documented by this entry: MuxMaster remains at `v1.0.1` (released 2026-05-08).
