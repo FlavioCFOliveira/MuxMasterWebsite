@@ -28,8 +28,15 @@ RUN go mod download || true
 # Project sources, including /content/ embedded by go:embed at build time.
 COPY . .
 
-# Build the Tailwind bundle and the binary.
-RUN make tailwind-install && make css
+# Build the Tailwind bundle, the derived image assets, and the binary.
+# `make assets` builds the in-tree tools/imagegen helper (Go-only, no
+# CGO, no system image libraries) and derives the sized logos,
+# favicons, apple-touch-icons, and the 1200x630 Open Graph composition
+# from static/img/logo.png. These derived files are gitignored, so the
+# only way they can land in the runtime stage is via this RUN step;
+# otherwise every <link>/<img> the templates emit for them resolves to
+# a 404 at request time.
+RUN make tailwind-install && make css && make assets
 RUN CGO_ENABLED=0 GOOS=linux go build \
         -trimpath \
         -ldflags="-s -w -X main.buildID=$(date -u +%Y%m%dT%H%M%SZ)" \

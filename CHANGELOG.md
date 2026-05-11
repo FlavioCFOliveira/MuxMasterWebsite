@@ -4,6 +4,34 @@ All notable changes to the MuxMaster documentation website are recorded in this 
 
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html). The website's `MAJOR.MINOR` mirrors the MuxMaster release it documents; the website's `PATCH` digit is independent and advances for website-only operational fixes. See `specification/overview.md § Version cadence` for the full cadence policy.
 
+## [v1.0.5] — 2026-05-11
+
+Operational PATCH on top of `v1.0.4`. Fixes a production bug in which every derived static-image asset returned `404 Not Found` — sized header logos, favicons, the apple-touch-icon, and the 1200×630 Open Graph composition — because the Docker builder never ran `make assets`. The fix adds `make assets` to the builder's `RUN` step so the runtime image is self-contained. No MuxMaster release is documented by this entry: MuxMaster remains at `v1.0.1` (released 2026-05-08).
+
+### Fixed
+
+- **Derived static-image assets are now present in the production image.** The 13 PNG artefacts produced by `make assets` (`static/img/logo-{32,64,80,128,192,256,384}.png`, `static/img/og-image.png`, `static/favicon/favicon-{32,192,512}.png`, `static/favicon/apple-touch-icon-180.png`) are gitignored by design — they are deterministic outputs of `tools/imagegen` from the single committed source `static/img/logo.png`. The Dockerfile's builder stage previously ran only `make tailwind-install && make css`, so the runtime stage's `COPY --from=builder /workspace/static /srv/static` brought the source `logo.png` and the freshly built CSS bundle but **none** of the derived images. Every `<link rel="icon">`, `<link rel="apple-touch-icon">`, `<img>` tag in the header, and `og:image` absolute URL on every page therefore resolved to a `404 Not Found` at request time, including `https://muxmaster.net/static/img/og-image.png` — which is the URL served to every social-media unfurl, every search-engine result preview, and every AI answer-engine card. The Dockerfile now runs `make tailwind-install && make css && make assets` in the same builder `RUN` step. The `imagegen` tool is pure Go (`golang.org/x/image/draw`, no CGO, no system image libraries) so it builds cleanly inside the existing `golang:1.26` builder stage with no additional toolchain.
+
+### Changed
+
+- **Dockerfile builder stage runs `make assets`.** The single-line change is annotated with a comment documenting why the step is load-bearing (derived images are gitignored; the only path to the runtime image is this RUN). The runtime stage is unchanged. Image-build time grows by a fraction of a second (imagegen is sub-second on the release runner).
+
+### Known issues
+
+- **The release smoke-test does not exercise static-asset paths.** The current smoke step in `.github/workflows/release.yml` runs `/srv/muxmaster-website --healthcheck`, which only probes `/healthz`. A missing static asset therefore does not fail the release — that is how `v1.0.3` and `v1.0.4` shipped with the 404s described above. A future website-only PATCH should extend the smoke-test to probe at least one derived asset (for example `/static/img/og-image.png` and one favicon) before the release is marked successful, so the same class of bug cannot recur silently. Tracked as a follow-up; not a release blocker for `v1.0.5`.
+- **Nine outstanding lint findings (8 `errcheck`, 1 `staticcheck`) inherited from `v1.0.1`.** Same status as `v1.0.4`; not affected by this release.
+
+### Test evidence
+
+- **Local image build** — `docker build -t muxmaster-website:v1.0.5-test .` completes successfully on `golang:1.26` with `make tailwind-install && make css && make assets` as the new builder RUN step.
+- **End-to-end probe of the locally-built image** — the container was run on a free local port (`19000`) and every previously-404 path was probed. Results: `/static/img/logo.png` `200 (1644598B, image/png)`, `/static/img/logo-32.png` `200 (2155B, image/png)`, `/static/img/logo-384.png` `200 (161876B, image/png)`, `/static/img/og-image.png` `200 (205160B, image/png)`, `/static/favicon/favicon-32.png` `200 (2155B, image/png)`, `/static/favicon/favicon-512.png` `200 (268020B, image/png)`, `/static/favicon/apple-touch-icon-180.png` `200 (44376B, image/png)`, `/static/css/app.cda7aa064711.css` `200 (43330B, text/css; charset=utf-8)`. Byte sizes match the host-built outputs exactly, confirming the `imagegen` tool is deterministic and produces identical artefacts in the builder.
+- `make css` — pass.
+- `make vet`, `make build`, `go test -race -count=1 ./...` — unchanged from `v1.0.4`; all green.
+
+### Deployment note
+
+This fix only affects production HTML once an operator pulls the new image tag (`:v1.0.5` or the moving `:latest`) and restarts the running container. Existing deployments built from `v1.0.4` or earlier continue to serve `404 Not Found` for every derived static-image path until that redeploy happens.
+
 ## [v1.0.4] — 2026-05-11
 
 Operational PATCH on top of `v1.0.3`. Fixes a production bug in which the hashed CSS bundle (`/static/css/app.<hash>.css`) was served as `403 Forbidden` by the official Docker image, leaving every page on `https://muxmaster.net` unstyled. The `Makefile` now enforces a uniform permission model across the entire `static/` tree — every directory `0755`, every file `0644` — so the non-root runtime UID introduced in `v1.0.2` can always read every static asset, regardless of which build tool produced it or what its default mode was. No MuxMaster release is documented by this entry: MuxMaster remains at `v1.0.1` (released 2026-05-08).
