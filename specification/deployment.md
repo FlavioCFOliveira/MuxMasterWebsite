@@ -28,8 +28,8 @@ The site is shipped as a Docker image built with a multi-stage Dockerfile.
   - The compiled site binary (named `muxmaster-website`).
   - The compiled static assets (CSS bundle, favicons, OG image, hashed logo derivatives).
   - The full `/content/` tree as committed in this repository (mirrored upstream content plus site-original content).
-- Runs as a non-root user.
-- Exposes port `8080` (cleartext HTTP/1.1 and h2c HTTP/2).
+- Runs as a non-root user (the distroless image's UID 65532).
+- Exposes port `80` (cleartext HTTP/1.1 and h2c HTTP/2). Binding to a privileged port from a non-root user is permitted by attaching the file capability `cap_net_bind_service=ep` to the binary in the builder stage; the capability is preserved across the BuildKit `COPY --from=builder` into the distroless runtime stage. No other capability is granted, and the runtime container has no shell, no package manager, and no writable filesystem beyond the kernel-mandated minimum.
 - The runtime image is **self-contained**. It does not require any external filesystem mount, the upstream `../MuxMaster` tree, or any other directory beyond what the builder stage produced. Every public route is pre-rendered at startup from `/content/` (see `rendering-and-caching.md`).
 
 ### Content delivery
@@ -49,7 +49,7 @@ Content is part of the repository under `/content/` and is therefore embedded in
 | --- | --- | --- | --- |
 | `SITE_BASE_URL` | Absolute base URL of the site, used for canonical, OG, JSON-LD, sitemap, and llms.txt. In production this MUST be set to `https://muxmaster.net` (the canonical domain ratified on 2026-05-11). | `http://localhost:8080` | Yes |
 | `LOG_LEVEL` | One of `debug`, `info`, `warn`, `error`. | `info` | No |
-| `PORT` | TCP port to bind. | `8080` | No |
+| `PORT` | TCP port to bind. The compiled binary defaults to `8080` for local development (`go run`, `make dev`); the production Docker image overrides this to `80` via the `ENV PORT=80` directive in the runtime stage. Either value can be replaced by setting `PORT` at runtime. | `8080` binary; `80` Docker image | No |
 | `ENV` | One of `development`, `staging`, `production`. Controls whether `noindex` is forced when `SITE_BASE_URL` is not the canonical production domain (`https://muxmaster.net`). | `development` | No |
 
 `MUXMASTER_SOURCE_DIR` is **not** a runtime variable. It is consumed only by the `content-curator` agent at development time (see `content-sources.md`).

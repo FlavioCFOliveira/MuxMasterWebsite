@@ -4,6 +4,12 @@ All notable changes to the MuxMaster documentation website are recorded in this 
 
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html). The website's release tag mirrors the MuxMaster release it documents; see `specification/overview.md § Version cadence` for the cadence policy.
 
+## [Unreleased]
+
+### Changed
+
+- **Container image binds to port `80` by default.** The runtime image previously exposed port `8080`; the production Docker image now binds the HTTP listener directly to port `80` so that operators can run `docker run -p 80:80 …` without a port-mapping shim. The container continues to run as the distroless non-root user (UID 65532); the binary carries the file capability `cap_net_bind_service=ep` (attached during the builder stage and preserved across BuildKit's `COPY --from=builder`) so that the non-privileged user can bind to a privileged port without any additional Linux capability being granted to the container. The locally compiled binary (`make dev`, `go run`) still defaults to port `8080` for development convenience; `PORT` overrides either default at runtime.
+
 ## [v1.0.1] — 2026-05-11
 
 First public release of the MuxMaster documentation website. The site documents and promotes the MuxMaster Go HTTP router (`github.com/FlavioCFOliveira/MuxMaster`, v1.0.1, released 2026-05-08) and is itself built on MuxMaster as a real-world dogfooding example.

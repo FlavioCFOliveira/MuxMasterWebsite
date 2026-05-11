@@ -35,6 +35,19 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
         -ldflags="-s -w -X main.buildID=$(date -u +%Y%m%dT%H%M%SZ)" \
         -o /out/muxmaster-website ./cmd/muxmaster-website
 
+# Grant the binary the minimum capability needed to bind to a privileged
+# port (< 1024). The runtime image runs as the nonroot UID 65532, which by
+# default cannot call `bind(2)` on port 80; `setcap cap_net_bind_service=ep`
+# attaches a file capability that authorises this single operation and
+# nothing else. The capability is preserved across BuildKit's COPY into
+# the distroless stage below; the smoke step on every release verifies
+# this by booting the image and exercising /healthz on the configured port.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libcap2-bin \
+ && rm -rf /var/lib/apt/lists/* \
+ && setcap 'cap_net_bind_service=+ep' /out/muxmaster-website \
+ && getcap /out/muxmaster-website
+
 # Runtime stage: distroless static, non-root.
 FROM gcr.io/distroless/static-debian12:nonroot
 
@@ -44,11 +57,11 @@ COPY --from=builder /out/muxmaster-website /srv/muxmaster-website
 COPY --from=builder /workspace/static       /srv/static
 COPY --from=builder /workspace/templates    /srv/templates
 
-ENV PORT=8080 \
+ENV PORT=80 \
     LOG_LEVEL=info \
     ENV=production
 
-EXPOSE 8080
+EXPOSE 80
 
 # The distroless runtime has neither curl nor wget; the binary itself
 # does the HTTP self-GET via --healthcheck. interval/timeout/start-period
