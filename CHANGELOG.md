@@ -4,6 +4,22 @@ All notable changes to the MuxMaster documentation website are recorded in this 
 
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html). The website's `MAJOR.MINOR` mirrors the MuxMaster release it documents; the website's `PATCH` digit is independent and advances for website-only operational fixes. See `specification/overview.md § Version cadence` for the full cadence policy.
 
+## [v1.0.9] — 2026-05-11
+
+Operational PATCH on top of `v1.0.8`. CI-only fix: the release smoke-test introduced in `v1.0.6` still expected `/static/img/logo.png` to return `200`, but the SEO-008 fix landed in `v1.0.8` correctly makes that path return `404` (the source PNG is now a build input under `tools/imagegen/source.png`, not a runtime asset). The smoke is now aligned with the v1.0.8 contract: derived assets must return `200`, and the source PNG must return `404`. Image content is functionally identical to `v1.0.8`. No MuxMaster release is documented by this entry: MuxMaster remains at `v1.0.1` (released 2026-05-08).
+
+### Fixed
+
+- **Release smoke-test asserts the SEO-008 contract.** The "Derived static images" probe block in `.github/workflows/release.yml` no longer includes `/static/img/logo.png` (which now returns `404` by design). A new probe block (3b) explicitly asserts that `/static/img/logo.png` returns a non-200 status, so a future refactor that accidentally re-introduces the build input under `static/` would fail the smoke. The other twelve derived-asset probes are unchanged and continue to defend the `v1.0.5` regression class.
+
+### Note on `v1.0.8`
+
+- The `v1.0.8` image was built and pushed successfully; only the post-push smoke gate failed, and the failure was in the smoke script, not in the image. Operators tracking `:v1.0.8` are running the correct artefact; operators tracking `:latest` are now pulled forward to `:v1.0.9` (same artefact plus the smoke fix).
+
+### Deployment note
+
+`v1.0.9` is a CI-hygiene release. No runtime change. Operators on `:v1.0.8` may stay; operators on `:latest` are now on `v1.0.9` automatically.
+
 ## [v1.0.8] — 2026-05-11
 
 Operational PATCH on top of `v1.0.7`. Lands the first two of the four audit findings deferred from `v1.0.6`: the homepage now emits a `FAQPage` JSON-LD block with six answer-first Q→A pairs (GEO-002), and the 1.6 MB `static/img/logo.png` build input is no longer publicly served (SEO-008). Two findings (GEO-003 markdown companions for the three index pages; GEO-009 `APIReference` / `Dataset` / `ItemList` with per-symbol `DefinedTerm`) remain deferred to a follow-up release because they require either new content authoring or a structured-content parser for `content/api.md`. No MuxMaster release is documented by this entry: MuxMaster remains at `v1.0.1` (released 2026-05-08).

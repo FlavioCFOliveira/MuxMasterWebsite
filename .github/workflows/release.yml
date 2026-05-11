@@ -168,8 +168,11 @@ jobs:
             fi
           done
 
-          # (3) Derived static images (catches the v1.0.5 class).
-          for path in /static/img/logo.png /static/img/logo-32.png /static/img/logo-64.png \
+          # (3) Derived static images (catches the v1.0.5 class). The source
+          # logo.png is deliberately NOT in this list — it lives at
+          # tools/imagegen/source.png since v1.0.8 (SEO-008) and must not
+          # be publicly reachable. (3b) below asserts the 404.
+          for path in /static/img/logo-32.png /static/img/logo-64.png \
                       /static/img/logo-128.png /static/img/logo-192.png /static/img/logo-256.png \
                       /static/img/logo-384.png /static/img/og-image.png \
                       /static/favicon/favicon-32.png /static/favicon/favicon-192.png \
@@ -177,6 +180,17 @@ jobs:
             code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE$path" || echo "000")
             if [ "$code" != "200" ]; then
               echo "::error::$path returned $code (expected 200)"
+              fail=1
+            fi
+          done
+
+          # (3b) Build inputs MUST NOT be publicly reachable (SEO-008).
+          # If a future refactor accidentally re-introduces the source
+          # PNG under static/, this guard catches it.
+          for path in /static/img/logo.png; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE$path" || echo "000")
+            if [ "$code" = "200" ]; then
+              echo "::error::$path returned 200 but must be 404 (build input must not be served)"
               fail=1
             fi
           done
