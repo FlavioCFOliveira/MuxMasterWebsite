@@ -4,6 +4,24 @@ All notable changes to the MuxMaster documentation website are recorded in this 
 
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html). The website's `MAJOR.MINOR` mirrors the MuxMaster release it documents; the website's `PATCH` digit is independent and advances for website-only operational fixes. See `specification/overview.md § Version cadence` for the full cadence policy.
 
+## [v1.0.11] — 2026-05-11
+
+Operational PATCH on top of `v1.0.10`. Fixes a content-rendering defect introduced when the curator started authoring a leading YAML frontmatter block on every `/content/*.md` file (`---\ndatePublished: …\n---`): the HTML-rendering pipeline was not stripping the block before handing the source to goldmark, so CommonMark interpreted the two `---` lines as a thematic break and a setext-style H2, leaking the verbatim text `datePublished: 2026-05-08` into the rendered body and into the in-page TOC of every doc-family page (`/api`, `/changelog`, `/security`, `/compatibility`, `/contributing`, `/benchmarks`, every `/docs/<section>`, every `/examples/<name>`, and `/releases/v1.0.0`). The Markdown companion path (`<route>.md`) and the JSON-LD date resolver were already correct; only the HTML body was affected. No MuxMaster release is documented by this entry: MuxMaster remains at `v1.0.1` (released 2026-05-08).
+
+### Fixed
+
+- **Frontmatter leaked into rendered HTML body and TOC.** `DocPageRecipe` (`internal/render/docpage.go`) and the section-index intro helper `optionalIntro` (`internal/render/recipes.go`) now call `stripFrontmatter` on the source bytes before passing them to `MarkdownToHTML`. The unstripped bytes continue to flow to `parseFrontmatter` (for the JSON-LD `datePublished` / `dateModified` resolution doctrine in `specification/structured-data.md § Date sources for embedded content`) and to `HowToSource` (whose offset-sensitive scanner expects the file as authored), so neither path is disturbed. The Markdown companion at `<route>.md` was already stripping the block via `MarkdownCompanionRecipe` and is unchanged.
+
+### Specification
+
+- **`specification/rendering-and-caching.md` — Rendering model.** New bullet under "Rendering model" makes the strip-before-render requirement explicit and aligns it with the existing rule in `specification/content-sources.md` "Markdown companions". The new wording also forbids the leaked block from appearing in the TOC.
+
+### Test evidence
+
+- New regression test `TestDocPageRecipeStripsFrontmatterFromBody` in `internal/render/recipes_test.go`. Builds a `DocPageRecipe` against an in-memory fixture whose `docs/routing.md` mirrors the shape of the live corpus (leading `---\ndatePublished: 2026-05-08\n---` block) and asserts three properties simultaneously: (a) the rendered HTML body does NOT contain the verbatim string `datePublished:` outside JSON-LD `<script>` blocks, (b) the body does NOT contain a heading with `id="datepublished-2026-05-08"` (the setext-H2 anchor goldmark would emit from the unstripped block), and (c) the JSON-LD `TechArticle` carries `"datePublished":"2026-05-08T00:00:00Z"` and the audit-trail comment for an omitted `datePublished` is absent. Removing the `stripFrontmatter` call reproduces the failure on properties (a) and (b), confirming the regression coverage.
+- `go test ./...` — pass across all packages.
+- `go vet ./...` — clean.
+
 ## [v1.0.10] — 2026-05-11
 
 Operational PATCH on top of `v1.0.9`. Closes the final two findings deferred from the `v1.0.6` audit: GEO-003 (Markdown companions for the three index pages) and GEO-009 (`APIReference` + curated `DefinedTermSet` for `/api`, plus `ItemList` for `/docs/` and `/examples/`). `Dataset` on `/benchmarks` was already emitted by `buildBenchmarksJSONLD` from earlier releases; no change there. With this release every finding from the post-`v1.0.5` SEO/GEO audit is either resolved, deferred upstream (SEO-006), or deferred outside this repository (SEO-001 SITE_BASE_URL runtime override, SEO-003 `www` DNS). No MuxMaster release is documented by this entry: MuxMaster remains at `v1.0.1` (released 2026-05-08).

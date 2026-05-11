@@ -117,7 +117,15 @@ func DocPageRecipe(spec DocPageSpec, loader *content.Loader, ogImagePath string,
 			if err != nil {
 				return nil, err
 			}
-			htmlBody, err := MarkdownToHTML(src)
+			// Strip the leading YAML frontmatter before handing the body to
+			// the CommonMark renderer (spec/rendering-and-caching.md
+			// "Rendering model"). Frontmatter is metadata for the JSON-LD
+			// date resolver; rendered as Markdown it would otherwise be
+			// interpreted as a thematic break + setext H2 and leak into the
+			// HTML body and the TOC. parseFrontmatter and HowToSource below
+			// keep operating on the unstripped src so their byte offsets
+			// match the file as authored.
+			htmlBody, err := MarkdownToHTML(stripFrontmatter(src))
 			if err != nil {
 				return nil, fmt.Errorf("doc-page %s: %w", spec.Path, err)
 			}

@@ -151,7 +151,11 @@ func optionalIntro(loader *content.Loader, contentPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	htmlBytes, err := MarkdownToHTML(src)
+	// Strip the leading YAML frontmatter before rendering, per
+	// spec/rendering-and-caching.md "Rendering model" — otherwise the
+	// `---\n…\n---` block would render as a thematic break + setext H2
+	// inside the section-index intro.
+	htmlBytes, err := MarkdownToHTML(stripFrontmatter(src))
 	if err != nil {
 		return "", err
 	}

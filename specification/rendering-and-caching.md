@@ -15,6 +15,7 @@ status: ratified
 - The site is served by **MuxMaster** (`github.com/FlavioCFOliveira/MuxMaster`). All routes are registered on a `*mux.Mux`. This is non-negotiable per `../CLAUDE.md` ("MuxMaster as router" dogfooding).
 - All content is read from `/content/` in this repository, populated by the `content-curator` agent at development time (see `content-sources.md`). The runtime binary never reads the upstream `../MuxMaster` tree.
 - The Markdown-to-HTML pipeline MUST preserve fenced code blocks with language hints, and MUST emit anchored heading IDs (`<h2 id="kebab-case">`) so the in-page TOC and JSON-LD `BreadcrumbList` and FAQPage anchors work.
+- The Markdown-to-HTML pipeline MUST strip any leading YAML frontmatter block (delimited by `---` lines, per `content-sources.md` "Markdown companions") **before** passing the source to the CommonMark renderer. Frontmatter is metadata consumed by the JSON-LD date resolver (`structured-data.md` § "Date sources for embedded content"); it MUST NOT appear in the rendered HTML body, MUST NOT be parsed as a thematic break + setext heading, and MUST NOT contribute an entry to the in-page TOC. This rule applies to every caller of the Markdown-to-HTML pipeline, including doc-family pages and any intro snippet folded into a section index.
 
 ## Static-tending architecture
 

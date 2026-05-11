@@ -382,6 +382,131 @@ func TestETagStability(t *testing.T) {
 	}
 }
 
+// TestDocPageRecipeStripsFrontmatterFromBody is the regression test for the
+// frontmatter-leak bug: every /content/*.md file in the live corpus carries a
+// leading `---\ndatePublished: …\n---` block. Without stripping it before
+// goldmark renders the source, CommonMark interprets the block as a thematic
+// break followed by a setext-style H2, so "datePublished: …" leaks into the
+// rendered HTML body and into the in-page TOC. This test fails if anyone
+// removes the stripFrontmatter call in DocPageRecipe; it also asserts that
+// parseFrontmatter still observes the unstripped source and populates the
+// JSON-LD `datePublished` field — the two paths must stay independent.
+//
+// Spec: rendering-and-caching.md § Rendering model (frontmatter MUST be
+// stripped before the CommonMark renderer).
+func TestDocPageRecipeStripsFrontmatterFromBody(t *testing.T) {
+	t.Parallel()
+
+	// Re-author docs/routing.md with the same shape the live corpus uses:
+	// a leading YAML frontmatter block carrying datePublished. The fixture
+	// loader is rebuilt against the mutated map so the override sticks.
+	mfs := fstest.MapFS{
+		"changelog.md":                   {Data: []byte("# Changelog\n\n## v1.0.1\n")},
+		"api.md":                         {Data: []byte("# API\n\n## Overview\n\nText.\n")},
+		"compatibility.md":               {Data: []byte("# Compatibility\n")},
+		"security.md":                    {Data: []byte("# Security\n")},
+		"contributing.md":                {Data: []byte("# Contributing\n")},
+		"benchmarks.md":                  {Data: []byte("# Benchmarks\n\n## Numbers\n\nTable.\n")},
+		"docs/getting-started.md":        {Data: []byte("# Getting started\n\n## Install\n\nText.\n")},
+		"docs/routing.md":                {Data: []byte("---\ndatePublished: 2026-05-08\n---\n\n# Routing\n\n## Patterns\n\nText.\n\n## Priority\n\nText.\n")},
+		"docs/groups.md":                 {Data: []byte("# Groups\n")},
+		"docs/middleware.md":             {Data: []byte("# Middleware\n")},
+		"docs/error-handling.md":         {Data: []byte("# Error handling\n")},
+		"docs/configuration.md":          {Data: []byte("# Configuration\n")},
+		"docs/response-helpers.md":       {Data: []byte("# Response helpers\n")},
+		"docs/performance.md":            {Data: []byte("# Performance\n")},
+		"docs/observability.md":          {Data: []byte("# Observability\n")},
+		"docs/migration.md":              {Data: []byte("# Migration\n")},
+		"docs/cookbook.md":               {Data: []byte("# Cookbook\n")},
+		"examples/rest-api.md":           {Data: []byte("# REST API\n")},
+		"examples/authn.md":              {Data: []byte("# Authn\n")},
+		"examples/jwt.md":                {Data: []byte("# JWT\n")},
+		"examples/oauth2.md":             {Data: []byte("# OAuth2\n")},
+		"examples/cache.md":              {Data: []byte("# Cache\n")},
+		"examples/graceful-shutdown.md":  {Data: []byte("# Graceful shutdown\n")},
+		"examples/server-side-render.md": {Data: []byte("# Server-side render\n")},
+		"examples/static-site.md":        {Data: []byte("# Static site\n")},
+		"release-notes/v1.0.0.md":        {Data: []byte("# v1.0.0\n")},
+	}
+	loader, err := content.NewLoader(mfs)
+	if err != nil {
+		t.Fatalf("NewLoader: %v", err)
+	}
+
+	deps := fixtureDeps(t)
+	spec := DocPageSpec{
+		Path:        "/docs/routing",
+		Title:       "Routing",
+		Description: "Routing reference.",
+		ContentPath: "docs/routing.md",
+		Section:     "docs",
+		OGType:      "article",
+	}
+	rec := DocPageRecipe(spec, loader, "/static/img/og.png", false)
+	body, err := rec.Build(deps)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	s := string(body)
+
+	// (a) Frontmatter must NOT leak into the rendered body. The key check is
+	// that the verbatim "datePublished:" literal never appears outside the
+	// JSON-LD <script> blocks (where the key is quoted JSON, not Markdown).
+	// We slice the body around each JSON-LD script and only assert on the
+	// non-script segments — JSON-LD legitimately contains "datePublished".
+	nonScript := stripJSONLDScripts(s)
+	if strings.Contains(nonScript, "datePublished:") {
+		t.Errorf("rendered HTML body contains verbatim frontmatter %q — frontmatter is not being stripped before the Markdown renderer", "datePublished:")
+	}
+	// And the setext-H2 shape (hr + h2 carrying the frontmatter text) must
+	// not appear either. The Markdown renderer would produce <hr> + <h2
+	// id="datepublished-…"> for the un-stripped block.
+	if strings.Contains(s, `id="datepublished-2026-05-08"`) {
+		t.Error("rendered HTML still contains a setext heading produced from the frontmatter block")
+	}
+
+	// (b) parseFrontmatter must still observe the date so the JSON-LD
+	// TechArticle carries it. The recipe should NOT emit the "omitted:
+	// datePublished" audit comment for this page.
+	if strings.Contains(s, "omitted: datePublished on TechArticle") {
+		t.Error("JSON-LD audit comment claims datePublished is missing, but the fixture has it in frontmatter")
+	}
+	if !strings.Contains(s, `"datePublished":"2026-05-08T00:00:00Z"`) {
+		t.Errorf("JSON-LD missing the parsed datePublished value; body = %s", truncateForLog(s, 600))
+	}
+}
+
+// stripJSONLDScripts returns s with every `<script type="application/ld+json">
+// … </script>` block removed. Used by the frontmatter regression test so a
+// substring search can target the visible body without colliding with
+// legitimate JSON-LD keys.
+func stripJSONLDScripts(s string) string {
+	const open = `<script type="application/ld+json">`
+	const close = `</script>`
+	var b strings.Builder
+	for {
+		i := strings.Index(s, open)
+		if i < 0 {
+			b.WriteString(s)
+			return b.String()
+		}
+		b.WriteString(s[:i])
+		rest := s[i+len(open):]
+		j := strings.Index(rest, close)
+		if j < 0 {
+			return b.String() // malformed; bail out
+		}
+		s = rest[j+len(close):]
+	}
+}
+
+func truncateForLog(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "…"
+}
+
 func TestPrerenderRoundTrip(t *testing.T) {
 	t.Parallel()
 	deps := fixtureDeps(t)
