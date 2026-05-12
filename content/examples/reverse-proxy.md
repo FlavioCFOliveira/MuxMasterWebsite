@@ -126,7 +126,25 @@ curl -H 'X-Admin-Token: letmein' \
      http://localhost:8080/admin/dashboard         # → :9002
 ```
 
-## Source
+## Frequently asked questions
+
+<section data-conversation="reverse-proxy-faq">
+
+### Why is the proxy pool-safe when `httputil.ReverseProxy` may stream the response back?
+
+`httputil.ReverseProxy.ServeHTTP` is synchronous — it issues the upstream request, copies the response back to the client, and **returns**. It does not spawn a goroutine that survives the call. The `Rewrite` hook mutates `pr.Out` (the fresh outbound request), never `r` itself. The lifetime contract for `PoolRequestBundle` is satisfied, so the bundle recycles cleanly the instant `ServeHTTP` returns.
+
+### Where do I add per-upstream timeouts?
+
+Set the `Transport` field on each `httputil.ReverseProxy`. The stdlib `http.Transport` supports `DialContext`, `ResponseHeaderTimeout`, `IdleConnTimeout`, and a per-request `*http.Request.Context()` deadline. For the gateway level, wrap each call with the `mw.Timeout(d)` middleware from `middleware/timeout.go` — it cancels the request context after `d` and returns `503 Service Unavailable` if the upstream is still in flight.
+
+### Can I weight the round-robin?
+
+Replace `newRoundRobin` with a weighted scheme. The simplest is a "ticket" slice (`[]http.HandlerFunc` where heavier upstreams appear more than once) plus the same `atomic.Uint64.Add` counter — no mutex, still wait-free. For dynamic weights based on health, use a smoothed weighted round robin (SWRR) implementation; both are independent of MuxMaster's routing.
+
+</section>
+
+## Upstream source
 
 Every code excerpt above is lifted verbatim from [`examples/reverse-proxy/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/examples/reverse-proxy/main.go) at the v1.1.0 tag. The upstream file also contains the `runBackend` fake-backend helper used to test the gateway locally, the index page, and the graceful-shutdown wiring — follow the link for the full program.
 

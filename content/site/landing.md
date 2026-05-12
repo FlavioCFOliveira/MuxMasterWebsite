@@ -21,6 +21,8 @@ MuxMaster routes 25 ns on static paths and, with the opt-in `PoolRequestBundle`,
 
 Benchmarks measured on AMD Ryzen 9 5900HX, Go 1.26.2. Each row is consolidated from 10 × 2 s runs via `benchstat`. The full methodology, the asm listings, and the per-sprint history are archived in the upstream report at [`reports/perf-audit-2026-05-12/`](https://github.com/FlavioCFOliveira/MuxMaster/tree/v1.1.0/reports/perf-audit-2026-05-12).
 
+> **Two MuxMaster Pooled numbers appear on this page.** The per-route table reports **49.6 ns** (`bench_test.go`, the internal micro-benchmark across all seven route categories). The competitor table reports **45 ns** (`competitor/bench_test.go`, the apples-to-apples harness registering the same route set on every router). Use **45 ns** when comparing MuxMaster against other routers; use **49.6 ns** when comparing across MuxMaster route categories.
+
 ### Per route category — v1.0.1 vs v1.1.0 default vs v1.1.0 Pooled
 
 | Case                       | v1.0.1                   | v1.1.0 default           | v1.1.0 Pooled                  |
@@ -91,6 +93,6 @@ MIT. The full text is in the upstream repository at [LICENSE](https://github.com
 
 ### How does MuxMaster compare to chi, gin, gorilla/mux, and httprouter?
 
-MuxMaster keeps the `net/http` handler signature (unlike `gin`, which introduces `gin.Context`) and ships zero external dependencies (unlike `chi`, which depends on `go-chi` sub-packages, or `gorilla/mux`, which depends on `gorilla/context`). On a 1-parameter route it is **20 % faster than `httprouter`** at the same handler signature MuxMaster preserves; **6.6 × faster than `chi v5`**; **76 000 × faster than `gorilla/mux`**. See the [competitor table above](#versus-every-other-go-http-router-1-parameter-route) and the [migration guide](/docs/migration) for side-by-side equivalents.
+MuxMaster keeps the `net/http` handler signature (unlike `gin`, which introduces `gin.Context`) and ships zero external dependencies (unlike `chi`, which depends on `go-chi` sub-packages, or `gorilla/mux`, which depends on `gorilla/context`). On a 1-parameter route it is **20 % faster than `httprouter`** at the same handler signature MuxMaster preserves; **7.9 × faster than `chi v5`**; **76 000 × faster than `gorilla/mux`**. See the [competitor table above](#versus-every-other-go-http-router-1-parameter-route) and the [migration guide](/docs/migration) for side-by-side equivalents.
 
 </section>

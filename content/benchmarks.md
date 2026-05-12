@@ -8,6 +8,8 @@ datePublished: 2026-05-12
 
 All benchmarks were measured on AMD Ryzen 9 5900HX (16 logical CPUs), Linux 6.8.0-111, Go 1.26.2. Each row consolidates **10 × 2 s runs** via `benchstat`. The route set is identical across every router (10 static, 8 parameterised, 2 catch-all).
 
+> **Two MuxMaster Pooled numbers appear on this page.** The per-route table reports **49.6 ns** for a one-parameter Pooled route (`bench_test.go`, the upstream micro-benchmark across MuxMaster's seven route categories). The competitor table reports **45 ns** (`competitor/bench_test.go`, the apples-to-apples harness that registers an identical route set on every router). Both numbers come from the same machine, the same Go release, and the same v1.1.0 source; they differ because the harnesses are different (`competitor/bench_test.go` runs against a flatter route set with no static siblings to give every competitor its best shot). Use **45 ns** when comparing MuxMaster against other routers; use **49.6 ns** when comparing across MuxMaster route categories on the same harness.
+
 ## Per route category — v1.0.1 vs v1.1.0 default vs v1.1.0 Pooled
 
 | Case                       | v1.0.1                   | v1.1.0 default           | v1.1.0 Pooled |

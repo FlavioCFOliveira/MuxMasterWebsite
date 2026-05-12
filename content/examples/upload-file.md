@@ -221,7 +221,25 @@ curl -F 'file=@/path/to/some/file' \
 curl -F 'file=@/path/to/some/file' http://localhost:8080/async
 ```
 
-## Source
+## Frequently asked questions
+
+<section data-conversation="upload-file-faq">
+
+### Why must I drain the body before `go`?
+
+`PoolRequestBundle` recycles `*http.Request` when the handler returns. A goroutine that holds `r.Body` past return reads from a recycled `io.ReadCloser` — either zeroed, or attached to another concurrent request. Draining the body into a `[]byte` **inside** the handler captures the bytes by value; the goroutine then operates on a copy that is independent of the bundle. The `asyncProcessUpload` handler in Step 4 is the canonical safe pattern.
+
+### What does `MaxBytesReader` actually cap?
+
+`http.MaxBytesReader(w, r.Body, n)` wraps `r.Body` so any read past `n` bytes returns an error and writes a `413 Payload Too Large` to `w`. The cap is **wire-level**: it counts bytes off the connection before they are buffered. It is independent of `ParseMultipartForm(memCap)`, which caps how much of the parsed multipart form is held in memory (the rest spills to disk). Set both.
+
+### How do I checksum without buffering the whole upload?
+
+Use `io.MultiWriter`. The `saveFile` helper in Step 5 wires `io.Copy(io.MultiWriter(dst, hasher), src)` — every byte read from the upload is written to disk and to the SHA-256 hasher in a single streaming pass. Peak memory is one read buffer (32 KiB by default), not the full file size. Replace `sha256.New()` with `xxhash.New64()` or any other `hash.Hash` if you want a faster non-cryptographic checksum.
+
+</section>
+
+## Upstream source
 
 Every code excerpt above is lifted verbatim from [`examples/upload-file/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/examples/upload-file/main.go) at the v1.1.0 tag. The upstream file also contains the in-browser upload form HTML and the graceful-shutdown wiring — follow the link for the full program.
 

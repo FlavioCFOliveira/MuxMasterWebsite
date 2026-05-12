@@ -43,6 +43,8 @@ This is faster than `httprouter` (56 ns / 64 B / 1 alloc) **with zero allocation
 
 ## How fast can it go?
 
+> **Note on harness.** The table below comes from the upstream **deep-audit harness** ([`reports/perf-audit-2026-05-12/2026-05-12-deep-audit.md`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/reports/perf-audit-2026-05-12/2026-05-12-deep-audit.md)), which uses a different, minimal route set to exercise every MuxMaster configuration path side-by-side. The competitor numbers here (`chi v5`, `gorilla/mux`) therefore differ from the canonical competitor-showdown numbers reported on the [Benchmarks](/benchmarks) page, which use the standard 10-static/8-param/2-catch-all route set. Use the [Benchmarks](/benchmarks) table when comparing MuxMaster against other routers; use this table when comparing across MuxMaster configurations on the same harness.
+
 | Configuration                                       | 1-param route ns/op | B/op | allocs/op |
 |-----------------------------------------------------|--------------------:|-----:|----------:|
 | `gorilla/mux`                                       |                 944 | 1152 |         8 |
@@ -54,7 +56,7 @@ This is faster than `httprouter` (56 ns / 64 B / 1 alloc) **with zero allocation
 | **MuxMaster `Handle` + `PoolRequestBundle`**        |              **45** |    **0** |     **0** |
 | **MuxMaster `HandleFast` + `PoolFastParams`**       |              **44** |    **0** |     **0** |
 
-Same hardware (AMD Ryzen 9 5900HX, Go 1.26.2), same route set, same `net/http.ServeMux`-style API. Source: [`reports/perf-audit-2026-05-12/2026-05-12-deep-audit.md`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/reports/perf-audit-2026-05-12/2026-05-12-deep-audit.md).
+Same hardware (AMD Ryzen 9 5900HX, Go 1.26.2). Source: [`reports/perf-audit-2026-05-12/2026-05-12-deep-audit.md`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/reports/perf-audit-2026-05-12/2026-05-12-deep-audit.md).
 
 ## Decision tree — which API should I use?
 

@@ -169,7 +169,25 @@ curl -X POST http://localhost:8080/publish \
 # Or open http://localhost:8080/ in a browser — the page subscribes to /events/system.
 ```
 
-## Source
+## Frequently asked questions
+
+<section data-conversation="server-sent-events-faq">
+
+### Why is SSE safe with `PoolRequestBundle` when the connection outlives the handler?
+
+The connection outlives the *call*, but the handler does **not return** until the connection closes — it sits inside the `for` loop streaming events. Under `PoolRequestBundle`, the bundle is recycled when the handler returns; for an SSE handler, that is when the stream ends. So the pool reclaim happens **after** the connection terminates, never during the stream. The contract holds.
+
+### How do I bound memory if a subscriber stops reading?
+
+The hub's `broadcast` uses `select` with a `default` branch (Step 2). When the subscriber's buffered channel (`make(chan string, 16)`) is full, the message is **dropped** rather than block the broadcast goroutine. A subscriber that does not read for 16 events gets dropped messages but never causes head-of-line blocking for other subscribers. For stronger guarantees, swap the `default` branch for `time.After` plus an unsubscribe action.
+
+### How do I authenticate the publisher?
+
+Wrap `/publish` with an auth middleware in a `Group`: `pub := mux.Group("/publish"); pub.Use(mw.JWTAuth(cfg)); pub.POST("", hub.publish)`. Or, for a server-to-server publisher, use `mw.APIKey` with a SHA-256-hashed key lookup. Both compose at registration time — zero per-request overhead on the publish path. The stream endpoint stays unauthenticated if it should be world-readable, or guarded with the same middleware family if subscriptions are per-tenant.
+
+</section>
+
+## Upstream source
 
 Every code excerpt above is lifted verbatim from [`examples/server-sent-events/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/examples/server-sent-events/main.go) at the v1.1.0 tag. The upstream file also contains the full `hub` type with `subscribe`, `unsubscribe`, and `close`, plus the in-browser demo HTML — follow the link for the full program.
 

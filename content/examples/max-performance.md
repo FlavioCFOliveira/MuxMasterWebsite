@@ -191,7 +191,25 @@ curl http://localhost:8080/config
 
 The `/bench` response on the reference hardware (AMD Ryzen 9 5900HX, Go 1.26.2) reports `speedup_ratio: "2.40x"` and `allocs_per_op: 0` on the pooled mux, matching the headline numbers in [Benchmarks](/benchmarks).
 
-## Source
+## Frequently asked questions
+
+<section data-conversation="max-performance-example-faq">
+
+### Why does `/bench` show ~2.4× and not the 20 % headline?
+
+The 20 % headline (45 ns vs 56 ns) is the **competitor showdown** measurement — MuxMaster Pooled vs `httprouter` on a one-parameter route. The 2.4× speed-up reported by `/bench` is **internal**: MuxMaster default (~105 ns / 1 alloc) vs MuxMaster Pooled (~45 ns / 0 alloc), same router, same machine, same route. They answer different questions. Both numbers come from the same `bench_test.go` harness.
+
+### Should I leave `pprof` mounted in production?
+
+Only behind authentication or on a private port. The `_ "net/http/pprof"` blank import registers `/debug/pprof/*` on `http.DefaultServeMux`, which Step 7 mounts at `/debug/pprof` on the public router. In production, mount it on a separate `http.Server` listening on a loopback or private interface, or wrap the group with `mw.BasicAuth` / `mw.APIKey` so the profiler endpoints are not world-reachable. The endpoints leak Go runtime state and can DoS the process if profiled under load by an attacker.
+
+### Can I enable `PoolRequestBundle` for some routes only?
+
+No — `PoolRequestBundle` is a `*Mux` flag, not per-route. You can either keep two `*Mux` instances (one with the pool, one without) and mount one inside the other via `Mount`, or split the service so the pool-safe handlers live on a different `*Mux` from the pool-unsafe ones. The audit checklist in [Maximum performance](/docs/max-performance#auditing-your-handlers) is the better tool: catch unsafe captures, fix them with the drain-before-spawn pattern, and turn the pool on globally.
+
+</section>
+
+## Upstream source
 
 Every code excerpt above is lifted verbatim from [`examples/max-performance/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/examples/max-performance/main.go) at the v1.1.0 tag. The upstream file also contains the full handler set (`getUserOrder`, `getRepoIssue`, `createUser`, `getUserProfile`, `listStaticFile`, `metricsFast`), the `/config` endpoint, and the graceful-shutdown wiring — follow the link for the full program.
 

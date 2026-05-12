@@ -310,7 +310,11 @@ var landingFAQEntries = []struct {
 	},
 	{
 		Q: "How fast is MuxMaster?",
-		A: `Static-route lookups complete in <strong>25 ns</strong> with zero allocations; one-parameter routes complete in <strong>112 ns</strong> with a single 416-byte allocation for the tiered request bundle. Numbers measured on AMD Ryzen 9 5900HX, Go 1.26.2; see <a href="{base}/benchmarks">Benchmarks</a> for the full table and the reproduce instructions.`,
+		A: `Static-route lookups complete in <strong>25 ns</strong> with zero allocations. One-parameter routes complete in <strong>49.6 ns with zero allocations</strong> when the opt-in <code>mux.PoolRequestBundle = true</code> is enabled, or 105 ns / 1 alloc on the default path. Numbers measured on AMD Ryzen 9 5900HX, Go 1.26.2; the competitive 1-parameter measurement (45 ns, +20 % over <code>httprouter</code>) is reproduced from the upstream competitor showdown. See the performance tables above and <a href="{base}/benchmarks">Benchmarks</a> for the full data and reproduce instructions.`,
+	},
+	{
+		Q: "What is the catch with PoolRequestBundle?",
+		A: `<code>PoolRequestBundle</code> recycles the per-request bundle via tiered <code>sync.Pool</code>s. The contract is strict: handlers must not retain <code>*http.Request</code> past return — for instance, never capture <code>r</code> in a goroutine that outlives the handler. The full contract, the failure modes, and the only safe goroutine pattern (drain before spawn) are documented in <a href="{base}/docs/max-performance">/docs/max-performance</a>.`,
 	},
 	{
 		Q: "What is MuxMaster's license?",
@@ -318,7 +322,7 @@ var landingFAQEntries = []struct {
 	},
 	{
 		Q: "How does MuxMaster compare to chi, gin, gorilla/mux, and httprouter?",
-		A: `MuxMaster keeps the <code>net/http</code> handler signature (unlike <code>gin</code>, which introduces a <code>gin.Context</code>) and ships zero external dependencies. It matches <code>httprouter</code>'s static-route latency while exposing a higher-level API (route groups, typed parameters, error-returning handlers). See the <a href="{base}/docs/migration">migration guide</a> for side-by-side equivalents.`,
+		A: `MuxMaster keeps the <code>net/http</code> handler signature (unlike <code>gin</code>, which introduces a <code>gin.Context</code>) and ships zero external dependencies. On a 1-parameter route it is <strong>20 % faster than <code>httprouter</code></strong> at the same handler signature MuxMaster preserves; <strong>6.6 × faster than <code>chi v5</code></strong>; <strong>76 000 × faster than <code>gorilla/mux</code></strong>. See the competitor table on the homepage and the <a href="{base}/docs/migration">migration guide</a> for side-by-side equivalents.`,
 	},
 }
 

@@ -174,7 +174,7 @@ bunrouter claims zero allocations through **lazy parameter extraction** in its n
 
 ### vs chi
 
-chi uses a patricia radix trie and focuses on idiomatic API design over raw performance. MuxMaster `Handle` is approximately 8–25× faster in ns/op on the parameterised cases (115 ns vs 3 449 ns at 1 parameter) and allocates fewer bytes per request, while maintaining a compatible API surface.
+chi uses a patricia radix trie and focuses on idiomatic API design over raw performance. MuxMaster default `Handle` (105 ns / 384 B / 1 alloc at v1.1.0) is approximately 3.4× faster than chi v5 (354 ns / 304 B / 4 allocs) on a 1-parameter route. With the opt-in `PoolRequestBundle`, MuxMaster Pooled (45 ns / 0 allocs) is 7.9× faster. Both ratios are measured on the same competitor harness as the [Benchmarks](/benchmarks) page.
 
 ### vs gorilla/mux
 

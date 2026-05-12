@@ -60,7 +60,7 @@ func (s *Server) notFoundFromPrerender() http.HandlerFunc {
 
 // LandingDescription is the canonical landing-page description used by the
 // recipes and any handler that needs it.
-const LandingDescription = "MuxMaster is a high-performance, zero-dependency HTTP router for Go. Radix-tree O(k) lookups, 25 ns static lookups, and — with the opt-in PoolRequestBundle introduced in v1.1.0 — 45 ns / 0 B / 0 allocs on a one-parameter route (20 % faster than httprouter). 100 % net/http compatible."
+const LandingDescription = "Zero-dependency Go HTTP router. Radix-tree O(k), 25 ns static, 45 ns / 0 alloc one-parameter Pooled — 20 % faster than httprouter, 100 % net/http compatible."
 
 func (s *Server) isProduction() bool {
 	return string(s.cfg.Env) == "production"

@@ -118,7 +118,25 @@ curl -H 'X-Admin-Token: letmein' http://localhost:8080/api/v1/admin/dashboard
 curl -H 'X-Admin-Token: letmein' http://localhost:8080/api/v2/admin/dashboard
 ```
 
-## Source
+## Frequently asked questions
+
+<section data-conversation="versioning-faq">
+
+### How do I add a v3 alongside v1 and v2?
+
+Create a new top-level group: `v3 := mux.Group("/api/v3")` and register the v3 handlers on it. Extend the `acceptHeaderVersionDispatch` `Pre` middleware so `v=3` rewrites to `/api/v3/...`. The radix tree absorbs the third version at zero per-request cost — group composition is wrapped at registration, not on dispatch.
+
+### What happens if a request has both a `/v2/` path and `Accept: ...;v=1`?
+
+The path wins. `acceptHeaderVersionDispatch` short-circuits when `r.URL.Path` already starts with `/api/v1/` or `/api/v2/` (Step 5), so a request to `/api/v2/users/42` with `Accept: application/vnd.muxmaster+json;v=1` dispatches to the v2 handler. Path-pinned URLs are always authoritative; the `Accept` header only acts when the client did not pin a version.
+
+### Is the in-place `r.URL.Path` rewrite safe with `PoolRequestBundle`?
+
+Yes. Under `PoolRequestBundle = true`, `r` is the bundle's copy of the request — mutating `r.URL.Path` modifies the bundle, not the caller's original `*http.Request`. The mutation is local to the dispatch and discarded when the bundle is returned to the pool. The lifetime contract still applies: the handler must not retain `r` past return.
+
+</section>
+
+## Upstream source
 
 Every code excerpt above is lifted verbatim from [`examples/versioning/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/examples/versioning/main.go) at the v1.1.0 tag. The upstream file also contains the full handler set (`v1GetUser`, `v1ListUsers`, `v2GetUser` with HATEOAS links, the two admin dashboards, two audit endpoints) and the graceful-shutdown wiring — follow the link for the full program.
 
