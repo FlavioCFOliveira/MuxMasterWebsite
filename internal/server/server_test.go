@@ -798,6 +798,7 @@ func buildFixtureLoader(t *testing.T) *content.Loader {
 		"docs/configuration.md":          "# Configuration\n\n## Options\n\nText.\n\n### Sub option\n\nDetail.\n",
 		"docs/response-helpers.md":       "# Response helpers\n",
 		"docs/performance.md":            "# Performance\n",
+		"docs/max-performance.md":        "# Maximum performance\n",
 		"docs/observability.md":          "# Observability\n",
 		"docs/migration.md":              "# Migration\n",
 		"docs/cookbook.md":               "# Cookbook\n",

@@ -97,6 +97,7 @@ var requiredFiles = []string{
 	"docs/configuration.md",
 	"docs/response-helpers.md",
 	"docs/performance.md",
+	"docs/max-performance.md",
 	"docs/observability.md",
 	"docs/migration.md",
 	"docs/cookbook.md",

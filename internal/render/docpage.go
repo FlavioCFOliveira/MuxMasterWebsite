@@ -48,6 +48,7 @@ var docsSidebar = []sidebarItem{
 	{Path: "/docs/configuration", Title: "Configuration"},
 	{Path: "/docs/response-helpers", Title: "Response helpers"},
 	{Path: "/docs/performance", Title: "Performance"},
+	{Path: "/docs/max-performance", Title: "Maximum performance"},
 	{Path: "/docs/observability", Title: "Observability"},
 	{Path: "/docs/migration", Title: "Migration"},
 	{Path: "/docs/cookbook", Title: "Cookbook"},
