@@ -13,7 +13,7 @@
           <h1 class="text-5xl font-bold tracking-tight sm:text-6xl">MuxMaster</h1>
           <p class="mt-3 text-xl font-semibold text-zinc-700 sm:text-2xl dark:text-zinc-200">A radix-tree HTTP router for Go. Zero dependencies, O(k) lookups.</p>
           <p class="mt-5 max-w-2xl text-base text-zinc-600 sm:text-lg dark:text-zinc-400">
-            MuxMaster routes <strong>25&nbsp;ns</strong> on static paths and <strong>112&nbsp;ns</strong> on a single parameter (AMD&nbsp;Ryzen&nbsp;9&nbsp;5900HX, Go&nbsp;1.26.2), allocates <strong>zero bytes</strong> on static routes, and is <strong>100% compatible</strong> with the <code class="font-mono text-base">net/http</code> handler interface. Build production services on the Go standard library.
+            MuxMaster routes <strong>25&nbsp;ns</strong> on static paths and, with the opt-in <code class="font-mono text-base">PoolRequestBundle</code>, <strong>45&nbsp;ns / 0 allocs</strong> on a single parameter (AMD&nbsp;Ryzen&nbsp;9&nbsp;5900HX, Go&nbsp;1.26.2). It is <strong>20&nbsp;% faster than <code class="font-mono text-base">httprouter</code></strong> and the only stdlib-compatible router that achieves zero allocations on parameterised routes. <strong>100&nbsp;%</strong> compatible with the <code class="font-mono text-base">net/http</code> handler interface.
           </p>
           <div class="mt-7 flex flex-wrap gap-3">
             <a href="/docs/getting-started" class="inline-flex h-11 items-center rounded bg-cyan-700 px-5 font-semibold text-white hover:bg-cyan-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-700 dark:focus-visible:outline-cyan-300">Get started</a>
@@ -62,8 +62,8 @@
       </article>
 
       <article class="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-        <h3 class="text-lg font-semibold">Radix-tree, allocation-free hot path</h3>
-        <p class="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">Static-route lookups are <strong>25&nbsp;ns / 0 allocs</strong>; one-parameter routes are <strong>112&nbsp;ns / 1 alloc</strong> for a single 416-byte tiered request bundle. <a href="/benchmarks" class="text-cyan-700 underline dark:text-cyan-300">See the benchmarks.</a></p>
+        <h3 class="text-lg font-semibold">Fastest stdlib-compatible router</h3>
+        <p class="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">Static-route lookups are <strong>25&nbsp;ns / 0 allocs</strong>; one-parameter routes are <strong>45&nbsp;ns / 0 allocs</strong> with the opt-in <code class="font-mono">PoolRequestBundle</code>. See the <a href="#performance" class="text-cyan-700 underline dark:text-cyan-300">performance tables</a> and the full <a href="/benchmarks" class="text-cyan-700 underline dark:text-cyan-300">benchmarks</a>.</p>
       </article>
 
       <article class="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
@@ -85,6 +85,60 @@
         <h3 class="text-lg font-semibold">Dogfooded — this site runs on MuxMaster</h3>
         <p class="mt-2 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">Every page you read here is served by a Go binary using MuxMaster as its router, with the bundled middleware for logging, compression, request IDs, and security headers. The router is the documentation and the proof.</p>
       </article>
+    </section>
+
+    <section id="performance" class="mt-12 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900" aria-labelledby="performance-heading">
+      <h2 id="performance-heading" class="text-xl font-semibold">Performance</h2>
+      <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Benchmarks measured on AMD&nbsp;Ryzen&nbsp;9&nbsp;5900HX, Go&nbsp;1.26.2. Each row is consolidated from 10&nbsp;×&nbsp;2&nbsp;s runs via <code class="font-mono">benchstat</code>. Methodology and per-sprint history archived in the upstream <a href="https://github.com/FlavioCFOliveira/MuxMaster/tree/v1.1.0/reports/perf-audit-2026-05-12" rel="noopener" class="text-cyan-700 underline dark:text-cyan-300">perf-audit report</a>.</p>
+
+      <h3 class="mt-6 text-lg font-semibold">Per route category — v1.0.1 vs v1.1.0 default vs v1.1.0 Pooled</h3>
+      <div class="mt-3 overflow-x-auto">
+        <table class="w-full min-w-[36rem] border-collapse text-sm">
+          <thead>
+            <tr class="border-b border-zinc-200 text-left dark:border-zinc-800">
+              <th scope="col" class="px-2 py-2 font-semibold">Case</th>
+              <th scope="col" class="px-2 py-2 font-semibold">v1.0.1</th>
+              <th scope="col" class="px-2 py-2 font-semibold">v1.1.0 default</th>
+              <th scope="col" class="px-2 py-2 font-semibold">v1.1.0 Pooled</th>
+            </tr>
+          </thead>
+          <tbody class="text-zinc-700 dark:text-zinc-300">
+            <tr class="border-b border-zinc-100 dark:border-zinc-800"><td class="px-2 py-2">Static route</td><td class="px-2 py-2 font-mono">27&nbsp;ns / 0&nbsp;B</td><td class="px-2 py-2 font-mono">25.1&nbsp;ns / 0&nbsp;B</td><td class="px-2 py-2 font-mono">25.1&nbsp;ns / 0&nbsp;B</td></tr>
+            <tr class="border-b border-zinc-100 dark:border-zinc-800"><td class="px-2 py-2">1-parameter route</td><td class="px-2 py-2 font-mono">110&nbsp;ns / 416&nbsp;B / 1&nbsp;alloc</td><td class="px-2 py-2 font-mono">105&nbsp;ns / 384&nbsp;B / 1&nbsp;alloc</td><td class="px-2 py-2 font-mono font-semibold">49.6&nbsp;ns / 0&nbsp;B / 0&nbsp;allocs</td></tr>
+            <tr class="border-b border-zinc-100 dark:border-zinc-800"><td class="px-2 py-2">2-parameter route</td><td class="px-2 py-2 font-mono">124&nbsp;ns / 448&nbsp;B / 1&nbsp;alloc</td><td class="px-2 py-2 font-mono">119&nbsp;ns / 416&nbsp;B / 1&nbsp;alloc</td><td class="px-2 py-2 font-mono font-semibold">55.9&nbsp;ns / 0&nbsp;B / 0&nbsp;allocs</td></tr>
+            <tr class="border-b border-zinc-100 dark:border-zinc-800"><td class="px-2 py-2">3-parameter route</td><td class="px-2 py-2 font-mono">138&nbsp;ns / 480&nbsp;B / 1&nbsp;alloc</td><td class="px-2 py-2 font-mono">135&nbsp;ns / 480&nbsp;B / 1&nbsp;alloc</td><td class="px-2 py-2 font-mono font-semibold">58.6&nbsp;ns / 0&nbsp;B / 0&nbsp;allocs</td></tr>
+            <tr class="border-b border-zinc-100 dark:border-zinc-800"><td class="px-2 py-2">Catch-all</td><td class="px-2 py-2 font-mono">112&nbsp;ns / 384&nbsp;B / 1&nbsp;alloc</td><td class="px-2 py-2 font-mono">108&nbsp;ns / 384&nbsp;B / 1&nbsp;alloc</td><td class="px-2 py-2 font-mono font-semibold">43.9&nbsp;ns / 0&nbsp;B / 0&nbsp;allocs</td></tr>
+            <tr class="border-b border-zinc-100 dark:border-zinc-800"><td class="px-2 py-2">Parallel 1-parameter route</td><td class="px-2 py-2 font-mono">105&nbsp;ns / 384&nbsp;B / 1&nbsp;alloc</td><td class="px-2 py-2 font-mono">100&nbsp;ns / 384&nbsp;B / 1&nbsp;alloc</td><td class="px-2 py-2 font-mono font-semibold">6.3&nbsp;ns / 0&nbsp;B / 0&nbsp;allocs</td></tr>
+            <tr><td class="px-2 py-2">Fast 1-parameter route</td><td class="px-2 py-2 font-mono">51&nbsp;ns / 32&nbsp;B / 1&nbsp;alloc</td><td class="px-2 py-2 font-mono">50.3&nbsp;ns / 32&nbsp;B / 1&nbsp;alloc</td><td class="px-2 py-2 font-mono">n/a</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">The <em>Pooled</em> column requires the opt-in <code class="font-mono">mux.PoolRequestBundle = true</code>. Lifetime contract: handlers must not retain <code class="font-mono">*http.Request</code> past return. Full guide at <a href="/docs/max-performance" class="text-cyan-700 underline dark:text-cyan-300">/docs/max-performance</a>.</p>
+
+      <h3 class="mt-8 text-lg font-semibold">Versus every other Go HTTP router (1-parameter route)</h3>
+      <div class="mt-3 overflow-x-auto">
+        <table class="w-full min-w-[36rem] border-collapse text-sm">
+          <thead>
+            <tr class="border-b border-zinc-200 text-left dark:border-zinc-800">
+              <th scope="col" class="px-2 py-2 font-semibold">Router</th>
+              <th scope="col" class="px-2 py-2 font-semibold">ns/op</th>
+              <th scope="col" class="px-2 py-2 font-semibold">B/op</th>
+              <th scope="col" class="px-2 py-2 font-semibold">allocs/op</th>
+            </tr>
+          </thead>
+          <tbody class="text-zinc-700 dark:text-zinc-300">
+            <tr class="border-b border-zinc-100 bg-cyan-50/40 dark:border-zinc-800 dark:bg-cyan-950/20"><td class="px-2 py-2 font-semibold">MuxMaster Pooled (Opt&nbsp;O13)</td><td class="px-2 py-2 font-mono font-semibold">45</td><td class="px-2 py-2 font-mono font-semibold">0</td><td class="px-2 py-2 font-mono font-semibold">0</td></tr>
+            <tr class="border-b border-zinc-100 dark:border-zinc-800"><td class="px-2 py-2">MuxMaster Fast</td><td class="px-2 py-2 font-mono">50</td><td class="px-2 py-2 font-mono">32</td><td class="px-2 py-2 font-mono">1</td></tr>
+            <tr class="border-b border-zinc-100 dark:border-zinc-800"><td class="px-2 py-2">MuxMaster default</td><td class="px-2 py-2 font-mono">108</td><td class="px-2 py-2 font-mono">384</td><td class="px-2 py-2 font-mono">1</td></tr>
+            <tr class="border-b border-zinc-100 dark:border-zinc-800"><td class="px-2 py-2"><code class="font-mono">httprouter</code></td><td class="px-2 py-2 font-mono">56</td><td class="px-2 py-2 font-mono">64</td><td class="px-2 py-2 font-mono">1</td></tr>
+            <tr class="border-b border-zinc-100 dark:border-zinc-800"><td class="px-2 py-2"><code class="font-mono">Fiber&nbsp;v3</code> (fasthttp)</td><td class="px-2 py-2 font-mono">212</td><td class="px-2 py-2 font-mono">0</td><td class="px-2 py-2 font-mono">0</td></tr>
+            <tr class="border-b border-zinc-100 dark:border-zinc-800"><td class="px-2 py-2"><code class="font-mono">bunrouter</code></td><td class="px-2 py-2 font-mono">183</td><td class="px-2 py-2 font-mono">192</td><td class="px-2 py-2 font-mono">3</td></tr>
+            <tr class="border-b border-zinc-100 dark:border-zinc-800"><td class="px-2 py-2"><code class="font-mono">chi&nbsp;v5</code></td><td class="px-2 py-2 font-mono">354</td><td class="px-2 py-2 font-mono">304</td><td class="px-2 py-2 font-mono">4</td></tr>
+            <tr><td class="px-2 py-2"><code class="font-mono">gorilla/mux</code></td><td class="px-2 py-2 font-mono">3&nbsp;444&nbsp;278</td><td class="px-2 py-2 font-mono">n/a</td><td class="px-2 py-2 font-mono">156&nbsp;015</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">MuxMaster is the fastest Go HTTP router across every route category measured. Full per-category report at <a href="https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/reports/perf-audit-2026-05-12/2026-05-12-competitor-showdown.md" rel="noopener" class="text-cyan-700 underline dark:text-cyan-300">2026-05-12 competitor showdown</a>.</p>
     </section>
 
     <section class="mt-12 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900" aria-labelledby="quick-look-heading">
@@ -144,7 +198,11 @@ func main() {
         </article>
         <article>
           <h3 class="text-lg font-semibold">How fast is MuxMaster?</h3>
-          <p class="mt-2 text-base leading-relaxed text-zinc-700 dark:text-zinc-300">Static-route lookups complete in <strong>25&nbsp;ns</strong> with zero allocations; one-parameter routes complete in <strong>112&nbsp;ns</strong> with a single 416-byte allocation for the tiered request bundle. Numbers measured on AMD&nbsp;Ryzen&nbsp;9&nbsp;5900HX, Go&nbsp;1.26.2; see <a href="/benchmarks" class="text-cyan-700 underline dark:text-cyan-300">Benchmarks</a> for the full table and the reproduce instructions.</p>
+          <p class="mt-2 text-base leading-relaxed text-zinc-700 dark:text-zinc-300">Static-route lookups complete in <strong>25&nbsp;ns</strong> with zero allocations. One-parameter routes complete in <strong>49.6&nbsp;ns with zero allocations</strong> when the opt-in <code class="font-mono">mux.PoolRequestBundle&nbsp;=&nbsp;true</code> is enabled, or 105&nbsp;ns / 1&nbsp;alloc on the default path. Numbers measured on AMD&nbsp;Ryzen&nbsp;9&nbsp;5900HX, Go&nbsp;1.26.2; the competitive 1-parameter measurement (45&nbsp;ns, +20&nbsp;% over <code class="font-mono">httprouter</code>) is reproduced from the upstream competitor showdown. See the <a href="#performance" class="text-cyan-700 underline dark:text-cyan-300">performance tables above</a> and <a href="/benchmarks" class="text-cyan-700 underline dark:text-cyan-300">Benchmarks</a> for the full data and reproduce instructions.</p>
+        </article>
+        <article>
+          <h3 class="text-lg font-semibold">What is the catch with <code class="font-mono">PoolRequestBundle</code>?</h3>
+          <p class="mt-2 text-base leading-relaxed text-zinc-700 dark:text-zinc-300"><code class="font-mono">PoolRequestBundle</code> recycles the per-request bundle via tiered <code class="font-mono">sync.Pool</code>s. The contract is strict: handlers must not retain <code class="font-mono">*http.Request</code> past return — for instance, never capture <code class="font-mono">r</code> in a goroutine that outlives the handler. The full contract, the failure modes, and the only safe goroutine pattern (drain before spawn) are documented in <a href="/docs/max-performance" class="text-cyan-700 underline dark:text-cyan-300">/docs/max-performance</a>.</p>
         </article>
         <article>
           <h3 class="text-lg font-semibold">What is MuxMaster's license?</h3>
@@ -152,7 +210,7 @@ func main() {
         </article>
         <article>
           <h3 class="text-lg font-semibold">How does MuxMaster compare to chi, gin, gorilla/mux, and httprouter?</h3>
-          <p class="mt-2 text-base leading-relaxed text-zinc-700 dark:text-zinc-300">MuxMaster keeps the <code class="font-mono">net/http</code> handler signature (unlike <code class="font-mono">gin</code>, which introduces a <code class="font-mono">gin.Context</code>) and ships zero external dependencies. It matches <code class="font-mono">httprouter</code>'s static-route latency while exposing a higher-level API (route groups, typed parameters, error-returning handlers). See the <a href="/docs/migration" class="text-cyan-700 underline dark:text-cyan-300">migration guide</a> for side-by-side equivalents.</p>
+          <p class="mt-2 text-base leading-relaxed text-zinc-700 dark:text-zinc-300">MuxMaster keeps the <code class="font-mono">net/http</code> handler signature (unlike <code class="font-mono">gin</code>, which introduces a <code class="font-mono">gin.Context</code>) and ships zero external dependencies. On a 1-parameter route it is <strong>20&nbsp;% faster than <code class="font-mono">httprouter</code></strong> at the same handler signature MuxMaster preserves; <strong>6.6&nbsp;× faster than <code class="font-mono">chi&nbsp;v5</code></strong>; <strong>76&nbsp;000&nbsp;× faster than <code class="font-mono">gorilla/mux</code></strong>. See the <a href="#performance" class="text-cyan-700 underline dark:text-cyan-300">competitor table above</a> and the <a href="/docs/migration" class="text-cyan-700 underline dark:text-cyan-300">migration guide</a> for side-by-side equivalents.</p>
         </article>
       </div>
     </section>
