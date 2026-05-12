@@ -110,6 +110,7 @@ var requiredFiles = []string{
 	"examples/server-side-render.md",
 	"examples/static-site.md",
 	"examples/versioning.md",
+	"examples/reverse-proxy.md",
 	"release-notes/v1.0.0.md",
 	"release-notes/v1.1.0.md",
 }
