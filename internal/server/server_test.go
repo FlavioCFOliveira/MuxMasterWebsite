@@ -812,6 +812,7 @@ func buildFixtureLoader(t *testing.T) *content.Loader {
 		"examples/static-site.md":        "# Static site\n",
 		"examples/versioning.md":         "# Versioning\n",
 		"examples/reverse-proxy.md":      "# Reverse proxy\n",
+		"examples/server-sent-events.md": "# Server-sent events\n",
 		"release-notes/v1.0.0.md":        "# Release notes — v1.0.0\n\n## Highlights\n\nText.\n",
 		"release-notes/v1.1.0.md":        "# Release notes — v1.1.0\n\n## Highlights\n\nText.\n",
 		// site/landing.md is required by LandingMarkdownRecipe (the

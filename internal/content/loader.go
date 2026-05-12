@@ -111,6 +111,7 @@ var requiredFiles = []string{
 	"examples/static-site.md",
 	"examples/versioning.md",
 	"examples/reverse-proxy.md",
+	"examples/server-sent-events.md",
 	"release-notes/v1.0.0.md",
 	"release-notes/v1.1.0.md",
 }
