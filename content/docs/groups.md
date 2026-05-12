@@ -1,5 +1,5 @@
 ---
-datePublished: 2026-05-08
+datePublished: 2026-05-12
 ---
 
 # Groups and Sub-Routers
@@ -262,7 +262,7 @@ mux.Mount("/payment", paymentService)
 
 ## Upstream source
 
-The `Group`, `With`, `Route`, and `Mount` idioms are implemented in [`group.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/group.go) in the upstream repository.
+The `Group`, `With`, `Route`, and `Mount` idioms are implemented in [`group.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/group.go) in the upstream repository.
 
 ## Common questions
 

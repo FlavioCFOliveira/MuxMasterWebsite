@@ -1,5 +1,5 @@
 ---
-datePublished: 2026-05-08
+datePublished: 2026-05-12
 ---
 
 # Error Handling
@@ -325,7 +325,7 @@ errors.Is(he, base) // true — unwraps through the HTTPError wrapper
 
 ## Upstream source
 
-`HandlerFuncE`, the default `ErrorHandler`, and the JSON / Text / XML helpers used for error rendering live in [`handler.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/handler.go) and [`response.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/response.go) in the upstream repository.
+`HandlerFuncE`, the default `ErrorHandler`, and the JSON / Text / XML helpers used for error rendering live in [`handler.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/handler.go) and [`response.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/response.go) in the upstream repository.
 
 ## Common questions
 

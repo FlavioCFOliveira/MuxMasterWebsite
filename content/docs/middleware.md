@@ -1,5 +1,5 @@
 ---
-datePublished: 2026-05-08
+datePublished: 2026-05-12
 ---
 
 # Middleware
@@ -423,7 +423,7 @@ env := r.Context().Value("appEnv").(string)
 
 ## Upstream source
 
-The middleware chain composition and the `Use` / `Pre` ordering described above are implemented in [`handler.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/handler.go) in the upstream repository.
+The middleware chain composition and the `Use` / `Pre` ordering described above are implemented in [`handler.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/handler.go) in the upstream repository.
 
 ## Common questions
 

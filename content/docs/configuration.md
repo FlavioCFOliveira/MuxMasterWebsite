@@ -1,5 +1,5 @@
 ---
-datePublished: 2026-05-08
+datePublished: 2026-05-12
 ---
 
 # Configuration Reference
@@ -10,6 +10,7 @@ All configuration is done by setting fields on `*Mux` after calling `muxmaster.N
 
 - [Router Behaviour](#router-behaviour)
 - [Path Matching](#path-matching)
+- [Performance Opt-ins (v1.1.0)](#performance-opt-ins-v110)
 - [Custom Handlers](#custom-handlers)
 - [Complete Example](#complete-example)
 
@@ -146,6 +147,36 @@ For example, with the route `/search/:query` and the URL `/search/hello%20world`
 
 - `false`: `PathParam(r, "query")` returns `"hello%20world"`
 - `true`:  `PathParam(r, "query")` returns `"hello world"`
+
+---
+
+## Performance Opt-ins (v1.1.0)
+
+Two flags introduced in v1.1.0 recycle the per-request bundle through `sync.Pool`s and bring the parameterised hot path down to zero allocations. Both flags default to `false`; both impose a strict handler-lifetime contract. The full contract, the failure modes, and an audit checklist for an existing codebase are at [Maximum performance](/docs/max-performance).
+
+### PoolRequestBundle
+
+```go
+mux.PoolRequestBundle = false // default
+```
+
+When `true`, MuxMaster recycles the fused `requestCtx` + `*http.Request` bundle through three tier-matched `sync.Pool`s (1 / 2 / 3+ parameters). The bundle is fully zeroed on `Put` so the next request cannot observe stale state.
+
+**Contract:** handlers must not retain `*http.Request` past return — never capture `r` in a goroutine that outlives the handler. See the [audit checklist](/docs/max-performance#auditing-your-handlers) before enabling on an existing codebase.
+
+**Forward compatibility:** MuxMaster detects the unexported `ctx` field of `http.Request` at init via reflection (`hasReqCtxField`). On a future Go release that renames or removes the field, `PoolRequestBundle = true` is silently ignored and the router falls back to `r.WithContext(...)`, preserving correctness over speed.
+
+### PoolFastParams
+
+```go
+mux.PoolFastParams = false // default
+```
+
+When `true`, MuxMaster recycles the `Params` slice handed to `FastHandler` routes through three tier-matched `sync.Pool`s (1 / 2 / 3 parameters). The pool stores `*[N]Param` so `Put` is itself zero-allocation.
+
+**Contract:** `FastHandler` callbacks must not retain the `Params` slice or any `Param` element past return.
+
+The two flags are independent — enable either, both, or neither.
 
 ---
 
@@ -288,7 +319,7 @@ mux.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 
 ## Upstream source
 
-The `Mux` struct, its option functions, and the trailing-slash and path-cleaning semantics referenced above are implemented in [`mux.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/mux.go) in the upstream repository.
+The `Mux` struct, its option functions, and the trailing-slash and path-cleaning semantics referenced above are implemented in [`mux.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/mux.go) in the upstream repository.
 
 ## Common questions
 

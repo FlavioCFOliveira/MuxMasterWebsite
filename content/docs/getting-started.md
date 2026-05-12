@@ -1,5 +1,5 @@
 ---
-datePublished: 2026-05-08
+datePublished: 2026-05-12
 ---
 
 # Getting Started with MuxMaster
@@ -266,11 +266,11 @@ curl http://localhost:8080/api/v1/users/99
 
 ### How do I install MuxMaster in a new project?
 
-Run `go get github.com/FlavioCFOliveira/MuxMaster@v1.0.1` inside a module that targets Go 1.26 or later. The command updates `go.sum` and `go.mod`; no other dependency is added because MuxMaster ships with zero external imports.
+Run `go get github.com/FlavioCFOliveira/MuxMaster@v1.1.0` inside a module that targets Go 1.26 or later. The command updates `go.sum` and `go.mod`; no other dependency is added because MuxMaster ships with zero external imports.
 
 ### What's the smallest working server I can write?
 
-The seven-line program in step 1 above is the minimum. Construct the router with `mux.New()`, register at least one route with `m.GET`, and pass the router to `http.ListenAndServe`. MuxMaster implements `http.Handler`, so any Go HTTP infrastructure that accepts a handler accepts the router.
+The seven-line program in step 1 above is the minimum. Construct the router with `muxmaster.New()`, register at least one route with `mux.GET`, and pass the router to `http.ListenAndServe`. MuxMaster implements `http.Handler`, so any Go HTTP infrastructure that accepts a handler accepts the router.
 
 ### How do I read a path parameter?
 

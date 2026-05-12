@@ -1,5 +1,5 @@
 ---
-datePublished: 2026-05-08
+datePublished: 2026-05-12
 ---
 
 # Observability
@@ -282,7 +282,7 @@ yields to context cancellation.
 
 ## Upstream source
 
-The introspection API (`Routes()`, `Stats()`, conflict reporting) is implemented in [`introspection.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/introspection.go) in the upstream repository.
+The introspection API (`Routes()`, `Stats()`, conflict reporting) is implemented in [`introspection.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/introspection.go) in the upstream repository.
 
 ## Common questions
 

@@ -1,5 +1,5 @@
 ---
-datePublished: 2026-05-08
+datePublished: 2026-05-12
 ---
 
 # Migration Guide
@@ -366,7 +366,7 @@ mux.RedirectTrailingSlash = false
 
 ## Upstream source
 
-The authoritative list of MuxMaster releases, breaking changes, and deprecations referenced above lives in [`CHANGELOG.md`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/CHANGELOG.md) in the upstream repository.
+The authoritative list of MuxMaster releases, breaking changes, and deprecations referenced above lives in [`CHANGELOG.md`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/CHANGELOG.md) in the upstream repository.
 
 ## Common questions
 

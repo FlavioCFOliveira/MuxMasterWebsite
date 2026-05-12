@@ -1,5 +1,5 @@
 ---
-datePublished: 2026-05-08
+datePublished: 2026-05-12
 ---
 
 # Response Helpers
@@ -155,7 +155,7 @@ The helpers are a convenience for the common case; they do not restrict your opt
 
 ## Upstream source
 
-The `JSON`, `Text`, `XML`, `Stream`, and conditional-GET helpers covered above are implemented in [`response.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/response.go) in the upstream repository.
+The `JSON`, `Text`, `XML`, `Stream`, and conditional-GET helpers covered above are implemented in [`response.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/response.go) in the upstream repository.
 
 ## Common questions
 

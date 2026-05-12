@@ -1,5 +1,5 @@
 ---
-datePublished: 2026-05-08
+datePublished: 2026-05-12
 ---
 
 # Security Policy
@@ -566,4 +566,4 @@ that ensures the table drains correctly when timed-out requests release.
 
 ## Upstream source
 
-The security-sensitive defaults discussed above (Pre/Use ordering for `Recoverer` and `RealIP`, `RequireExpiry` on `JWTAuth`, the OAuth2 endpoint contract, the conditional-GET handling) are implemented across [`mux.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/mux.go), [`handler.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/handler.go), and [`response.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/response.go) in the upstream repository.
+The security-sensitive defaults discussed above (Pre/Use ordering for `Recoverer` and `RealIP`, `RequireExpiry` on `JWTAuth`, the OAuth2 endpoint contract, the conditional-GET handling) are implemented across [`mux.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/mux.go), [`handler.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/handler.go), and [`response.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/response.go) in the upstream repository.

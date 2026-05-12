@@ -1,5 +1,5 @@
 ---
-datePublished: 2026-05-08
+datePublished: 2026-05-12
 ---
 
 # Cookbook
@@ -583,7 +583,7 @@ order.RegisterRoutes(api, orderService)
 
 ## Upstream source
 
-Every recipe in this cookbook traces back to a runnable program in the upstream [`examples/`](https://github.com/FlavioCFOliveira/MuxMaster/tree/v1.0.1/examples) directory.
+Every recipe in this cookbook traces back to a runnable program in the upstream [`examples/`](https://github.com/FlavioCFOliveira/MuxMaster/tree/v1.1.0/examples) directory.
 
 ## Common questions
 

@@ -1,5 +1,5 @@
 ---
-datePublished: 2026-05-08
+datePublished: 2026-05-12
 ---
 
 # Routing Reference
@@ -244,7 +244,7 @@ mux.Pre(middleware.CleanPath)
 
 ## Upstream source
 
-The radix-tree router and pattern semantics described above are implemented in [`mux.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/mux.go) and [`tree.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/tree.go) in the upstream repository.
+The radix-tree router and pattern semantics described above are implemented in [`mux.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/mux.go) and [`tree.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/tree.go) in the upstream repository.
 
 ## Common questions
 

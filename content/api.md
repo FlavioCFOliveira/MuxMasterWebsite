@@ -1,5 +1,5 @@
 ---
-datePublished: 2026-05-08
+datePublished: 2026-05-12
 ---
 
 # Public API
@@ -328,6 +328,33 @@ type Mux struct {
 	// RedirectCode overrides the default redirect status code (301/307).
 	// Zero means use the default.
 	RedirectCode int
+
+	// PoolRequestBundle, when true, recycles the per-request reqBundle
+	// (the fused requestCtx + *http.Request copy) through three
+	// tier-matched sync.Pools (1 / 2 / 3+ parameters). Eliminates the
+	// 384 / 416 / 480 B allocation on the stdlib http.Handler path.
+	// Introduced in v1.1.0 (Opt O13). Default: false.
+	//
+	// CONTRACT: handlers must NOT retain *http.Request past return.
+	// Capturing r in a goroutine that outlives the handler observes
+	// either a zeroed bundle or another concurrent request's state.
+	// See docs/max-performance.md for the audit checklist and the
+	// four real-world recipes.
+	//
+	// FORWARD-COMPATIBILITY: if a future Go release renames the
+	// unexported ctx field of http.Request, MuxMaster detects the
+	// absence via reflection at init (hasReqCtxField) and silently
+	// falls back to the non-pooled r.WithContext(...) path.
+	PoolRequestBundle bool
+
+	// PoolFastParams, when true, recycles the Params slice handed to
+	// FastHandler routes through three tier-matched sync.Pools
+	// (1 / 2 / 3 parameters). Introduced in v1.1.0 (Opt O9).
+	// Default: false.
+	//
+	// CONTRACT: FastHandler callbacks must NOT retain the Params
+	// slice (or any Param element) past return.
+	PoolFastParams bool
 
 	// NotFound is called when no route matches (default: http.NotFound).
 	NotFound http.Handler
