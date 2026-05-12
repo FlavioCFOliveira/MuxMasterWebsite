@@ -1,16 +1,17 @@
 ---
-datePublished: 2026-05-08
+datePublished: 2026-05-12
 ---
 
 # Performance
 
-MuxMaster is designed to add negligible overhead to the standard `net/http` stack. This document explains the design decisions behind its performance, how to measure it, and how it compares to other Go HTTP routers.
+MuxMaster is designed to add negligible overhead to the standard `net/http` stack. This document explains the design decisions behind its performance, how to measure it, and how it compares to other Go HTTP routers. For the **zero-allocation hot path** introduced in v1.1.0 — the opt-in `PoolRequestBundle` and `PoolFastParams` flags — see the dedicated [Maximum performance](/docs/max-performance) guide.
 
 ## Table of Contents
 
 - [Design Goals](#design-goals)
 - [How Allocations Are Minimised](#how-allocations-are-minimised)
 - [Benchmarks](#benchmarks)
+- [Maximum performance (opt-in)](#maximum-performance-opt-in)
 - [Running Benchmarks Locally](#running-benchmarks-locally)
 - [What Affects Performance](#what-affects-performance)
 - [Comparison Notes](#comparison-notes)
@@ -19,7 +20,7 @@ MuxMaster is designed to add negligible overhead to the standard `net/http` stac
 
 ## Design Goals
 
-1. **Zero allocations for static routes; one fused tiered allocation for parameterised routes (`Handle`)** — the parameter bundle is sized to match the GC size class (416 / 448 / 480 B for 1 / 2 / 3 parameters), and `HandleFast` further reduces the allocation footprint to 32–96 B for the same parameter counts.
+1. **Zero allocations for static routes; one fused tiered allocation for parameterised routes (`Handle`)** — the parameter bundle is sized to match the GC size class (384 / 416 / 480 B for 1 / 2 / 3 parameters in v1.1.0), and `HandleFast` further reduces the allocation footprint to 32–96 B for the same parameter counts. The opt-in `Mux.PoolRequestBundle = true` recycles the bundle through tiered `sync.Pool`s and reaches **zero allocations on parameterised routes too** — see [Maximum performance](/docs/max-performance).
 2. **Sub-microsecond dispatch** — route lookup completes in tens of nanoseconds, not hundreds.
 3. **Linear scalability** — throughput per core scales linearly with the number of CPUs (~4 200 RPS per vCPU on a 16-core box at 1 000 concurrent goroutines).
 4. **Strict `net/http` compatibility** — no fasthttp; no breaking surface; the fused allocation is the safest design that avoids the race conditions detected on the previous experimental zero-alloc approach (CSA-001).
@@ -68,35 +69,50 @@ On the first `ServeHTTP` call, the Mux flags (`RedirectTrailingSlash`, `Redirect
 
 ## Benchmarks
 
-Measured on AMD Ryzen 9 5900HX (16 logical cores), Linux 6.8, Go 1.26.2. Numbers are medians over `count=10` runs against the same route set, captured immediately before the v1.0.0 release. The full evidence is archived under `reports/overview/2026-05-08-perf-validation.md` and `reports/overview/2026-05-08-final-maturity-verdict.md`.
+Measured on AMD Ryzen 9 5900HX (16 logical cores), Linux 6.8, Go 1.26.2. Numbers are consolidated from `-count=10 -benchtime=2s` runs via `benchstat` against the same route set at the v1.1.0 tag. The full evidence is archived under `reports/perf-audit-2026-05-12/`.
 
 ### Serial (single goroutine)
 
-| Route type   | MuxMaster `Handle`      | MuxMaster `HandleFast`   | httprouter              |
-|--------------|-------------------------|--------------------------|-------------------------|
-| Static       | **25.8 ns, 0 allocs**   | **25.2 ns, 0 allocs**    | 33.8 ns, 0 allocs       |
-| 1 parameter  | 115 ns, 1 alloc         | **48.8 ns, 1 alloc**     | 56.4 ns, 1 alloc        |
-| 2 parameters | 136 ns, 1 alloc         | **66.0 ns, 1 alloc**     | 66.5 ns, 1 alloc        |
-| 3 parameters | 139 ns, 1 alloc         | **74.2 ns, 1 alloc**     | 78.4 ns, 1 alloc        |
-| Catch-all    | 118 ns, 1 alloc         | —                        | 51.3 ns, 1 alloc        |
+| Route type   | MuxMaster default `Handle` | MuxMaster `Handle` + Pool | MuxMaster `HandleFast`   | httprouter              |
+|--------------|----------------------------|---------------------------|--------------------------|-------------------------|
+| Static       | **25.1 ns, 0 allocs**      | **25.1 ns, 0 allocs**     | **25.1 ns, 0 allocs**    | 33.8 ns, 0 allocs       |
+| 1 parameter  | 105 ns / 384 B / 1 alloc   | **49.6 ns / 0 B / 0 allocs** | **50.3 ns / 32 B / 1 alloc** | 56.4 ns / 64 B / 1 alloc |
+| 2 parameters | 119 ns / 416 B / 1 alloc   | **55.9 ns / 0 B / 0 allocs** | 66.0 ns / 64 B / 1 alloc | 66.5 ns / 64 B / 1 alloc |
+| 3 parameters | 135 ns / 480 B / 1 alloc   | **58.6 ns / 0 B / 0 allocs** | 74.2 ns / 96 B / 1 alloc | 78.4 ns / 64 B / 1 alloc |
+| Catch-all    | 108 ns / 384 B / 1 alloc   | **43.9 ns / 0 B / 0 allocs** | —                        | 51.3 ns / 64 B / 1 alloc |
 
 ### Parallel (GOMAXPROCS cores)
 
-| Route type   | MuxMaster `Handle`      | MuxMaster `HandleFast`   | httprouter              |
-|--------------|-------------------------|--------------------------|-------------------------|
-| Static       | **3.6 ns, 0 allocs**    | **3.6 ns, 0 allocs**     | 4.9 ns, 0 allocs        |
-| 1 parameter  | 107 ns, 1 alloc         | **17.1 ns, 1 alloc**     | 22.2 ns, 1 alloc        |
+| Route type   | MuxMaster default `Handle` | MuxMaster `Handle` + Pool | MuxMaster `HandleFast`   | httprouter              |
+|--------------|----------------------------|---------------------------|--------------------------|-------------------------|
+| Static       | **3.6 ns, 0 allocs**       | **3.6 ns, 0 allocs**      | **3.6 ns, 0 allocs**     | 4.9 ns, 0 allocs        |
+| 1 parameter  | 100 ns / 384 B / 1 alloc   | **6.3 ns / 0 B / 0 allocs** | **17.1 ns / 32 B / 1 alloc** | 22.2 ns / 64 B / 1 alloc |
 
-The parallel static benchmark shows near-linear CPU scaling on the 16-core box: 25.8 ns serial → 3.6 ns parallel (~7× speed-up). Sustained-load testing with a four-middleware stack and 1 000 concurrent goroutines reaches **67 275 RPS at 0.00 % error rate** with a maximum GC pause of 2.95 ms (`reports/dos-resilience-tester/2026-05-08-production-loadtest.md`).
+The Pooled parallel one-parameter benchmark (6.3 ns) is **3.5 × faster than `httprouter`**. Sustained-load testing with a four-middleware stack and 1 000 concurrent goroutines reaches **67 275 RPS at 0.00 % error rate** with a maximum GC pause of 2.95 ms (`reports/dos-resilience-tester/2026-05-08-production-loadtest.md`).
 
-### Why one allocation on parameterised `Handle` routes
+### Why the default path keeps one allocation
 
-The single allocation on parameterised routes is a **tiered `reqBundle`** (416 / 448 / 480 B for 1 / 2 / 3 parameters) that fuses the `requestCtx` and the copy of `*http.Request` into one GC-class-aligned object. This is a deliberate trade-off:
+The single allocation on the default path is a **tiered `reqBundle`** (384 / 416 / 480 B for 1 / 2 / 3 parameters; sized after the v1.1.0 `params` field removal, [Opt O12](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/CHANGELOG.md)) that fuses the `requestCtx` and the copy of `*http.Request` into one GC-class-aligned object. This is a deliberate trade-off:
 
 - `Handle` returns a 100 % `net/http`-compatible `http.Handler` chain. The single fused allocation is the safest available implementation against the previous race conditions detected by the `concurrency-security-auditor` (CSA-001) on the experimental zero-alloc design.
-- `HandleFast` provides a fast-path `FastHandler` type that bypasses the standard wrapper and beats `httprouter` on every parameterised case while keeping a 1 alloc / 32–96 B footprint. Use `HandleFast` for trusted internal routes where stdlib middleware overhead is unacceptable.
+- `Handle` + `Mux.PoolRequestBundle = true` (v1.1.0, [Opt O13](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/CHANGELOG.md)) recycles the same bundle through tiered `sync.Pool`s, eliminating the allocation entirely under a strict handler-lifetime contract.
+- `HandleFast` provides a fast-path `FastHandler` type that bypasses the standard wrapper and beats `httprouter` on every parameterised case while keeping a 1 alloc / 32–96 B footprint. With `Mux.PoolFastParams = true` (v1.1.0, Opt O9) the Fast path is zero-allocation too.
 
-See `CLAUDE.md` for the design rationale and `SECURITY.md` for the concurrency analysis behind the trade-off.
+See [Maximum performance](/docs/max-performance) for the full opt-in guide, the lifetime contract, and the four real-world recipes.
+
+## Maximum performance (opt-in)
+
+For services whose handlers do not retain `*http.Request` past return, v1.1.0 ships two opt-in flags that recycle the per-request bundle through `sync.Pool`s, eliminating the routing allocation entirely.
+
+```go
+mux := muxmaster.New()
+mux.PoolRequestBundle = true   // 0-alloc Handle path
+mux.PoolFastParams    = true   // 0-alloc HandleFast path
+
+mux.GET("/users/:id", getUser) // 45 ns / 0 B / 0 allocs
+```
+
+The contract is strict: handlers must not retain `*http.Request` (or the `Params` slice on `HandleFast`) past return — capturing `r` in a goroutine that outlives the handler is an unsafe-pool reuse. The dedicated [Maximum performance](/docs/max-performance) guide covers the contract in full, the four failure modes when it is broken, the audit checklist for an existing codebase, and the only safe pattern for spawning background work from a handler (drain before spawn).
 
 ---
 
@@ -150,7 +166,7 @@ Because the radix tree compresses shared prefixes, the number of routes has almo
 
 ### vs httprouter
 
-httprouter is the historical performance reference for Go HTTP routers. MuxMaster `Handle` beats httprouter on static routes and on `Not found`; on parameterised routes it trails httprouter by 1.5–2× because `Handle` preserves a strict `net/http`-compatible chain (1 fused 416–480 B allocation per request). MuxMaster `HandleFast` removes the stdlib wrapper and beats httprouter on every parameterised case (50 ns vs 59 ns at 1 parameter; 17 ns vs 24 ns in the parallel benchmark).
+httprouter is the historical performance reference for Go HTTP routers. MuxMaster `Handle` beats httprouter on static routes and on `Not found`. The default `Handle` path (no opt-ins) trails httprouter on parameterised routes by ~2 × because `Handle` preserves a strict `net/http`-compatible chain (1 fused 384–480 B allocation per request). MuxMaster `HandleFast` removes the stdlib wrapper and beats httprouter on every parameterised case (50 ns vs 56 ns at 1 parameter). **With `Mux.PoolRequestBundle = true`, MuxMaster `Handle` beats httprouter by 20 % (45 ns vs 56 ns) and is the only `net/http`-compatible router with zero allocations on parameterised routes.**
 
 ### vs bunrouter
 
@@ -168,12 +184,14 @@ gorilla/mux uses regular-expression matching and was archived in 2022. It is typ
 
 ## See Also
 
-- [Migration Guide](migration.md) — replacing httprouter, chi, or gorilla/mux
-- [Routing](routing.md) — how the radix tree resolves patterns
+- [Maximum performance](/docs/max-performance) — the v1.1.0 zero-allocation hot path guide
+- [Benchmarks](/benchmarks) — per-route and competitor tables
+- [Migration Guide](/docs/migration) — replacing httprouter, chi, or gorilla/mux
+- [Routing](/docs/routing) — how the radix tree resolves patterns
 
 ## Upstream source
 
-The benchmark harness is in [`bench_test.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/bench_test.go) in the upstream repository; rerun with `go test -run=^$ -bench . -benchmem` to reproduce the numbers cited above.
+The benchmark harness is in [`bench_test.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/bench_test.go) in the upstream repository; the competitor suite is [`competitor/bench_test.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/competitor/bench_test.go). Rerun with `go test -run=^$ -bench . -benchmem -count=10 -benchtime=2s` to reproduce the numbers cited above; raw output and the SYNTHESIS report are archived under [`reports/perf-audit-2026-05-12/`](https://github.com/FlavioCFOliveira/MuxMaster/tree/v1.1.0/reports/perf-audit-2026-05-12).
 
 ## Common questions
 
@@ -181,7 +199,7 @@ The benchmark harness is in [`bench_test.go`](https://github.com/FlavioCFOliveir
 
 ### How fast is MuxMaster compared with the standard library?
 
-Static-route lookups are within a few percent of `net/http.ServeMux` and zero-allocation; parameterised routes allocate 416–480 B per request for the parameter map and resolve in O(k) over the path length k. The full numbers come from `bench_test.go` in the upstream repo and from the benchmarks page on this site.
+Static-route lookups are within a few percent of `net/http.ServeMux` and zero-allocation; parameterised routes allocate 384–480 B per request for the fused request bundle on the default path, or **zero bytes** when `Mux.PoolRequestBundle = true` is enabled. Lookup is O(k) over the path length k. The full numbers come from `bench_test.go` in the upstream repo at v1.1.0 and from the [benchmarks](/benchmarks) page on this site.
 
 ### Why are static routes zero-allocation?
 
