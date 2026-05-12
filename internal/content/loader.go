@@ -113,6 +113,7 @@ var requiredFiles = []string{
 	"examples/reverse-proxy.md",
 	"examples/server-sent-events.md",
 	"examples/upload-file.md",
+	"examples/max-performance.md",
 	"release-notes/v1.0.0.md",
 	"release-notes/v1.1.0.md",
 }

@@ -89,6 +89,7 @@ var examplesSidebar = []sidebarItem{
 	{Path: "/examples/reverse-proxy", Title: "Reverse proxy"},
 	{Path: "/examples/server-sent-events", Title: "Server-sent events"},
 	{Path: "/examples/upload-file", Title: "Upload file"},
+	{Path: "/examples/max-performance", Title: "Maximum performance"},
 }
 
 // DocPageSpec describes one Markdown-backed long-form page. The same
