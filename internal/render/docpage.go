@@ -78,6 +78,7 @@ var referenceSidebar = []sidebarItem{
 // across example pages.
 var examplesSidebar = []sidebarItem{
 	{Path: "/examples/rest-api", Title: "REST API"},
+	{Path: "/examples/versioning", Title: "Versioning"},
 	{Path: "/examples/authn", Title: "Authentication"},
 	{Path: "/examples/jwt", Title: "JWT"},
 	{Path: "/examples/oauth2", Title: "OAuth2"},

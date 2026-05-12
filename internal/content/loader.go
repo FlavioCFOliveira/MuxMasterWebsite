@@ -109,6 +109,7 @@ var requiredFiles = []string{
 	"examples/graceful-shutdown.md",
 	"examples/server-side-render.md",
 	"examples/static-site.md",
+	"examples/versioning.md",
 	"release-notes/v1.0.0.md",
 	"release-notes/v1.1.0.md",
 }
