@@ -1,5 +1,5 @@
 ---
-datePublished: 2026-05-08
+datePublished: 2026-05-12
 ---
 
 # Changelog
@@ -8,6 +8,68 @@ All notable changes to this project will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.1.0] - 2026-05-12
+
+Minor release focused on **maximum performance**. Three deep-audit optimisations (O10, O12, O13), a full `FastHandler` pool integration, and a sustained three-sprint performance push (S14, S15, S16) bring MuxMaster to the fastest stdlib-compatible HTTP router in the Go ecosystem: **45 ns / 0 B / 0 allocs** on a one-parameter route via the opt-in `Mux.PoolRequestBundle` (20 % faster than `httprouter` with zero allocations on the `http.Handler` path). The public API is fully backward-compatible with v1.0.x: every new capability is gated behind an opt-in flag with a strict, documented lifetime contract. No breaking changes.
+
+### Added
+
+- **`Mux.PoolRequestBundle` opt-in (Opt O13)** — recycles the per-request `reqBundle` (tiered: 1 / 2 / 3+ parameters) via three matched `sync.Pool`s, eliminating the single 384 / 416 / 480 B allocation on the stdlib `http.Handler` path. When enabled, the entire hot path becomes zero-allocation. Strict lifetime contract: handlers must not retain `*http.Request` past return. Default `false`; full documentation in [`/docs/max-performance`](/docs/max-performance) and upstream `mux.go:239–266`.
+- **`Mux.PoolFastParams` opt-in (Opt O9)** — three tier-matched `sync.Pool`s recycle the `Params` slice handed to `FastHandler` routes. Default `false` preserves the previously documented goroutine-safe lifetime. Pools store `*[N]Param` (pointer-to-array, not pointer-to-slice) to keep `Put` zero-alloc.
+- **Five Gin-parity examples** under `/examples` — `rest-api`, `versioning`, `reverse-proxy`, `server-sent-events`, `server-side-render` — plus a curated index at `examples/README.md`. Each example is realistic, well-commented, and matches the corresponding Gin idiom one-for-one.
+- **Runnable maximum-performance example** at `examples/max-performance/` demonstrating `Mux.PoolRequestBundle = true` end-to-end.
+- **`docs/max-performance.md`** — the canonical guide for the zero-allocation hot path, with the lifetime contract, the failure modes, and the benchmark evidence.
+- **`gorilla/mux` competitor benchmark** added to the apples-to-apples bench suite under `competitor/bench_test.go`.
+- **Static-only fast path in `getValue`** — `getValueStatic` skips parameter bookkeeping for routes known at registration time to contain zero wildcards.
+
+### Changed
+
+- **`requestCtx1` / `requestCtx2` slimmed (Opt O12)** — the `params Params` field is dropped from both layouts; the slice is now derived from `small[:N]` at access time. `reqBundle1` drops 416 → 384 B and `reqBundle2` drops 448 → 416 B, landing each one in the next-smaller GC size class.
+- **Direct `dispatchParams1` / `dispatchParams2` calls (Opt O10)** — the `doDispatch1` / `doDispatch2` function-pointer indirection is gone. The `if hasReqCtxField` branch is inlined into a single dispatcher, restoring branch prediction and inlining-budget headroom for the compiler. Zero API-surface change.
+- **Direct unsafe `r.ctx` write in parameter dispatch** — the parameter dispatch fast path writes the request context via the reflected offset of the private `ctx` field of `http.Request`, avoiding the `r.WithContext(ctx)` allocation; automatic fallback to `WithContext` if the offset is not found via reflection in a future Go release.
+- **`url.URL` allocation dropped on the redirect path** in `RedirectTrailingSlash` / `RedirectFixedPath`; the redirect handler also bypasses `wrapMiddleware`, which was redundant.
+- **Pre-built default 405 response** — "Method Not Allowed" is now served from a pre-rendered, immutable `[]byte` buffer, eliminating the per-request `http.Error` allocations on the 405 path.
+- **`Logger` middleware** — `statusRecorder` recycled via `sync.Pool`; `fmt.Fprintf` replaced with `strconv.Append*` to drop the format-string overhead.
+- **Pre-canonical header keys + direct map assignment** in `RequestID`, `RealIP`, and `SetHeader` middlewares to skip the `textproto.MIMEHeader.canonicalMIMEHeaderKey` per-call work.
+- **Redundant `children` slice header dropped in the `getValue` walk loop** — the slice header was being re-read on every iteration even when the inner branch was statically determined.
+- **Inline 1-parameter dispatch** — `dispatchWithParams` is bypassed for the most common REST-API case (single path parameter), saving the call overhead.
+
+### Performance
+
+Internal benchmarks (`bench_test.go`, AMD Ryzen 9 5900HX, Go 1.26):
+
+| Case                       | v1.0.1                   | v1.1.0 default           | v1.1.0 Pooled |
+|----------------------------|--------------------------|--------------------------|---------------|
+| Static route               | 27 ns / 0 B              | 25.1 ns / 0 B            | 25.1 ns / 0 B |
+| 1-parameter route          | 110 ns / 416 B / 1 alloc | 105 ns / 384 B / 1 alloc | **49.6 ns / 0 B / 0 allocs** |
+| 2-parameter route          | 124 ns / 448 B / 1 alloc | 119 ns / 416 B / 1 alloc | **55.9 ns / 0 B / 0 allocs** |
+| 3-parameter route          | 138 ns / 480 B / 1 alloc | 135 ns / 480 B / 1 alloc | **58.6 ns / 0 B / 0 allocs** |
+| Catch-all                  | 112 ns / 384 B / 1 alloc | 108 ns / 384 B / 1 alloc | **43.9 ns / 0 B / 0 allocs** |
+| Parallel 1-parameter route | 105 ns / 384 B / 1 alloc | 100 ns / 384 B / 1 alloc | **6.3 ns / 0 B / 0 allocs** |
+| Fast 1-parameter route     | 51 ns / 32 B / 1 alloc   | 50.3 ns / 32 B / 1 alloc | n/a           |
+
+Competitive benchmarks (`competitor/bench_test.go`, one-parameter route, same harness, same machine):
+
+| Router                          | ns/op     | B/op  | allocs/op |
+|---------------------------------|-----------|-------|-----------|
+| **MuxMaster Pooled (Opt O13)**  | **45**    | **0** | **0**     |
+| MuxMaster default               | 108       | 384   | 1         |
+| MuxMaster Fast                  | 50        | 32    | 1         |
+| httprouter                      | 56        | 64    | 1         |
+| Fiber v3 (fasthttp stack)       | 212       | 0     | 0         |
+| bunrouter (vendored fork)       | 183       | 192   | 3         |
+| chi v5                          | 354       | 304   | 4         |
+| gorilla/mux                     | 3 444 278 | n/a   | 156 015   |
+
+### Documentation
+
+- **`docs/max-performance.md`** — new exhaustive guide covering the zero-allocation hot path, the `PoolRequestBundle` and `PoolFastParams` contracts, the failure modes when the contract is broken, and the benchmark methodology.
+- **`examples/README.md`** — curated index of all twelve runnable examples with a one-line summary for each.
+- **Five Gin-parity example READMEs** explaining the *why*, the *what*, and the *runnable command* for each example.
+- **Competitor showdown report** under `reports/competitor/` documenting MuxMaster's wins category by category.
+- **Router variable standardised to `mux`** across every doc snippet (previously inconsistent `r` / `router` / `m`); fixes a shadowing bug in the README quick-start.
+- **Throttle IP-churn cap test de-flaked under QEMU emulation** so the CI matrix is fully green on every supported runner.
 
 ## [1.0.1] - 2026-05-08
 

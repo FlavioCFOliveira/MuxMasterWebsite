@@ -64,6 +64,7 @@ var referenceSidebar = []sidebarItem{
 	{Path: "/examples/", Title: "Examples"},
 	{Path: "/benchmarks", Title: "Benchmarks"},
 	{Path: "/changelog", Title: "Changelog"},
+	{Path: "/releases/v1.1.0", Title: "Release notes — v1.1.0"},
 	{Path: "/releases/v1.0.0", Title: "Release notes — v1.0.0"},
 	{Path: "/security", Title: "Security"},
 	{Path: "/compatibility", Title: "Compatibility"},

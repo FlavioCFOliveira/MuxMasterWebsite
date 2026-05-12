@@ -810,6 +810,7 @@ func buildFixtureLoader(t *testing.T) *content.Loader {
 		"examples/server-side-render.md": "# Server-side render\n",
 		"examples/static-site.md":        "# Static site\n",
 		"release-notes/v1.0.0.md":        "# Release notes — v1.0.0\n\n## Highlights\n\nText.\n",
+		"release-notes/v1.1.0.md":        "# Release notes — v1.1.0\n\n## Highlights\n\nText.\n",
 		// site/landing.md is required by LandingMarkdownRecipe (the
 		// /index.md companion source).
 		"site/landing.md": "# MuxMaster\n\nA radix-tree HTTP router for Go.\n",

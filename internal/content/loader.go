@@ -109,6 +109,7 @@ var requiredFiles = []string{
 	"examples/server-side-render.md",
 	"examples/static-site.md",
 	"release-notes/v1.0.0.md",
+	"release-notes/v1.1.0.md",
 }
 
 // Verify checks every required file is present and readable. Returns a
