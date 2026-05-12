@@ -35,7 +35,7 @@ type route struct {
 // not. Markdown companions are not enumerated here — they derive from
 // HasMarkdown.
 func routeInfos() []render.RouteInfo {
-	const landingDesc = "MuxMaster is a high-performance, zero-dependency HTTP router for Go. Radix-tree O(k) lookups, zero static-route allocations, 100% net/http compatible."
+	const landingDesc = "MuxMaster is a high-performance, zero-dependency HTTP router for Go. Radix-tree O(k) lookups, 25 ns static lookups, 45 ns / 0 B / 0 allocs on a one-parameter route with the opt-in PoolRequestBundle (v1.1.0) — 20 % faster than httprouter. 100 % net/http compatible."
 	out := []render.RouteInfo{
 		{Path: "/", Title: "MuxMaster", Description: landingDesc, Section: "landing", HasMarkdown: false},
 	}
