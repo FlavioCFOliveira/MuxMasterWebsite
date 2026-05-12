@@ -72,13 +72,17 @@ var referenceSidebar = []sidebarItem{
 	{Path: "/contributing", Title: "Contributing"},
 }
 
-// examplesSidebar is shown on every /examples/<name> page. The order is the
-// curated learning order from the specification (REST first, auth family
-// second, then operational concerns), and also drives the prev/next chain
-// across example pages.
+// examplesSidebar is shown on every /examples/<name> page. The curated
+// order — REST API and Maximum-performance featured first, then the four
+// other v1.1.0 examples, then the legacy auth + operational tier — also
+// drives the prev/next chain across example pages.
 var examplesSidebar = []sidebarItem{
 	{Path: "/examples/rest-api", Title: "REST API"},
+	{Path: "/examples/max-performance", Title: "Maximum performance"},
 	{Path: "/examples/versioning", Title: "Versioning"},
+	{Path: "/examples/server-sent-events", Title: "Server-sent events"},
+	{Path: "/examples/upload-file", Title: "Upload file"},
+	{Path: "/examples/reverse-proxy", Title: "Reverse proxy"},
 	{Path: "/examples/authn", Title: "Authentication"},
 	{Path: "/examples/jwt", Title: "JWT"},
 	{Path: "/examples/oauth2", Title: "OAuth2"},
@@ -86,10 +90,6 @@ var examplesSidebar = []sidebarItem{
 	{Path: "/examples/graceful-shutdown", Title: "Graceful shutdown"},
 	{Path: "/examples/server-side-render", Title: "Server-side render"},
 	{Path: "/examples/static-site", Title: "Static site"},
-	{Path: "/examples/reverse-proxy", Title: "Reverse proxy"},
-	{Path: "/examples/server-sent-events", Title: "Server-sent events"},
-	{Path: "/examples/upload-file", Title: "Upload file"},
-	{Path: "/examples/max-performance", Title: "Maximum performance"},
 }
 
 // DocPageSpec describes one Markdown-backed long-form page. The same
