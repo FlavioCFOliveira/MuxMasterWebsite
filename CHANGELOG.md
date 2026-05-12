@@ -4,6 +4,56 @@ All notable changes to the MuxMaster documentation website are recorded in this 
 
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html). The website's `MAJOR.MINOR` mirrors the MuxMaster release it documents; the website's `PATCH` digit is independent and advances for website-only operational fixes. See `specification/overview.md § Version cadence` for the full cadence policy.
 
+## [v1.1.0] — 2026-05-12
+
+MINOR release. Documents MuxMaster v1.1.0, the maximum-performance milestone that brings MuxMaster to **45 ns / 0 B / 0 allocs** on a one-parameter route via the opt-in `Mux.PoolRequestBundle`. The website is fully refreshed: five new example walkthroughs, a canonical zero-allocation guide, a rewritten benchmarks page, a competitive router showdown, an updated landing page with a performance section and competitor table, and a coordinated review by all four coordinator agents (SEO, GEO, Tailwind, UX) with all blocking fixes applied.
+
+### Added
+
+- **`/releases/v1.1.0` release page.** New route and content file (`content/release-notes/v1.1.0.md`) wired into the server. The footer `Releases` link now points at v1.1.0; v1.0.0 remains accessible for history. Commit `cf5f519` (#89).
+- **`/docs/max-performance` — canonical zero-allocation guide.** New exhaustive documentation page covering `Mux.PoolRequestBundle`, `Mux.PoolFastParams`, their lifetime contracts, failure modes, and benchmark methodology. Commit `061de58` (#92).
+- **Five new example walkthroughs.** Added `/examples/versioning` (commit `e3e8b32`, #96), `/examples/reverse-proxy` (commit `274096b`, #97), `/examples/server-sent-events` (commit `a9ba04a`, #98), `/examples/upload-file` (commit `723efc2`, #99), and `/examples/max-performance` (commit `d60321c`, #100). Each page is realistic, well-commented, and carries a three-question FAQ block for GEO. The examples index is reordered with a curated intro (commit `0d434aa`, #101).
+- **Performance section and competitor table on the landing page.** A new `<section>` on `/` presents the v1.1.0 benchmark numbers and a per-row competitive comparison with httprouter, chi, Fiber, and gorilla/mux. Commit `7855f08` (#90).
+- **Rewritten `/benchmarks` page.** Full rewrite incorporating the v1.1.0 per-route benchmark table and the competitive showdown numbers from `competitor/bench_test.go`. Commit `63c6c25` (#91).
+- **MuxMaster dependency bumped to v1.1.0.** `go.mod` / `go.sum` updated to resolve MuxMaster v1.1.0 from the public proxy. Commit `3ab07d0` (#88).
+
+### Changed
+
+- **`/docs/performance` refreshed for v1.1.0.** Updated chi comparison from stale v1.0.x values (115 ns vs 3 449 ns) to v1.1.0 values (105 ns default / 45 ns Pooled vs 354 ns chi), correcting the stated speedup multiplier. Commits `ed2088b` (#93), `5ae3a69` (T-16).
+- **Eleven existing docs pages refreshed.** All pages under `/docs/` cross-checked against the MuxMaster v1.1.0 API surface; stale v1.0.x references updated, router-variable naming standardised to `mux`. Commit `6fc0a15` (#94).
+- **Eight existing example pages refreshed.** All pages under `/examples/` updated for v1.1.0 idioms; `PoolRequestBundle` references and correct API names added where relevant. Commit `875d6c0` (#95).
+- **`llms.txt` and landing meta description updated.** GEO artefacts refreshed to surface the v1.1.0 performance story and the new pages. Commit `0bae8cc` (#102).
+- **Coordinator agent blocking fixes applied (T-16).** All four agents (SEO, GEO, Tailwind, UX) reviewed the full v1.1.0 refresh. Blocking fixes: responsive table overflow CSS (`display:block; overflow-x:auto`); FAQPage JSON-LD updated to Pooled numbers (49.6 ns / 0 allocs, seven entries); all meta descriptions capped at ≤160 chars; `## Source` headings renamed to `## Upstream source` on all five new example pages; FAQ `data-conversation` blocks (3 Q+A each) added to each new example; bench-harness attribution notes added to `/benchmarks`, `/docs/max-performance`, and the landing page. Commit `5ae3a69` (T-16).
+
+### Performance (MuxMaster v1.1.0 — documented in this release)
+
+Internal benchmarks (`bench_test.go`, AMD Ryzen 9 5900HX, Go 1.26):
+
+| Case                         | v1.0.x default           | v1.1.0 default           | v1.1.0 Pooled                 |
+|------------------------------|--------------------------|--------------------------|-------------------------------|
+| Static route                 | 27 ns / 0 B              | 25.1 ns / 0 B            | 25.1 ns / 0 B                 |
+| 1-parameter route            | 110 ns / 416 B / 1 alloc | 105 ns / 384 B / 1 alloc | **49.6 ns / 0 B / 0 allocs**  |
+| 2-parameter route            | 124 ns / 448 B / 1 alloc | 119 ns / 416 B / 1 alloc | **55.9 ns / 0 B / 0 allocs**  |
+| 3-parameter route            | 138 ns / 480 B / 1 alloc | 135 ns / 480 B / 1 alloc | **58.6 ns / 0 B / 0 allocs**  |
+| Catch-all                    | 112 ns / 384 B / 1 alloc | 108 ns / 384 B / 1 alloc | **43.9 ns / 0 B / 0 allocs**  |
+| Parallel 1-parameter route   | 105 ns / 384 B / 1 alloc | 100 ns / 384 B / 1 alloc | **6.3 ns / 0 B / 0 allocs**   |
+| Fast 1-parameter route       | 51 ns / 32 B / 1 alloc   | 50.3 ns / 32 B / 1 alloc | n/a                           |
+
+Competitive benchmark (`competitor/bench_test.go`, one-parameter route, same machine):
+
+| Router                         | ns/op       | B/op  | allocs/op |
+|--------------------------------|-------------|-------|-----------|
+| **MuxMaster Pooled (Opt O13)** | **45**      | **0** | **0**     |
+| MuxMaster default              | 108         | 384   | 1         |
+| MuxMaster Fast                 | 50          | 32    | 1         |
+| httprouter                     | 56          | 64    | 1         |
+| Fiber v3 (fasthttp stack)      | 212         | 0     | 0         |
+| bunrouter (vendored fork)      | 183         | 192   | 3         |
+| chi v5                         | 354         | 304   | 4         |
+| gorilla/mux                    | 3 444 278   | n/a   | 156 015   |
+
+Note: the 49.6 ns figure above comes from `bench_test.go` (deep-audit harness); the 45 ns figure comes from `competitor/bench_test.go` (competitor harness, slightly different route set). Both are measured on the same machine with the same Go build.
+
 ## [v1.0.11] — 2026-05-11
 
 Operational PATCH on top of `v1.0.10`. Fixes a content-rendering defect introduced when the curator started authoring a leading YAML frontmatter block on every `/content/*.md` file (`---\ndatePublished: …\n---`): the HTML-rendering pipeline was not stripping the block before handing the source to goldmark, so CommonMark interpreted the two `---` lines as a thematic break and a setext-style H2, leaking the verbatim text `datePublished: 2026-05-08` into the rendered body and into the in-page TOC of every doc-family page (`/api`, `/changelog`, `/security`, `/compatibility`, `/contributing`, `/benchmarks`, every `/docs/<section>`, every `/examples/<name>`, and `/releases/v1.0.0`). The Markdown companion path (`<route>.md`) and the JSON-LD date resolver were already correct; only the HTML body was affected. No MuxMaster release is documented by this entry: MuxMaster remains at `v1.0.1` (released 2026-05-08).
@@ -322,6 +372,15 @@ First public release of the MuxMaster documentation website. The site documents 
 
 - **Release workflow.** A new GitHub Actions workflow at `.github/workflows/release.yml` is triggered by tags matching `v*.*.*`. The workflow re-runs the test suite, builds the Docker image with Buildx, publishes it to `ghcr.io/flaviocfoliveira/muxmaster-website` under the immutable `:v1.0.1` tag and the moving `:latest` tag, smoke-tests the resulting image's `--healthcheck`, and creates the corresponding GitHub Release with this changelog entry as the body.
 
+[v1.1.0]: https://github.com/FlavioCFOliveira/MuxMasterWebsite/compare/v1.0.11...v1.1.0
+[v1.0.11]: https://github.com/FlavioCFOliveira/MuxMasterWebsite/compare/v1.0.10...v1.0.11
+[v1.0.10]: https://github.com/FlavioCFOliveira/MuxMasterWebsite/compare/v1.0.9...v1.0.10
+[v1.0.9]: https://github.com/FlavioCFOliveira/MuxMasterWebsite/compare/v1.0.8...v1.0.9
+[v1.0.8]: https://github.com/FlavioCFOliveira/MuxMasterWebsite/compare/v1.0.7...v1.0.8
+[v1.0.7]: https://github.com/FlavioCFOliveira/MuxMasterWebsite/compare/v1.0.6...v1.0.7
+[v1.0.6]: https://github.com/FlavioCFOliveira/MuxMasterWebsite/compare/v1.0.5...v1.0.6
+[v1.0.5]: https://github.com/FlavioCFOliveira/MuxMasterWebsite/compare/v1.0.4...v1.0.5
+[v1.0.4]: https://github.com/FlavioCFOliveira/MuxMasterWebsite/compare/v1.0.3...v1.0.4
 [v1.0.3]: https://github.com/FlavioCFOliveira/MuxMasterWebsite/releases/tag/v1.0.3
 [v1.0.2]: https://github.com/FlavioCFOliveira/MuxMasterWebsite/releases/tag/v1.0.2
 [v1.0.1]: https://github.com/FlavioCFOliveira/MuxMasterWebsite/releases/tag/v1.0.1
