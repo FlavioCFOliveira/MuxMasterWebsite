@@ -1,5 +1,5 @@
 ---
-datePublished: 2026-05-08
+datePublished: 2026-05-12
 ---
 
 # Cache example
@@ -253,4 +253,4 @@ The single-item handler computes a weak ETag from the article's mutable fields (
 
 ## Upstream source
 
-Every code excerpt above is lifted verbatim from [`examples/cache/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/examples/cache/main.go) at the v1.0.1 tag. The upstream file also includes the in-process article store, the `decodeJSON` body-limit helper, and the smoke-test commands in the package comment — follow the link for the full program.
+Every code excerpt above is lifted verbatim from [`examples/cache/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/examples/cache/main.go) at the v1.1.0 tag. The upstream file also includes the in-process article store, the `decodeJSON` body-limit helper, and the smoke-test commands in the package comment — follow the link for the full program.

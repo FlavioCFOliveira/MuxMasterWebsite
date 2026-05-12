@@ -1,5 +1,5 @@
 ---
-datePublished: 2026-05-08
+datePublished: 2026-05-12
 ---
 
 # OAuth2 example
@@ -131,4 +131,4 @@ CDX-S8-001 invariant 1 — token introspection MUST run over TLS to prevent the 
 
 ## Upstream source
 
-Every code excerpt above is lifted verbatim from [`examples/oauth2/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/examples/oauth2/main.go) at the v1.0.1 tag. Follow that link for the complete file (imports, build tags, package comment).
+Every code excerpt above is lifted verbatim from [`examples/oauth2/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/examples/oauth2/main.go) at the v1.1.0 tag. Follow that link for the complete file (imports, build tags, package comment).

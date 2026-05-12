@@ -1,5 +1,5 @@
 ---
-datePublished: 2026-05-08
+datePublished: 2026-05-12
 ---
 
 # Static site example
@@ -228,4 +228,4 @@ Apply `Cache-Control: public, max-age=31536000, immutable` ONLY to URLs whose bo
 
 ## Upstream source
 
-Every code excerpt above is lifted verbatim from [`examples/static-site/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/examples/static-site/main.go) at the v1.0.1 tag. The upstream directory also contains the `static/` tree the example serves (the index, asset stylesheet, two versioned `docs/` subtrees, and the themed 404 page) and the `serveFile` / `serveNotFound` helpers.
+Every code excerpt above is lifted verbatim from [`examples/static-site/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/examples/static-site/main.go) at the v1.1.0 tag. The upstream directory also contains the `static/` tree the example serves (the index, asset stylesheet, two versioned `docs/` subtrees, and the themed 404 page) and the `serveFile` / `serveNotFound` helpers.

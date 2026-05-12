@@ -1,5 +1,5 @@
 ---
-datePublished: 2026-05-08
+datePublished: 2026-05-12
 ---
 
 # REST API example
@@ -314,4 +314,4 @@ Mount each version under its own prefix — `r.Group("/api/v1")` in this example
 
 ## Upstream source
 
-Every code excerpt above is lifted verbatim from [`examples/rest-api/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/examples/rest-api/main.go) at the v1.0.1 tag. The upstream file also contains the in-process `Store` (books, authors, reviews), every CRUD handler, the `buildLegacyMux` sub-handler, the FastHandler `metricsHandler` and `fastEcho`, and the `findBookByID` lookup helper — follow the link for the full program.
+Every code excerpt above is lifted verbatim from [`examples/rest-api/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/examples/rest-api/main.go) at the v1.1.0 tag. The upstream file also contains the in-process `Store` (books, authors, reviews), every CRUD handler, the `buildLegacyMux` sub-handler, the FastHandler `metricsHandler` and `fastEcho`, and the `findBookByID` lookup helper — follow the link for the full program.

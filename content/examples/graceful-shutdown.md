@@ -1,5 +1,5 @@
 ---
-datePublished: 2026-05-08
+datePublished: 2026-05-12
 ---
 
 # Graceful shutdown example
@@ -167,4 +167,4 @@ Read `req.Context()` and `select` on `ctx.Done()` alongside the work. The exampl
 
 ## Upstream source
 
-Every code excerpt above is lifted verbatim from [`examples/graceful-shutdown/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/examples/graceful-shutdown/main.go) at the v1.0.1 tag. Follow that link for the complete file, including the package comment, imports, and the run instructions.
+Every code excerpt above is lifted verbatim from [`examples/graceful-shutdown/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/examples/graceful-shutdown/main.go) at the v1.1.0 tag. Follow that link for the complete file, including the package comment, imports, and the run instructions.

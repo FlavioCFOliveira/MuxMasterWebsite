@@ -1,5 +1,5 @@
 ---
-datePublished: 2026-05-08
+datePublished: 2026-05-12
 ---
 
 # Server Side Render example
@@ -237,4 +237,4 @@ Pass the submitted values back to the template via `PageData.Form` (a `map[strin
 
 ## Upstream source
 
-Every code excerpt above is lifted verbatim from [`examples/server-side-render/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.0.1/examples/server-side-render/main.go) at the v1.0.1 tag. The upstream directory also contains the `templates/` (base, home, about, guestbook, 404) and `static/style.css` files the example embeds via `//go:embed`.
+Every code excerpt above is lifted verbatim from [`examples/server-side-render/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/examples/server-side-render/main.go) at the v1.1.0 tag. The upstream directory also contains the `templates/` (base, home, about, guestbook, 404) and `static/style.css` files the example embeds via `//go:embed`.
