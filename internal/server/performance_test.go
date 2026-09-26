@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -108,18 +110,6 @@ func TestStaticAssetsFromMemory(t *testing.T) {
 		t.Errorf("CSS revalidation: status %d, want 304", nm.Code)
 	}
 
-	png := get(t, h, "/static/img/og-image.png", map[string]string{"Accept-Encoding": "gzip"})
-	if png.Code != http.StatusOK || png.Header().Get("Content-Type") != "image/png" {
-		t.Fatalf("PNG: status %d, Content-Type %q", png.Code, png.Header().Get("Content-Type"))
-	}
-	if png.Header().Get("Cache-Control") != cacheControlStatic {
-		t.Errorf("PNG Cache-Control = %q, want %q", png.Header().Get("Cache-Control"), cacheControlStatic)
-	}
-	if png.Header().Get("Content-Encoding") != "" || png.Header().Get("Vary") != "" {
-		t.Errorf("PNG has no gzip body, yet Content-Encoding %q / Vary %q",
-			png.Header().Get("Content-Encoding"), png.Header().Get("Vary"))
-	}
-
 	head := httptest.NewRequest(http.MethodHead, css, nil)
 	headRec := httptest.NewRecorder()
 	h.ServeHTTP(headRec, head)
@@ -189,5 +179,63 @@ func TestAccessLogRouteID(t *testing.T) {
 		if *line.RouteID != c.routeID || line.Path != c.path {
 			t.Errorf("%s: logged path %q route_id %q, want path %q route_id %q", c.path, line.Path, *line.RouteID, c.path, c.routeID)
 		}
+	}
+}
+
+// TestLoadStaticAssetsByType checks the per-type decisions of
+// loadStaticAssets on a temporary directory, so it does not depend on the
+// generated images of `make assets` (CI runs only `make css`): a PNG gets no
+// gzip body and no Vary, a compressible file gets both, and only the hashed
+// CSS bundle is cached as immutable.
+func TestLoadStaticAssetsByType(t *testing.T) {
+	dir := t.TempDir()
+	css := bytes.Repeat([]byte("body{margin:0}\n"), 200)
+	png := []byte("\x89PNG\r\n\x1a\n not really a PNG, but served as image/png")
+	for name, body := range map[string][]byte{
+		"css/app.0123456789ab.css": css,
+		"img/logo.png":             png,
+	} {
+		p := filepath.Join(dir, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, body, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	assets, err := loadStaticAssets(dir, "/static/css/app.0123456789ab.css")
+	if err != nil {
+		t.Fatalf("loadStaticAssets: %v", err)
+	}
+	cases := []struct {
+		key, contentType, cacheControl string
+		gzip                           bool
+	}{
+		{"/css/app.0123456789ab.css", "text/css; charset=utf-8", cacheControlHashedAsset, true},
+		{"/img/logo.png", "image/png", cacheControlStatic, false},
+	}
+	for _, c := range cases {
+		resp, ok := assets.files[c.key]
+		if !ok {
+			t.Fatalf("%s not loaded", c.key)
+		}
+		req := httptest.NewRequest(http.MethodGet, "/static"+c.key, nil)
+		req.Header.Set("Accept-Encoding", "gzip")
+		rec := httptest.NewRecorder()
+		resp.Serve(rec, req)
+		if got := rec.Header().Get("Content-Type"); got != c.contentType {
+			t.Errorf("%s: Content-Type %q, want %q", c.key, got, c.contentType)
+		}
+		if got := rec.Header().Get("Cache-Control"); got != c.cacheControl {
+			t.Errorf("%s: Cache-Control %q, want %q", c.key, got, c.cacheControl)
+		}
+		gz := rec.Header().Get("Content-Encoding") == "gzip"
+		vary := rec.Header().Get("Vary") == "Accept-Encoding"
+		if gz != c.gzip || vary != c.gzip {
+			t.Errorf("%s: gzip %v, Vary %v; want both %v", c.key, gz, vary, c.gzip)
+		}
+	}
+	if _, ok := assets.files["/img"]; ok {
+		t.Error("a directory was loaded as a file")
 	}
 }
