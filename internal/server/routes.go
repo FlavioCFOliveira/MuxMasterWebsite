@@ -240,7 +240,7 @@ func (s *Server) registerRoutes(m *muxm.Mux) {
 
 	// Branded 404 served from the prerender cache. The serve helper applies
 	// status 404 and the Cache-Control: no-store header per spec.
-	m.NotFound = s.notFoundFromPrerender()
+	m.NotFound = s.notFoundHandler()
 }
 
 // staticCacheHandler serves files from staticDir, applying per-path

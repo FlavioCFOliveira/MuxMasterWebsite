@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/FlavioCFOliveira/MuxMasterWebsite/internal/meta"
 )
@@ -26,8 +27,14 @@ type Renderer struct {
 	tpl     *template.Template
 	cssPath string
 
-	mu          sync.RWMutex
-	prerendered map[string]Prerendered
+	// prerendered is published once by Prerender; readers load it without
+	// a lock.
+	prerendered atomic.Pointer[map[string]Prerendered]
+
+	// mu guards bindings, which is appended to during route registration
+	// and read once by Prerender.
+	mu       sync.Mutex
+	bindings []*binding
 }
 
 // New constructs a Renderer by parsing every .html file under templatesDir
@@ -59,9 +66,8 @@ func New(templatesDir, staticDir string) (*Renderer, error) {
 	}
 
 	return &Renderer{
-		tpl:         tpl,
-		cssPath:     cssPath,
-		prerendered: make(map[string]Prerendered),
+		tpl:     tpl,
+		cssPath: cssPath,
 	}, nil
 }
 

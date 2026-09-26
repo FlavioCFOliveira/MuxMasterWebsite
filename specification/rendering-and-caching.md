@@ -83,7 +83,7 @@ The `404` and `500` templates are pre-rendered to bytes in the same way and emit
 For every pre-rendered route, materialisation MUST produce two representations of the body, both held in memory:
 
 - the **identity representation**: the rendered bytes, uncompressed;
-- the **gzip representation**: the identity bytes compressed once, at materialisation time, with the Go standard library package `compress/gzip`.
+- the **gzip representation**: the identity bytes compressed once, at materialisation time, with the Go standard library package `compress/gzip`. It is kept only when it is smaller than the identity bytes; a route whose gzip bytes are not smaller has the identity representation only.
 
 ## Recompute trigger
 
@@ -131,7 +131,7 @@ For every pre-rendered route, materialisation MUST produce two representations o
 ## Compression
 
 - A request **accepts gzip** when its `Accept-Encoding` header contains a `gzip` token whose q-value is not `0`. Content-coding names are case-insensitive, and `x-gzip` is treated as `gzip` (RFC 9110 § 8.4.1.3). When no `gzip` or `x-gzip` token is present, a `*` token whose q-value is not `0` also accepts gzip (RFC 9110 § 12.5.3).
-- For a pre-rendered route, a request that accepts gzip MUST receive the stored gzip representation with `Content-Encoding: gzip`. Any other request MUST receive the stored identity representation, without a `Content-Encoding` header.
+- For a pre-rendered route that has a gzip representation, a request that accepts gzip MUST receive it with `Content-Encoding: gzip`. Any other request MUST receive the stored identity representation, without a `Content-Encoding` header.
 - Compression MUST NOT happen during request handling. Every compressed body is produced once at startup (see "Materialisation rule" and "Static assets").
 - The server MUST set `Vary: Accept-Encoding` on both representations of every pre-rendered route, including `304 Not Modified` responses, and on compressible responses in general.
 - The server MUST NOT emit `Content-Encoding: br`. Brotli would require an external dependency, and the server keeps zero external dependencies. Brotli, when wanted, is the responsibility of the reverse proxy (see `deployment.md` § Reverse-proxy expectations).

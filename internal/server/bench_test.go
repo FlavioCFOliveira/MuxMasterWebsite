@@ -37,6 +37,10 @@ func benchRequest(b *testing.B, path string, headers map[string]string) {
 	b.ResetTimer()
 	for b.Loop() {
 		w.reset()
+		// Restore the path on every iteration: a handler that rewrites
+		// r.URL.Path would otherwise turn every later iteration into a
+		// different request.
+		req.URL.Path = path
 		h.ServeHTTP(w, req)
 	}
 }

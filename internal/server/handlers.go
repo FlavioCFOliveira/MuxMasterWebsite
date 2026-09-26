@@ -2,8 +2,6 @@ package server
 
 import (
 	"net/http"
-
-	"github.com/FlavioCFOliveira/MuxMasterWebsite/internal/render"
 )
 
 // Cache-Control values per route family — taken verbatim from
@@ -19,43 +17,33 @@ const (
 	cacheControlNoStore   = "no-store"
 )
 
+// Header values for /healthz, built once. Response.Serve documents why a
+// shared []string with len == cap is safe to assign into every response.
+var (
+	healthzBody          = []byte("ok\n")
+	healthzContentType   = []string{"text/plain; charset=utf-8"}
+	healthzCacheControl  = []string{cacheControlNoStore}
+	healthzVary          = []string{"Accept-Encoding"}
+	healthzContentLength = []string{"3"}
+)
+
 // healthzHandler is the operational endpoint. Plain text, never cached.
 func (s *Server) healthzHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Header().Set("Cache-Control", cacheControlNoStore)
-		w.Header().Set("Vary", "Accept-Encoding")
+		h := w.Header()
+		h["Content-Type"] = healthzContentType
+		h["Cache-Control"] = healthzCacheControl
+		h["Vary"] = healthzVary
+		h["Content-Length"] = healthzContentLength
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok\n"))
+		_, _ = w.Write(healthzBody)
 	}
 }
 
-// notFoundFromPrerender returns the branded 404 handler. The body is read
-// from the prerender map at request time (registration order is route
-// registration first, prerender second); the handler overrides the status
-// code to 404 and Cache-Control to no-store per spec.
-func (s *Server) notFoundFromPrerender() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		pre, ok := s.renderer.Prerendered("/404")
-		if !ok {
-			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-			w.Header().Set("Cache-Control", cacheControlNoStore)
-			w.Header().Set("Vary", "Accept-Encoding")
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte("404 Not Found\n"))
-			return
-		}
-		w.Header().Set("ETag", pre.ETag)
-		w.Header().Set("Cache-Control", cacheControlNoStore)
-		w.Header().Set("Vary", "Accept-Encoding")
-		if render.MatchesIfNoneMatch(r, pre.ETag) {
-			w.WriteHeader(http.StatusNotModified)
-			return
-		}
-		w.Header().Set("Content-Type", pre.ContentType)
-		w.WriteHeader(http.StatusNotFound)
-		_, _ = w.Write(pre.Body)
-	}
+// notFoundHandler returns the branded 404: the pre-rendered /404 page with
+// status 404 and Cache-Control: no-store, per the spec.
+func (s *Server) notFoundHandler() http.HandlerFunc {
+	return s.renderer.ServePrerendered("/404", cacheControlNoStore, http.StatusNotFound)
 }
 
 // LandingDescription is the canonical landing-page description used by the
