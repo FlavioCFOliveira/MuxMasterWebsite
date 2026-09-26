@@ -177,10 +177,11 @@ func docRoutes() []route {
 }
 
 // getHead registers the same handler for both GET and HEAD on the path.
-// HEAD is required by HTTP semantics and by `curl -I` health probes; the
-// underlying http.ResponseWriter behaviour drops the body on HEAD.
+// getHead registers h for GET and HEAD on path, tagged with path as its
+// route_id. HEAD is required by HTTP semantics and by `curl -I` health
+// probes; net/http drops the body of a HEAD response.
 func getHead(m *muxm.Mux, path string, h http.HandlerFunc) {
-	m.Match([]string{http.MethodGet, http.MethodHead}, path, h)
+	m.Match([]string{http.MethodGet, http.MethodHead}, path, withRoute(path, h))
 }
 
 // registerRoutes attaches every site route to the supplied *mux.Mux.
@@ -233,9 +234,10 @@ func (s *Server) registerRoutes(m *muxm.Mux) {
 	// the *filepath parameter over as an argument and, with
 	// Mux.PoolFastParams, recycles it after the call.
 	notFound := s.notFoundHandler()
-	staticHandler := s.static.handler(notFound)
-	m.GETFast("/static/*filepath", staticHandler)
-	m.HEADFast("/static/*filepath", staticHandler)
+	const staticPattern = "/static/*filepath"
+	staticHandler := withRouteFast(staticPattern, s.static.handler(notFound))
+	m.GETFast(staticPattern, staticHandler)
+	m.HEADFast(staticPattern, staticHandler)
 
 	// Branded 404 served from the prerender cache, with status 404 and
 	// Cache-Control: no-store per spec.

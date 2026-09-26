@@ -3,7 +3,9 @@ package server
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -142,5 +144,50 @@ func TestStaticHandlerKeepsRequestPath(t *testing.T) {
 	srv.httpServer.Handler.ServeHTTP(httptest.NewRecorder(), req)
 	if req.URL.Path != css {
 		t.Errorf("request path rewritten to %q, want %q", req.URL.Path, css)
+	}
+}
+
+// TestAccessLogRouteID checks the route_id field of the access log: the
+// registered pattern for a matched route, including the FastHandler static
+// route, and the empty string when no route matched.
+func TestAccessLogRouteID(t *testing.T) {
+	base := newTestServer(t)
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	srv, err := New(base.cfg, logger, base.loader, base.version, "../../templates", "../../static")
+	if err != nil {
+		t.Fatalf("server.New: %v", err)
+	}
+	if err := srv.Prerender(); err != nil {
+		t.Fatalf("Prerender: %v", err)
+	}
+	css := srv.renderer.CSSPath()
+	cases := []struct{ path, routeID string }{
+		{"/docs/routing", "/docs/routing"},
+		{"/docs/routing.md", "/docs/routing.md"},
+		{"/healthz", "/healthz"},
+		{css, "/static/*filepath"},
+		{"/no-such-page", ""},
+	}
+	for _, c := range cases {
+		buf.Reset()
+		get(t, srv.httpServer.Handler, c.path, nil)
+		var line struct {
+			Msg     string  `json:"msg"`
+			Path    string  `json:"path"`
+			RouteID *string `json:"route_id"`
+		}
+		for _, l := range bytes.Split(bytes.TrimSpace(buf.Bytes()), []byte("\n")) {
+			if err := json.Unmarshal(l, &line); err == nil && line.Msg == "request" {
+				break
+			}
+		}
+		if line.RouteID == nil {
+			t.Errorf("%s: no access-log line with a route_id field in %q", c.path, buf.String())
+			continue
+		}
+		if *line.RouteID != c.routeID || line.Path != c.path {
+			t.Errorf("%s: logged path %q route_id %q, want path %q route_id %q", c.path, line.Path, *line.RouteID, c.path, c.routeID)
+		}
 	}
 }

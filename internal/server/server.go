@@ -66,10 +66,14 @@ func New(cfg *config.Config, logger *slog.Logger, loader *content.Loader, versio
 	// Case-insensitive matching is OFF: case is part of the canonical URL
 	// contract (specification/url-and-versioning.md).
 	m.CaseInsensitive = false
-	// Recycle the Params slice handed to FastHandler routes
-	// (/static/*filepath). Safe because no handler retains Params past
-	// return; see the lifetime contract in
-	// specification/rendering-and-caching.md "Router configuration".
+	// MuxMaster's two pooling opt-ins (specification/rendering-and-caching.md
+	// "Router configuration"). PoolRequestBundle recycles the request copy
+	// that parameterised Handle routes receive; PoolFastParams recycles the
+	// Params slice handed to FastHandler routes (/static/*filepath). Both
+	// are safe because no handler or middleware retains the request, its
+	// context, its body, or Params past return, and none spawns a goroutine
+	// that reads them (the lifetime contract).
+	m.PoolRequestBundle = true
 	m.PoolFastParams = true
 
 	// Pre-routing middleware. Order matters: Recoverer outermost, then

@@ -1,6 +1,8 @@
 package server
 
 import (
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -22,11 +24,29 @@ func (d *discardWriter) WriteHeader(int)             {}
 // empty response without allocating a new map.
 func (d *discardWriter) reset() { clear(d.h) }
 
+// newBenchServer builds the test server with the production logger
+// configuration of cmd/muxmaster-website: JSON at level Info. The access log
+// line is therefore encoded on every iteration, exactly as in production;
+// only its destination differs (io.Discard instead of stdout).
+func newBenchServer(b *testing.B) *Server {
+	b.Helper()
+	srv := newTestServer(b)
+	logger := slog.New(slog.NewJSONHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	prod, err := New(srv.cfg, logger, srv.loader, srv.version, "../../templates", "../../static")
+	if err != nil {
+		b.Fatalf("server.New: %v", err)
+	}
+	if err := prod.Prerender(); err != nil {
+		b.Fatalf("Prerender: %v", err)
+	}
+	return prod
+}
+
 // benchRequest drives one pre-built request through the complete server
 // handler b.N times. Run with `make bench`.
 func benchRequest(b *testing.B, path string, headers map[string]string) {
 	b.Helper()
-	srv := newTestServer(b)
+	srv := newBenchServer(b)
 	h := srv.httpServer.Handler
 	req := httptest.NewRequest(http.MethodGet, path, nil)
 	for k, v := range headers {
