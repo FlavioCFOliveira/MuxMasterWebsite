@@ -16,11 +16,11 @@ MuxMaster is a high-performance, zero-dependency HTTP router for Go (radix tree,
 
 **Name:** muxmasterwebsite
 
-All technical roadmap work for this project (sprints, tasks, backlog, audit) lives in the `muxmasterwebsite` roadmap, managed via the `rmp` (Groadmap) CLI. Use the `roadmap-manager` skill for any roadmap operation.
+All technical roadmap work for this project (sprints, tasks, backlog, audit) lives in the `muxmasterwebsite` roadmap, managed via the `rmp` (Groadmap) CLI. Use the `roadmap-manager` skill for every roadmap operation and every `rmp` command, except `rmp graph *` (see **Working policies → Skills**).
 
 ## Default Ignorance Principle
 
-**This is the founding rule of how you operate in this repository. Every other rule in this file — Collaboration rules, Workflow, the non-negotiable constraints, agent boundaries — derives from it. When any other rule is silent, this one applies. When any other rule conflicts with this one, this one wins.**
+**This is the founding rule of how you operate in this repository. Every other rule in this file — Collaboration rules, Workflow, the non-negotiable constraints, agent boundaries — derives from it. When any other rule is silent, this one applies. When any other rule conflicts with this one, this one wins — with one exception: the **Working policies** section prevails unconditionally over every other rule in this file, including this one.**
 
 **By default, you know nothing.** The only information you are allowed to treat as true is what is explicitly written in the project specification at `/specification/` (the canonical source of truth, managed by the `specification-manager` agent). Anything not in the specification is, by default, **unknown** — regardless of what your training data, intuition, the surrounding code, prior conversations, your memory store, or your general knowledge of the topic might suggest. Unknown does not mean "guess sensibly"; it means "do not assume — ask".
 
@@ -59,6 +59,53 @@ Only after the relevant persistence step is complete may you resume the actual t
 
 The mechanics for asking the user are defined in the **Default Ignorance Principle** above. In short: stop on any doubt, gather every reasonable option with a clear recommendation, ask one question at a time. **You are not authorized to make decisions on your own** — these rules govern *how* you work and apply to every task, regardless of size or apparent obviousness.
 
+## Working policies
+
+These policies prevail unconditionally over every other rule in this file. Where any other rule appears to conflict with them, apply these policies.
+
+### Synergy policy
+- Whenever tasks (in `rmp` or requested ad hoc by the user) show verifiable functional or technical proximity, **combine them into a single development effort**.
+- Apply the same principle inside tasks: write all the code for all related tasks in one pass, then test all changes in one pass, instead of writing and testing small pieces in isolation.
+- Handle documentation the same way: write it all in one pass or, when the scope is too large, in a small number of cohesive blocks.
+- Apply this principle to all work. **Reach every objective with the fewest possible tasks and iterations.**
+
+### Convergence policy
+- Always look for convergence between the individual objectives of tasks and turn it into synergy. Where tasks have complementary objectives or functional or technical proximity, **always** optimise the effort to maximise that synergy.
+- Write all the code at once, write all the documentation at once, and run the tests for all changed code at once.
+- Aggregate only tasks of the same kind whose aggregation shortens delivery **without lowering quality**. Synergy and convergence must deliver better work than task-by-task development, never worse.
+- Maximise the internal resources available so that delivery is faster and cheaper for the user.
+- This is the default way of working; the user must **not** need to ask for it. Motto: **"Maximise the return on effort: deliver the most with the least work."**
+- These two policies are a standing working method. Never create an `rmp` task for them.
+
+### Subagents
+- **Delegate the execution of all work** in this project to the subagent best specialised in the task's objectives. Always choose the most suitable subagent.
+- Run **at most one subagent** in parallel with the main conversation. Never run two or more subagents at the same time.
+- Use as many subagents as the objective requires, but **in series**, never in parallel.
+- If the user explicitly authorises more than one parallel subagent, that authorisation is an exception scoped to the current task and is revoked when the task ends.
+
+### Language used
+Write and interpret every instruction, request, and piece of text so that it is:
+- **Explicit** — the intent is clear.
+- **Objective** — what must be executed is always known.
+- **Closed** — the scope of the work is bounded.
+- **Concise** — few words describe what is required.
+
+**Written language:** all documentation — from the main README to the specification, including code documentation and comments — must be written in flawless, professional English with no spelling, grammar, or syntax errors, and must follow the four properties above.
+
+### Initiative and proactivity
+- Act strictly towards the objective of the current work. **Never start a task that was not explicitly requested.**
+- When you identify a need outside the scope of the current task, ask the user how to proceed. Never start that work proactively.
+
+### Completeness
+- Never execute work partially. Every task you start must be carried out in full. **Never leave a task half-done or partially complete.**
+- Stopping to ask a clarification question (per the **Default Ignorance Principle**) is not leaving a task incomplete; resume and finish the task once the answer is received and persisted.
+
+### Skills
+Use these skills for the following needs:
+- **`gitflow`** — execute every git write command through the `gitflow` skill, following gitflow branching best practices for this repository.
+- **`roadmap-manager`** — coordinate and manage tasks, sprints, and comments, and run every `rmp *` command, **except** `rmp graph *`.
+- **`knowledge-authority`** — the sole manager of the project's knowledge graph (`rmp graph *`).
+
 ## Workflow
 
 Every non-trivial change must follow this fixed order:
@@ -68,7 +115,7 @@ Every non-trivial change must follow this fixed order:
 3. **Test** — verify that the implemented behaviour matches the specification with appropriate automated tests (unit, integration, end-to-end, accessibility, Lighthouse / Core Web Vitals, structured-data validation, link checks, etc., as applicable to the change). "Looks right" is not acceptance.
 4. **Document** — update every affected piece of documentation (site pages, `llms.txt`, `llms-full.txt`, markdown companions, JSON-LD, README, CHANGELOG, agent prompts, this CLAUDE.md when applicable) so it reflects the code as actually shipped. Documentation lagging behind code is treated as a defect, not a follow-up.
 
-Skipping, reordering, or merging steps is not permitted. If a step appears unnecessary for a given change, stop and ask before proceeding.
+Skipping or reordering steps is not permitted. Per the **Synergy** and **Convergence** policies, a single step may cover several related tasks at once (for example, implement all related tasks in one pass, then test all of them in one pass), provided the order Specify → Implement → Test → Document is preserved. If a step appears unnecessary for a given change, stop and ask before proceeding.
 
 ## Stack
 
@@ -83,7 +130,7 @@ When adding routing/middleware code, mirror MuxMaster's idioms (`mux.Group`, `Us
 These are hard requirements that override convenience and must be considered for **every** change:
 
 ### 0. Documentation content — language, tone, integrity
-- **Language:** all project documentation — every user-facing page, page copy, code comment shown to readers, alt text, meta description, JSON-LD string, `llms.txt`/`llms-full.txt` content, README, CHANGELOG, release notes, and any other artifact a reader may encounter — **must always be written in English**, in the most exemplary English achievable, with **zero spelling, grammar, syntax, or punctuation errors**. Run a spell/grammar check before shipping; treat any error found post-merge as a defect.
+- **Language:** all project documentation — the specification, code documentation and comments, every user-facing page, page copy, code comment shown to readers, alt text, meta description, JSON-LD string, `llms.txt`/`llms-full.txt` content, README, CHANGELOG, release notes, and any other artifact a reader may encounter — **must always be written in English**, in the most exemplary English achievable, with **zero spelling, grammar, syntax, or punctuation errors**. Run a spell/grammar check before shipping; treat any error found post-merge as a defect.
 - **Audience & register:** documentation is written for a **human technical audience** (developers reading the docs to learn, evaluate, or integrate MuxMaster). Use **clear, simple, unambiguous technical language**. Define terms before using them. Prefer plain words over jargon when the plain word is equally precise; use jargon only when it carries information the plain word does not.
 - **Tone:** technical, didactic, simple, objective. Lead with the fact or instruction; explain mechanism after the claim. No marketing fluff, no hype adjectives ("blazing fast", "revolutionary"), no hedging ("maybe", "kind of"). Prefer short sentences and concrete nouns over abstractions.
 - **Faithful to code:** documentation must describe the code **exactly as it is implemented today** — not as planned, intended, hoped for, or remembered from a previous version. Before publishing or updating any factual claim (API signature, default value, behaviour, benchmark, supported Go version, configuration option), verify it against the actual source in `../MuxMaster` (or this repository, as applicable). If the code and the docs disagree, the code is correct by definition: update the docs, never the other way around. If the code is wrong, fix the code first, then document the fixed behaviour.
@@ -127,7 +174,7 @@ The site must also be optimized for ingestion by LLMs / AI answer engines (ChatG
 
 This project ships dedicated subagents under `.claude/agents/`. Treat them as gatekeepers, not optional helpers. The four agents are peers and may all need to review the same change; each issues `APPROVED` / `APPROVED WITH CHANGES` / `REJECTED` verdicts, and blocking fixes from any agent must be applied before merge.
 
-The first three agents are technical-surface specialists and may be invoked in any order (often in parallel). The fourth agent (`ux-specialist`) is the **final holistic gate** and must be invoked **last**, after the other three have completed their reviews and any blocking fixes have been applied — its job is to read the post-fix state of the change as an integrated user experience.
+The first three agents are technical-surface specialists and may be invoked in any order, **one at a time, in series** (see **Working policies → Subagents**). The fourth agent (`ux-specialist`) is the **final holistic gate** and must be invoked **last**, after the other three have completed their reviews and any blocking fixes have been applied — its job is to read the post-fix state of the change as an integrated user experience.
 
 - **`seo-specialist`** — Traditional SEO + Core Web Vitals + web-standards + accessibility (WCAG 2.2 AA). Owns: `<head>` metadata, canonical/OG/Twitter, `sitemap.xml`, search-engine portion of `robots.txt`, JSON-LD for rich results (`TechArticle`, `BreadcrumbList`, `SoftwareSourceCode`, `Organization`), HTTP semantics (status, redirects, caching, compression), security headers, image/font/asset performance.
 - **`geo-specialist`** — Generative Engine Optimization. Owns: `llms.txt`, `llms-full.txt`, markdown companion representations (`Accept: text/markdown` and/or `<path>.md`), AI-crawler portion of `robots.txt` (`GPTBot`, `ClaudeBot`/`anthropic-ai`, `PerplexityBot`, `Google-Extended`, `Applebot-Extended`, `CCBot`, etc.), content shape (definition-first sentences, self-contained paragraphs, statistics, quotations, inline citations), comparison tables, `FAQPage` and `HowTo` JSON-LD.
@@ -143,7 +190,7 @@ The first three agents are technical-surface specialists and may be invoked in a
 - Microcopy / labels / button-and-link text — `ux-specialist` primary, `geo-specialist` concurs on tone, `seo-specialist` concurs on anchor-text descriptiveness.
 - Information architecture and URL structure — `ux-specialist` primary, `seo-specialist` verifies canonical/sitemap/redirect alignment.
 
-Invoke via natural language ("have the seo-specialist review …", "ask the tailwind-specialist to audit …", "have the ux-specialist run the final gate …") or `@seo-specialist` / `@geo-specialist` / `@tailwind-specialist` / `@ux-specialist`. When in doubt about which agent applies, invoke every relevant one — the cost of an extra review is trivial compared to shipping a regression in search visibility, AI citation rate, web-standards compliance, visual/responsive quality, or end-to-end usability.
+Invoke via natural language ("have the seo-specialist review …", "ask the tailwind-specialist to audit …", "have the ux-specialist run the final gate …") or `@seo-specialist` / `@geo-specialist` / `@tailwind-specialist` / `@ux-specialist`. When in doubt about which agent applies, invoke every relevant one, in series — the cost of an extra review is trivial compared to shipping a regression in search visibility, AI citation rate, web-standards compliance, visual/responsive quality, or end-to-end usability.
 
 ## When in doubt
 
