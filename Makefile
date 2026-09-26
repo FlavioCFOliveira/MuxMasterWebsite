@@ -23,7 +23,7 @@ CSS_DIR := static/css
 GO_LDFLAGS := -s -w -X main.buildID=$(shell date -u +%Y%m%dT%H%M%SZ)
 GO_FLAGS   := -trimpath -ldflags='$(GO_LDFLAGS)'
 
-.PHONY: all build run dev test vet lint tidy css css-watch tailwind-install logo assets static-perms docker-build clean
+.PHONY: all build run dev test bench vet lint tidy css css-watch tailwind-install logo assets static-perms docker-build clean
 
 # Normalise filesystem permissions across the entire static/ tree: every
 # directory becomes 0755 and every file becomes 0644. Invoked as the
@@ -121,6 +121,12 @@ dev: css
 
 test:
 	@go test -race ./...
+
+# Request-path benchmarks: the full handler chain (Pre middleware, router,
+# handler) for each route family, in-process. Numbers quoted on
+# /built-with-muxmaster come from this target.
+bench:
+	@go test ./internal/server -run '^$$' -bench . -benchmem -count=6
 
 vet:
 	@go vet ./...

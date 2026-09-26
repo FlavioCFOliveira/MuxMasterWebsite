@@ -751,7 +751,7 @@ func TestDocPageH3InTOC(t *testing.T) {
 // newTestServer constructs a Server backed by an in-memory content tree and
 // runs Prerender. It does NOT bind a real socket — callers wrap
 // srv.httpServer.Handler in httptest.
-func newTestServer(t *testing.T) *Server {
+func newTestServer(t testing.TB) *Server {
 	t.Helper()
 	loader := buildFixtureLoader(t)
 
@@ -777,7 +777,7 @@ func newTestServer(t *testing.T) *Server {
 // required path under specification/content-sources.md "Required files".
 // Bodies are minimal but include enough Markdown shape to exercise the
 // markdown engine's table, code-fence, and heading-anchor pathways.
-func buildFixtureLoader(t *testing.T) *content.Loader {
+func buildFixtureLoader(t testing.TB) *content.Loader {
 	t.Helper()
 
 	files := map[string]string{
