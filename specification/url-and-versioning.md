@@ -2,7 +2,7 @@
 title: URLs and versioning
 purpose: Define URL conventions, redirects, reserved paths, and the version-label rule.
 owners: ux-specialist (URL shape); seo-specialist (canonical and redirect alignment).
-last-updated: 2026-05-08
+last-updated: 2026-09-26
 status: ratified
 ---
 
@@ -17,6 +17,11 @@ status: ratified
 - No fragments are required for navigation; fragments (`#section-id`) are used only for in-page anchors and MUST be safe to share.
 - Index URLs end with a trailing slash: `/`, `/docs/`, `/examples/`.
 - Leaf URLs do not end with a trailing slash: `/docs/routing`, `/api`, `/benchmarks`.
+
+## Routes added for MuxMaster v1.3.0
+
+- **URL-QUERY-1.** The HTTP QUERY method page MUST be served at `/docs/http-query-method` (HTML) and `/docs/http-query-method.md` (Markdown companion). Its placement and content are defined in `information-architecture.md` § HTTP QUERY method page.
+- **URL-REL-1.** Release notes MUST be served at `/releases/v<MAJOR>.<MINOR>.<PATCH>`, each with a `.md` companion. The site MUST serve `/releases/v1.2.0` and `/releases/v1.3.0`, from the sources defined in `content-sources.md` CS-REL-1, in addition to the existing `/releases/v1.0.0` and `/releases/v1.1.0`.
 
 ## Redirects
 
@@ -50,10 +55,10 @@ The following paths are reserved by the site and MUST NOT collide with documenta
 ## Version label rule
 
 - The site reads the latest released version from `/content/changelog.md` at server startup. The `content-curator` agent commits this file mirrored from `../MuxMaster/CHANGELOG.md` during a sync (see `content-sources.md`).
-- Detection rule: the **first** Markdown heading of the form `## v<MAJOR>.<MINOR>.<PATCH>` (no pre-release suffix such as `-rc1`, `-beta`, `-alpha`) at the top of the changelog file.
+- Detection rule: the **first** Markdown heading of the form `## v<MAJOR>.<MINOR>.<PATCH>` or `## [<MAJOR>.<MINOR>.<PATCH>]` (the Keep a Changelog form upstream uses, for example `## [1.3.0] - 2026-09-26`), with no pre-release suffix such as `-rc1`, `-beta`, `-alpha`, at the top of the changelog file. The label is rendered with a leading `v`.
 - The version label is rendered as plain text in the header next to the navigation and in the footer.
 - A restart is required for the label to roll forward.
-- The current value as of 2026-05-08 is **v1.0.1**.
+- **URL-VER-1.** After the v1.3.0 content sync, the label MUST read **v1.3.0**. The same value MUST appear wherever the site states the documented MuxMaster version (page chrome, `SoftwareSourceCode.version`, `APIReference.assemblyVersion`, `/llms.txt`, `/llms-full.txt`), and every statement of the minimum Go version MUST read **Go 1.27.1** (from upstream `go.mod` at `v1.3.0`).
 
 ## URL versioning policy
 
@@ -64,7 +69,8 @@ The following paths are reserved by the site and MUST NOT collide with documenta
 ## External links
 
 - Links to the upstream repository, GitHub releases, or third-party sites MUST open in a new browsing context (`target="_blank"`) and MUST set `rel="noopener"`. They MUST NOT use `rel="noreferrer"` unless privacy considerations require it on a specific link.
-- Links to upstream files (for example, "view this example on GitHub") MUST point to the `main` branch on `github.com/FlavioCFOliveira/MuxMaster`.
+- **URL-EXT-1.** A link that cites the source of a fact tied to a release — a benchmark figure, a quoted code excerpt, an example's `## Upstream source`, a `## Sources` entry, release notes, or a `Dataset.distribution` URL — MUST point at the release tag (for example `https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/README.md`), because a tag does not move and the cited content stays verifiable. A link into this repository's campaign archive MUST point at the full commit SHA that contains it.
+- **URL-EXT-2.** Any other link to upstream files (for example, a general "view the repository on GitHub" link) MUST point to the `main` branch on `github.com/FlavioCFOliveira/MuxMaster`.
 
 ## Trailing-slash and case enforcement
 

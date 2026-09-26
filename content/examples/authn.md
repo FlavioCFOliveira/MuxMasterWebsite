@@ -1,10 +1,11 @@
 ---
 datePublished: 2026-05-12
+dateModified: 2026-09-26
 ---
 
 # Authn example
 
-Two authentication strategies on the same router: HTTP Basic Auth (paired with `ThrottlePerIP` to defend against credential-stuffing per `SECURITY.md` MM-2026-0027) and an API-key middleware that hashes its keys with SHA-256 at construction time so per-request cost is one hash plus a `[32]byte` map lookup. Reach for this example when a service needs simple username-and-password or shared-key protection without a full session layer.
+Two authentication strategies on the same router: HTTP Basic Auth (paired with `ThrottlePerIP` to defend against credential stuffing, as the [Security](/security#basicauth-brute-force) page recommends) and an API-key middleware that hashes its keys with SHA-256 at construction time so per-request cost is one hash plus a `[32]byte` map lookup. Reach for this example when a service needs simple username-and-password or shared-key protection without a full session layer.
 
 ## Step 1 — Construct the router with global middleware
 
@@ -12,13 +13,15 @@ Two authentication strategies on the same router: HTTP Basic Auth (paired with `
 
 ```go
 r := mm.New()
-
+// …
 r.Use(
-    mw.RequestID(),
-    mw.Logger(os.Stdout),
-    mw.RecovererWithLogger(log),
+	mw.RequestID(),
+	mw.Logger(os.Stdout),
+	mw.RecovererWithLogger(log),
 )
 ```
+
+The elided lines register the public `/health` route of Step 3. Since v1.2.0 the upstream example registers its `/health` fast route between `mm.New()` and `Use` (the elided lines): MuxMaster panics when a `HandleFast` route is registered after `Use` middleware, because `Use` middleware never wraps fast routes and the panic prevents a fast route from silently bypassing it.
 
 The trace id `RequestID` injects becomes available to every handler via `mw.GetRequestID(r.Context())` and surfaces in the JSON responses below — useful for end-to-end correlation between client logs and server logs.
 
@@ -28,18 +31,18 @@ The default handlers write plain text. An API consumer expects JSON, so the exam
 
 ```go
 r.NotFound = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-    _ = mm.JSON(w, http.StatusNotFound, errMsg("not found"))
+	_ = mm.JSON(w, http.StatusNotFound, errMsg("not found"))
 })
 r.MethodNotAllowed = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-    _ = mm.JSON(w, http.StatusMethodNotAllowed, errMsg("method not allowed"))
+	_ = mm.JSON(w, http.StatusMethodNotAllowed, errMsg("method not allowed"))
 })
 r.ErrorHandler = func(w http.ResponseWriter, _ *http.Request, err error) {
-    code := http.StatusInternalServerError
-    var he mm.HTTPError
-    if errors.As(err, &he) {
-        code = he.StatusCode()
-    }
-    _ = mm.JSON(w, code, errMsg(err.Error()))
+	code := http.StatusInternalServerError
+	var he mm.HTTPError
+	if errors.As(err, &he) {
+		code = he.StatusCode()
+	}
+	_ = mm.JSON(w, code, errMsg(err.Error()))
 }
 ```
 
@@ -51,18 +54,18 @@ r.ErrorHandler = func(w http.ResponseWriter, _ *http.Request, err error) {
 
 ```go
 r.GETFast("/health", func(w http.ResponseWriter, _ *http.Request, _ mm.Params) {
-    w.Header().Set("Content-Type", "application/json")
-    _, _ = io.WriteString(w, `{"status":"ok"}`)
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = io.WriteString(w, `{"status":"ok"}`)
 })
-
+// …
 r.GET("/", func(w http.ResponseWriter, _ *http.Request) {
-    _ = mm.JSON(w, http.StatusOK, map[string]string{
-        "hint": "try GET /admin/dashboard (Basic Auth) or GET /api/profile (X-API-Key)",
-    })
+	_ = mm.JSON(w, http.StatusOK, map[string]string{
+		"hint": "try GET /admin/dashboard (Basic Auth) or GET /api/profile (X-API-Key)",
+	})
 })
 ```
 
-`FastHandler` and `http.HandlerFunc` coexist on the same router; the choice is per-route.
+`FastHandler` and `http.HandlerFunc` coexist on the same router; the choice is per-route. The `// …` marks the lines between the two registrations, including the `Use` call of Step 1: `/health` is registered before `Use`, and `/` after it.
 
 ## Step 4 — Protect `/admin` with Basic Auth + per-IP throttle
 
@@ -71,11 +74,11 @@ r.GET("/", func(w http.ResponseWriter, _ *http.Request) {
 ```go
 admin := r.Group("/admin")
 admin.Use(
-    mw.ThrottlePerIP(10, 5*time.Second, nil),
-    mw.BasicAuth("Admin Area", map[string]string{
-        "admin":  "s3cr3t",
-        "viewer": "readonly",
-    }),
+	mw.ThrottlePerIP(10, 5*time.Second, nil),
+	mw.BasicAuth("Admin Area", map[string]string{
+		"admin":  "s3cr3t",
+		"viewer": "readonly",
+	}),
 )
 ```
 
@@ -87,19 +90,20 @@ The dashboard handler returns a JSON body and includes the request id; the user-
 
 ```go
 admin.GET("/dashboard", func(w http.ResponseWriter, r *http.Request) {
-    _ = mm.JSON(w, http.StatusOK, map[string]any{
-        "page":     "dashboard",
-        "trace_id": mw.GetRequestID(r.Context()),
-    })
+	_ = mm.JSON(w, http.StatusOK, map[string]any{
+		"page":     "dashboard",
+		"trace_id": mw.GetRequestID(r.Context()),
+	})
 })
 
+// DELETEE: error-returning handler — delegates error formatting to ErrorHandler.
 admin.DELETEE("/users/:id", func(w http.ResponseWriter, r *http.Request) error {
-    id := mm.PathParam(r, "id")
-    if id == "0" {
-        return mm.Error(http.StatusNotFound, fmt.Errorf("user %q not found", id))
-    }
-    mm.NoContent(w)
-    return nil
+	id := mm.PathParam(r, "id")
+	if id == "0" {
+		return mm.Error(http.StatusNotFound, fmt.Errorf("user %q not found", id))
+	}
+	mm.NoContent(w)
+	return nil
 })
 ```
 
@@ -112,8 +116,8 @@ The `ErrorHandler` from Step 2 turns the returned error into a JSON 404 — no b
 ```go
 api := r.Group("/api")
 api.Use(mw.APIKey(mw.APIKeyOptions{
-    Keys: apiKeys,
-    // Header defaults to "X-API-Key"; override here if you need a different one.
+	Keys: apiKeys,
+	// Header defaults to "X-API-Key"; override here if you need a different one.
 }))
 ```
 
@@ -125,19 +129,19 @@ Inside the protected group the handlers retrieve the matched identity with `mw.G
 
 ```go
 api.GET("/profile", func(w http.ResponseWriter, r *http.Request) {
-    owner, _ := mw.GetAPIKeyIdentity(r.Context())
-    _ = mm.JSON(w, http.StatusOK, map[string]string{
-        "owner":    owner,
-        "trace_id": mw.GetRequestID(r.Context()),
-    })
+	owner, _ := mw.GetAPIKeyIdentity(r.Context())
+	_ = mm.JSON(w, http.StatusOK, map[string]string{
+		"owner":    owner,
+		"trace_id": mw.GetRequestID(r.Context()),
+	})
 })
 
 api.GETE("/items/:id", func(w http.ResponseWriter, r *http.Request) error {
-    id := mm.PathParam(r, "id")
-    if id == "0" {
-        return mm.Error(http.StatusNotFound, fmt.Errorf("item %q not found", id))
-    }
-    return mm.JSON(w, http.StatusOK, map[string]string{"id": id, "name": "Widget " + id})
+	id := mm.PathParam(r, "id")
+	if id == "0" {
+		return mm.Error(http.StatusNotFound, fmt.Errorf("item %q not found", id))
+	}
+	return mm.JSON(w, http.StatusOK, map[string]string{"id": id, "name": "Widget " + id})
 })
 ```
 
@@ -149,13 +153,13 @@ The same timeout set as the other examples — `ReadHeaderTimeout`, `ReadTimeout
 
 ```go
 srv := &http.Server{
-    Addr:              ":8080",
-    Handler:           r,
-    ReadHeaderTimeout: 30 * time.Second,
-    ReadTimeout:       60 * time.Second,
-    WriteTimeout:      60 * time.Second,
-    IdleTimeout:       120 * time.Second,
-    MaxHeaderBytes:    1 << 20, // 1 MiB
+	Addr:              ":8080",
+	Handler:           r,
+	ReadHeaderTimeout: 30 * time.Second,
+	ReadTimeout:       60 * time.Second,
+	WriteTimeout:      60 * time.Second,
+	IdleTimeout:       120 * time.Second,
+	MaxHeaderBytes:    1 << 20, // 1 MiB
 }
 ```
 
@@ -181,4 +185,6 @@ Mount the protected routes under a `Group` and call `g.Use(mw.BasicAuth("realm",
 
 ## Upstream source
 
-Every code excerpt above is lifted verbatim from [`examples/authn/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/examples/authn/main.go) at the v1.1.0 tag. The upstream file also includes the in-process API-key map, the `errMsg` helper, and the goroutine-driven server start with `Shutdown(ctx)` drain — follow the link for the full program.
+Every code excerpt above is lifted verbatim from [`examples/authn/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/examples/authn/main.go) at the v1.3.0 tag. The upstream file also includes the in-process API-key map, the `errMsg` helper, and the goroutine-driven server start with `Shutdown(ctx)` drain — follow the link for the full program.
+
+Source: <https://github.com/FlavioCFOliveira/MuxMaster/tree/v1.3.0/examples/authn>

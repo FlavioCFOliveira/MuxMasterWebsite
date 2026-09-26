@@ -1,0 +1,23 @@
+goos: linux
+goarch: amd64
+pkg: github.com/FlavioCFOliveira/MuxMaster/middleware
+cpu: AMD Ryzen 9 5900HX with Radeon Graphics        
+BenchmarkOAuth2CacheSetAtSaturation-16     	  367946	      3198 ns/op	     288 B/op	       2 allocs/op
+BenchmarkThrottlePerIP/sequential-one-client-16         	10360768	       115.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkThrottlePerIP/many-clients-no-overlap-16       	 9893499	       121.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLogger-16                                      	  210613	      5668 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRecoverer_NoPanic-16                           	59444210	        20.97 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRecovererWithLogger_NoPanic-16                 	60190137	        20.61 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCompress/small-600B-16                         	 3765213	       318.4 ns/op	      32 B/op	       2 allocs/op
+BenchmarkCompress/chunked-12KiB-16                      	  151969	      7865 ns/op	      58 B/op	       3 allocs/op
+BenchmarkRealIP/1-hop-16                                	 7168315	       165.8 ns/op	      16 B/op	       1 allocs/op
+BenchmarkRealIP/3-hops-16                               	 5934751	       201.2 ns/op	      16 B/op	       1 allocs/op
+BenchmarkAPIKeyHit-16                                   	 2672966	       449.4 ns/op	     416 B/op	       6 allocs/op
+BenchmarkBasicAuth/1-users/hit-16                       	 3800660	       314.4 ns/op	      32 B/op	       2 allocs/op
+BenchmarkBasicAuth/10-users/hit-16                      	 2184565	       546.0 ns/op	      32 B/op	       2 allocs/op
+BenchmarkBasicAuth/100-users/hit-16                     	  420097	      2850 ns/op	      32 B/op	       2 allocs/op
+BenchmarkBasicAuth/1-users/miss-16                      	 1716357	       699.7 ns/op	     168 B/op	       8 allocs/op
+BenchmarkBasicAuth/10-users/miss-16                     	 1292138	       929.1 ns/op	     168 B/op	       8 allocs/op
+BenchmarkBasicAuth/100-users/miss-16                    	  370730	      3235 ns/op	     168 B/op	       8 allocs/op
+BenchmarkJWTAuthHS256-16                                	  260292	      4397 ns/op	     738 B/op	       7 allocs/op
+PASS

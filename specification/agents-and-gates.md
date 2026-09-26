@@ -2,7 +2,7 @@
 title: Agents and gatekeeping
 purpose: Record the coordinator agents — four gatekeepers and one content curator — their ownership areas, and the final-gate rule for ux-specialist.
 owners: specification-manager.
-last-updated: 2026-05-10
+last-updated: 2026-09-26
 status: ratified
 ---
 
@@ -82,13 +82,14 @@ User Experience and usability holistic coordinator. **Invoked last**, after the 
 Authoring agent responsible for keeping `/content/` in sync with the upstream `../MuxMaster` source of truth. **Not** a gatekeeper — it does not issue `APPROVED` / `REJECTED` verdicts on proposed changes; it produces them. Owns:
 
 - Reading `../MuxMaster/` via the environment variable `MUXMASTER_SOURCE_DIR` (development-time / agent-time only — this variable is **not** read by the runtime binary).
+- Reading, read-only, this repository's benchmark campaign archives under `reports/benchmarks-<YYYY-MM-DD>/`, which are the primary source of `/content/benchmarks.md` (see `content-sources.md` § Benchmarks — sources).
 - Writing Markdown files under `/content/` (and only under `/content/`) per the layout and per-file shape defined in `content-sources.md`.
 - Producing a diff for the project owner and the gatekeepers to review. The agent MUST NOT auto-commit.
 - Flagging any inconsistency it cannot resolve (for example, a new upstream document with no corresponding page template, or a `## Benchmarks` section that has been renamed or removed upstream) instead of silently dropping or transforming content.
 
 The agent MUST NOT:
 
-- Read or write Go source code, templates, static assets, or any path outside `/content/`.
+- Read or write this repository's Go source code, templates, or static assets, or write any path outside `/content/`. The only paths of this repository it reads outside `/content/` are the campaign archives under `reports/benchmarks-<YYYY-MM-DD>/`.
 - Modify the runtime binary, the build pipeline, or the deployment configuration.
 - Make editorial decisions that change facts (it transforms format and structure; it does not paraphrase numbers, signatures, or behaviour claims).
 

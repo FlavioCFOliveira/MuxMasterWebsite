@@ -1,20 +1,20 @@
 ---
 datePublished: 2026-05-12
+dateModified: 2026-09-26
 ---
 
 # Versioning example
 
-Two complementary API-versioning strategies on the same router: **path-based** (`/api/v1/...`, `/api/v2/...`) and **header-based** (`Accept: application/vnd.muxmaster+json;v=N`). The example pairs both strategies with **nested groups** for an admin section and the **opt-in `PoolRequestBundle`** so every dispatch — including the three-level-deep `/api/v2/admin/users/:id/audit` — runs at ~45 ns / 0 B / 0 allocs.
+Two complementary API-versioning strategies on the same router: **path-based** (`/api/v1/...`, `/api/v2/...`) and **header-based** (`Accept: application/vnd.muxmaster+json;v=N`). The example pairs both strategies with **nested groups** for an admin section and the **opt-in `PoolRequestBundle`** so every parameterised dispatch — including the three-level-deep `/api/v2/admin/users/:id/audit` — runs without a routing allocation.
 
 ## Step 1 — Construct the router and enable maximum performance
 
-Group composition has zero runtime cost in MuxMaster: middleware is wrapped at route-registration time, not on every request. A three-level-deep group dispatches at the same cost as a flat route. Enabling `PoolRequestBundle` on top recycles the per-request bundle through `sync.Pool`s, eliminating the routing allocation entirely.
+Group composition adds no per-request work in MuxMaster: a group's prefix is folded into the registered pattern and its middleware is wrapped at registration time, so a route in a nested group is dispatched like any other route of the same shape. Enabling `PoolRequestBundle` recycles the per-request bundle through `sync.Pool`s and removes the routing allocation. The elided lines are an upstream comment that quotes a v1.1.0-era timing; current measurements are on the [Benchmarks](/benchmarks) page.
 
 ```go
 mux := mm.New()
 
-// Maximum performance: every parameterised route under /v1, /v2, /admin
-// dispatches at ~45 ns / 0 B / 0 allocs.
+// …
 mux.PoolRequestBundle = true
 ```
 
@@ -22,13 +22,16 @@ The lifetime contract for `PoolRequestBundle` (handlers must not retain `*http.R
 
 ## Step 2 — Wire cross-cutting `Pre` middleware
 
-`Pre` middleware wraps the whole dispatch — it runs **once per request, before routing**, so any work it does (request-ID generation, panic recovery, version negotiation) is free in the per-route cost. The version-dispatch hook rewrites the URL path in place before the radix tree gets to look at it.
+`Pre` middleware wraps the whole dispatch and runs once per request, before routing, so request-ID generation, panic recovery, and version negotiation happen before the radix tree looks at the path. The version-dispatch hook rewrites the URL path in place.
 
 ```go
+// Pre middleware wraps the WHOLE dispatch — version-negotiation hook
+// also runs ONCE per request before routing, so it is free in the
+// per-route cost.
 mux.Pre(
-    mw.RequestID(),
-    mw.RecovererWithLogger(log),
-    acceptHeaderVersionDispatch, // header-based routing for /api/...
+	mw.RequestID(),
+	mw.RecovererWithLogger(log),
+	acceptHeaderVersionDispatch, // Header-based routing for /api/...
 )
 ```
 
@@ -54,7 +57,7 @@ The `v1*` and `v2*` handlers are independent — `v2GetUser` returns a HATEOAS s
 
 ## Step 4 — Nested groups for an admin section
 
-`Group` returns a `*Mux`, so any group can spawn its own sub-groups with their own middleware stack. Stdlib middleware applied at the group level wraps every route under it **at registration time**, so the cost is paid once on boot and never on a request.
+`Group` returns a `*Group`, and any group can create sub-groups with their own middleware stack. Stdlib middleware applied at the group level wraps every route under it **at registration time**, so the cost is paid once on boot and never on a request.
 
 ```go
 v1Admin := v1.Group("/admin")
@@ -72,32 +75,32 @@ v2Admin.GET("/users/:id/audit", v2AdminAudit)
 
 ## Step 5 — Header-based versioning via a `Pre`-positioned URL rewrite
 
-The header-based pattern is a `Pre` middleware that rewrites `/api/...` to `/api/vN/...` based on the request's `Accept` header **before** the radix tree dispatches it. The rewrite happens once per request, in `Pre`, so it does not appear on the per-route hot path at all.
+The header-based pattern is a `Pre` middleware that rewrites `/api/...` to `/api/vN/...` based on the request's `Accept` header **before** the radix tree dispatches it. The rewrite happens once per request, in `Pre`, on the original request, before MuxMaster creates any pooled request bundle.
 
 ```go
 func acceptHeaderVersionDispatch(next http.Handler) http.Handler {
-    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        // Only apply to /api/ paths that DON'T already have a /vN/ prefix.
-        if !strings.HasPrefix(r.URL.Path, "/api/") {
-            next.ServeHTTP(w, r)
-            return
-        }
-        rest := r.URL.Path[len("/api/"):]
-        if strings.HasPrefix(rest, "v1/") || strings.HasPrefix(rest, "v2/") {
-            next.ServeHTTP(w, r)
-            return
-        }
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Only apply to /api/ paths that DON'T already have a /vN/ prefix.
+		if !strings.HasPrefix(r.URL.Path, "/api/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		rest := r.URL.Path[len("/api/"):]
+		if strings.HasPrefix(rest, "v1/") || strings.HasPrefix(rest, "v2/") {
+			next.ServeHTTP(w, r)
+			return
+		}
 
-        // Parse `Accept: ...;v=N` — default to v1 if not specified.
-        v := "1"
-        if a := r.Header.Get("Accept"); strings.Contains(a, "v=2") {
-            v = "2"
-        }
-        // Rewrite r.URL.Path in place. The bundle copy is mutable; the
-        // original request is never modified.
-        r.URL.Path = "/api/v" + v + "/" + rest
-        next.ServeHTTP(w, r)
-    })
+		// Parse `Accept: ...;v=N` — default to v1 if not specified.
+		v := "1"
+		if a := r.Header.Get("Accept"); strings.Contains(a, "v=2") {
+			v = "2"
+		}
+		// Rewrite r.URL.Path in place. Pre runs before the pooled reqBundle
+		// exists, so this mutates the ORIGINAL *http.Request, not a copy.
+		r.URL.Path = "/api/v" + v + "/" + rest
+		next.ServeHTTP(w, r)
+	})
 }
 ```
 
@@ -118,7 +121,7 @@ curl -H 'X-Admin-Token: letmein' http://localhost:8080/api/v1/admin/dashboard
 curl -H 'X-Admin-Token: letmein' http://localhost:8080/api/v2/admin/dashboard
 ```
 
-## Frequently asked questions
+## Common questions
 
 <section data-conversation="versioning-faq">
 
@@ -132,16 +135,20 @@ The path wins. `acceptHeaderVersionDispatch` short-circuits when `r.URL.Path` al
 
 ### Is the in-place `r.URL.Path` rewrite safe with `PoolRequestBundle`?
 
-Yes. Under `PoolRequestBundle = true`, `r` is the bundle's copy of the request — mutating `r.URL.Path` modifies the bundle, not the caller's original `*http.Request`. The mutation is local to the dispatch and discarded when the bundle is returned to the pool. The lifetime contract still applies: the handler must not retain `r` past return.
+Yes: the rewrite runs in `Pre`, before route dispatch, so it mutates the original `*http.Request` that `ServeHTTP` received, not a pooled copy.
+
+MuxMaster creates the pooled request bundle later, inside dispatch, and only for routes with path parameters; the rewritten path is what the radix tree matches for the rest of the request. The upstream example has carried the corrected explanation since v1.2.0. The lifetime contract still applies to handlers: they must not retain `r` after returning.
 
 </section>
-
-## Upstream source
-
-Every code excerpt above is lifted verbatim from [`examples/versioning/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/examples/versioning/main.go) at the v1.1.0 tag. The upstream file also contains the full handler set (`v1GetUser`, `v1ListUsers`, `v2GetUser` with HATEOAS links, the two admin dashboards, two audit endpoints) and the graceful-shutdown wiring — follow the link for the full program.
 
 ## See also
 
 - [Maximum performance](/docs/max-performance) — the `PoolRequestBundle` contract that makes Step 1 zero-allocation.
 - [Groups documentation](/docs/groups) — the `Group` / `Use` / `Mount` idioms used in Steps 3 and 4.
 - [REST API example](/examples/rest-api) — a single-version CRUD service, the natural starting point before versioning.
+
+## Upstream source
+
+Every code excerpt above is lifted verbatim from [`examples/versioning/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/examples/versioning/main.go) at the v1.3.0 tag. The upstream file also contains the full handler set (`v1GetUser`, `v1ListUsers`, `v2GetUser` with HATEOAS links, the two admin dashboards, two audit endpoints) and the graceful-shutdown wiring — follow the link for the full program.
+
+Source: <https://github.com/FlavioCFOliveira/MuxMaster/tree/v1.3.0/examples/versioning>

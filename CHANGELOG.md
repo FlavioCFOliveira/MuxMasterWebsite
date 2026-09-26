@@ -4,6 +4,44 @@ All notable changes to the MuxMaster documentation website are recorded in this 
 
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html). The website's `MAJOR.MINOR` mirrors the MuxMaster release it documents; the website's `PATCH` digit is independent and advances for website-only operational fixes. See `specification/overview.md § Version cadence` for the full cadence policy.
 
+## [Unreleased]
+
+## [v1.3.0] — 2026-09-26
+
+MINOR release. Documents MuxMaster v1.3.0 (and v1.2.0): the HTTP QUERY method (RFC 10008), Go 1.27.1, and performance figures measured by the website's own benchmark campaign. The site server adopts MuxMaster's request pooling and pre-computed responses, and its content is re-synced to v1.3.0 with honest, per-category performance claims.
+
+### Added
+
+- **MuxMaster v1.3.0 content pages.** `/docs/http-query-method` (the HTTP QUERY method, RFC 10008, with a `HowTo` in three steps), `/releases/v1.2.0`, and `/releases/v1.3.0`, each with a `.md` companion and listed in `sitemap.xml`, `llms.txt`, and `llms-full.txt`.
+- **Benchmark campaign archive `reports/benchmarks-2026-09-26/`.** Raw `go test` output, `benchstat` comparisons, commands, and host facts for MuxMaster v1.1.0 against v1.3.0 and v1.3.0 against httprouter, bunrouter, chi, and gorilla/mux (AMD Ryzen 9 5900HX, go1.27.1, `-count=10`).
+- **`/built-with-muxmaster` page.** A site-owned page (and its `.md` companion) that shows how this website runs on MuxMaster, with code excerpts from this repository and measured per-request costs. It is linked from the footer, the Reference sidebar, `/benchmarks`, and `/examples/max-performance`, and listed in `sitemap.xml`, `llms.txt`, and `llms-full.txt`. Commit `45b3bb3` (#110).
+- **`make bench`.** Request-path benchmarks for eight request types through the complete handler, with the production logger configuration. Commits `b659846`, `89ebe37` (#109).
+
+### Changed
+
+- **Content re-synchronised with MuxMaster v1.3.0.** Every documentation page and example walkthrough now describes the v1.3.0 API, defaults, and minimum Go version (1.27.1).
+- **`/benchmarks` and the landing page rewritten from the 2026-09-26 campaign.** Each route category states the fastest router and MuxMaster mode, including the categories where MuxMaster was not the fastest (catch-all) or showed no significant difference (2 parameters). The `Dataset` JSON-LD records the campaign's method as `go test -bench, -count=10, benchstat, alpha = 0.05`.
+- **Pre-computed responses.** Every pre-rendered route stores an identity body and a gzip body (kept only when smaller), one strong `ETag` for each, and every header value, all computed once at startup. Gzip negotiation follows RFC 9110. A documentation page served with gzip now costs 9.9 µs and 4 allocations per request, down from 82.2 µs and 19 (`make bench`, AMD Ryzen 9 5900HX, Go 1.27.1; see `/built-with-muxmaster`). Commit `ba76156` (#106).
+- **Static assets served from memory.** `/static/*filepath` is a MuxMaster `FastHandler` (`GETFast`, `HEADFast`, `PoolFastParams`) that serves files loaded at startup. The CSS bundle with gzip now costs 9.9 µs and 5 allocations per request, down from 214.4 µs and 40. `middleware.Compress` is no longer in the chain. Commit `2128202` (#107).
+- **Request pooling and an allocation-free site middleware chain.** `Mux.PoolRequestBundle` is on; the security headers and the access log allocate nothing per request. Commit `89ebe37` (#108).
+
+### Removed
+
+- **MuxMaster security-defect history.** No page, Markdown companion, JSON-LD string, meta description, `llms.txt`, or `llms-full.txt` refers to security defects found or fixed in MuxMaster, carries an audit or finding identifier, or links to the upstream security audit reports (`specification/overview.md` INT-SEC-1 to INT-SEC-6). `/security` states the reporting policy, the supported versions, the current security behaviour, and the accepted limitations; the release pages no longer have a "Security" section; performance costs introduced by those changes are described as behaviour changes. A regression test checks every published surface for finding identifiers and for "security fix" wording outside the supported-versions statement, and a second test checks that every in-site `#fragment` link resolves to an id on its target page.
+
+### Fixed
+
+- **False performance claims and invented APIs removed.** Unmeasured or contradicted performance claims (for example "20 % faster than httprouter") no longer appear as current facts, and API symbols that MuxMaster does not export are gone from every page. Where such a claim is quoted in historical release notes or changelog entries, it carries a marker stating that the 2026-09-26 campaign does not support it; figures measured on v1.1.0-era code are marked as historical.
+- **SEO and GEO.** `sitemap.xml` `lastmod` comes from each page's front matter; `FAQPage` and `HowTo` text is plain text; release pages carry a complete breadcrumb; `llms-full.txt` excludes front matter; the QUERY and release pages have the `<title>` the specification defines.
+- **CSS and accessibility.** Wide tables keep their first column visible while they scroll, long code spans and URLs wrap instead of overflowing at 360 px, sidebar links are at least 44 px high, and the last breadcrumb carries `aria-current="page"`.
+- **Duplicate `Vary` header.** Compressed responses carried `Vary: Accept-Encoding` twice. Commit `2128202` (#107).
+- **Static paths in the access log.** Requests for static assets were logged without their `/static` prefix, because the old handler rewrote `r.URL.Path`. Commit `2128202` (#107).
+- **The 404 page answered `304 Not Modified`** to `If-None-Match: *` or a future `If-Modified-Since`. Preconditions now apply only to `2xx` responses, and error responses carry no `ETag` or `Last-Modified` (RFC 9110 § 13.2.1). Commit `05732ac` (#111).
+- **Empty `route_id` in the access log.** The field now holds the matched route pattern, and stays empty for 404s. Commit `89ebe37` (#108).
+
+- **Dependencies updated to their latest releases.** MuxMaster v1.1.0 → v1.3.0, `github.com/yuin/goldmark` v1.7.13 → v1.8.6, `golang.org/x/image` v0.40.0 → v0.46.0 (indirect `golang.org/x/text` → v0.42.0), and the Tailwind CSS standalone CLI v4.0.6 → v4.3.3. The compiled CSS bundle keeps the same set of utility classes; Tailwind v4.3.3 no longer emits unused theme variables, so the bundle shrinks from 44,337 to 35,291 bytes.
+- **Go toolchain raised to 1.27.1.** MuxMaster v1.3.0 requires Go 1.27.1, so the `go.mod` directive and the Docker builder image (`golang:1.27`) now match it.
+
 ## [v1.1.0] — 2026-05-12
 
 MINOR release. Documents MuxMaster v1.1.0, the maximum-performance milestone that brings MuxMaster to **45 ns / 0 B / 0 allocs** on a one-parameter route via the opt-in `Mux.PoolRequestBundle`. The website is fully refreshed: five new example walkthroughs, a canonical zero-allocation guide, a rewritten benchmarks page, a competitive router showdown, an updated landing page with a performance section and competitor table, and a coordinated review by all four coordinator agents (SEO, GEO, Tailwind, UX) with all blocking fixes applied.
@@ -372,6 +410,8 @@ First public release of the MuxMaster documentation website. The site documents 
 
 - **Release workflow.** A new GitHub Actions workflow at `.github/workflows/release.yml` is triggered by tags matching `v*.*.*`. The workflow re-runs the test suite, builds the Docker image with Buildx, publishes it to `ghcr.io/flaviocfoliveira/muxmaster-website` under the immutable `:v1.0.1` tag and the moving `:latest` tag, smoke-tests the resulting image's `--healthcheck`, and creates the corresponding GitHub Release with this changelog entry as the body.
 
+[Unreleased]: https://github.com/FlavioCFOliveira/MuxMasterWebsite/compare/v1.3.0...HEAD
+[v1.3.0]: https://github.com/FlavioCFOliveira/MuxMasterWebsite/compare/v1.1.0...v1.3.0
 [v1.1.0]: https://github.com/FlavioCFOliveira/MuxMasterWebsite/compare/v1.0.11...v1.1.0
 [v1.0.11]: https://github.com/FlavioCFOliveira/MuxMasterWebsite/compare/v1.0.10...v1.0.11
 [v1.0.10]: https://github.com/FlavioCFOliveira/MuxMasterWebsite/compare/v1.0.9...v1.0.10

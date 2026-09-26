@@ -1,0 +1,45 @@
+goos: linux
+goarch: amd64
+pkg: github.com/FlavioCFOliveira/MuxMaster
+cpu: AMD Ryzen 9 5900HX with Radeon Graphics        
+BenchmarkStaticRoute-16                 	44217315	        27.07 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParamRoute1-16                 	 9941103	       117.1 ns/op	     384 B/op	       1 allocs/op
+BenchmarkParamRoute2-16                 	 9391297	       128.0 ns/op	     416 B/op	       1 allocs/op
+BenchmarkParamRoute3-16                 	 8217000	       145.5 ns/op	     480 B/op	       1 allocs/op
+BenchmarkWildcardRoute-16               	10066903	       116.7 ns/op	     384 B/op	       1 allocs/op
+BenchmarkNotFound-16                    	 5313823	       213.6 ns/op	      98 B/op	       3 allocs/op
+BenchmarkParallelStaticRoute-16         	322413049	         3.802 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParallelParamRoute-16          	11647273	       103.8 ns/op	     384 B/op	       1 allocs/op
+BenchmarkFastStaticRoute-16             	44744368	        26.84 ns/op	       0 B/op	       0 allocs/op
+BenchmarkFastParamRoute1-16             	26620386	        43.55 ns/op	      32 B/op	       1 allocs/op
+BenchmarkFastParamRoute2-16             	18876074	        61.12 ns/op	      64 B/op	       1 allocs/op
+BenchmarkFastParamRoute3-16             	15833504	        75.85 ns/op	      96 B/op	       1 allocs/op
+BenchmarkFastParallelParamRoute-16      	97507322	        15.05 ns/op	      32 B/op	       1 allocs/op
+BenchmarkPooledParamRoute1-16           	26033115	        44.24 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPooledParamRoute2-16           	22327761	        54.76 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPooledParamRoute3-16           	21120994	        57.55 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPooledWildcardRoute-16         	26977000	        44.44 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPooledParallelParamRoute-16    	190469493	         6.430 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRegisterRoutes/N=100-16        	   22017	     54287 ns/op	       542.9 ns/route	   88384 B/op	    1135 allocs/op
+BenchmarkRegisterRoutes/N=1000-16       	    1759	    677932 ns/op	       677.9 ns/route	 1091114 B/op	   13405 allocs/op
+BenchmarkRegisterRoutes/N=5000-16       	     256	   4529875 ns/op	       906.0 ns/route	 6379715 B/op	   75938 allocs/op
+BenchmarkServeFiles-16                  	 1517133	       786.6 ns/op	     708 B/op	       8 allocs/op
+BenchmarkGroupServeFiles-16             	 1507029	       787.8 ns/op	     708 B/op	       8 allocs/op
+BenchmarkAdversarialBacktracking/1-16   	 7482040	       159.4 ns/op	     384 B/op	       1 allocs/op
+BenchmarkAdversarialBacktracking/2-16   	 6362517	       191.4 ns/op	     416 B/op	       1 allocs/op
+BenchmarkAdversarialBacktracking/4-16   	 2304027	       520.6 ns/op	     896 B/op	       6 allocs/op
+BenchmarkAdversarialBacktracking/8-16   	  913146	      1154 ns/op	    2080 B/op	      11 allocs/op
+BenchmarkAdversarialBacktracking/16-16  	  547891	      2072 ns/op	    3808 B/op	      13 allocs/op
+BenchmarkAdversarialBacktracking/32-16  	  293838	      4028 ns/op	    7648 B/op	      15 allocs/op
+BenchmarkAdversarialBacktracking/64-16  	  157744	      7613 ns/op	   15328 B/op	      17 allocs/op
+BenchmarkAdversarialBacktracking/128-16 	   80960	     15261 ns/op	   31456 B/op	      19 allocs/op
+BenchmarkQuadraticBacktracking/2-16     	 6204790	       191.3 ns/op	     416 B/op	       1 allocs/op
+BenchmarkQuadraticBacktracking/4-16     	 2267918	       534.6 ns/op	     896 B/op	       6 allocs/op
+BenchmarkQuadraticBacktracking/8-16     	  953593	      1176 ns/op	    2080 B/op	      11 allocs/op
+BenchmarkQuadraticBacktracking/16-16    	  516193	      2170 ns/op	    3808 B/op	      13 allocs/op
+BenchmarkQuadraticBacktracking/32-16    	  284016	      4244 ns/op	    7648 B/op	      15 allocs/op
+BenchmarkQuadraticBacktracking/64-16    	  127641	      9238 ns/op	   15328 B/op	      17 allocs/op
+BenchmarkMount_Static-16                	 3421670	       346.6 ns/op	     864 B/op	       2 allocs/op
+BenchmarkMount_Param-16                 	 2517926	       475.8 ns/op	    1248 B/op	       3 allocs/op
+BenchmarkMount_TSRRedirect-16           	 2164898	       558.5 ns/op	     920 B/op	       6 allocs/op
+PASS

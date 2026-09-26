@@ -20,14 +20,20 @@ import (
 // template never references and that must not leak into chrome metadata.
 type JSONLDInputs struct {
 	Page          meta.Page
-	Family        string    // "landing", "doc-article", "collection", "api", "error"
-	BuildTime     time.Time // process start time, retained for diagnostics; MUST NOT be used as a date substitute (spec/structured-data.md § Date sources for embedded content).
-	DatePublished time.Time // truthful first-publication date sourced from front-matter; zero means omit per the doctrine.
-	DateModified  time.Time // truthful last-modified date sourced from front-matter or git-log build manifest; zero means omit per the doctrine.
-	HowToSource   []byte    // optional; if present the generator scans for `## Step N — name` headings
-	HasPart       []string  // for "collection" family: canonical absolute URLs of the items the page lists; emitted as CollectionPage.hasPart.
+	Family        string         // "landing", "doc-article", "collection", "api", "error"
+	BuildTime     time.Time      // process start time, retained for diagnostics; MUST NOT be used as a date substitute (spec/structured-data.md § Date sources for embedded content).
+	DatePublished time.Time      // truthful first-publication date sourced from front-matter; zero means omit per the doctrine.
+	DateModified  time.Time      // truthful last-modified date sourced from front-matter or git-log build manifest; zero means omit per the doctrine.
+	HowToSource   []byte         // optional; if present the generator scans for `## Step N — name` headings
+	HasPart       []string       // for "collection" family: canonical absolute URLs of the items the page lists; emitted as CollectionPage.hasPart.
 	ItemListItems []ItemListItem // optional; when non-empty the collection family additionally emits an ItemList block with one ListItem per entry. The 1-indexed position is the slice order.
-	RenderedHTML  []byte    // optional; when present the FAQPage scanner walks <section data-conversation> regions to extract Q→A pairs into a single flat FAQPage block (spec/geo.md § Question-Oriented Content).
+	RenderedHTML  []byte         // optional; when present the FAQPage scanner walks <section data-conversation> regions to extract Q→A pairs into a single flat FAQPage block (spec/geo.md § Question-Oriented Content).
+	// AboutSoftware adds TechArticle.about referencing the SoftwareSourceCode
+	// entity (spec/structured-data.md master table: /docs/http-query-method,
+	// /changelog, /releases/<v>).
+	AboutSoftware bool
+	// ArticleVersion is TechArticle.version; set on /releases/<v> only.
+	ArticleVersion string
 }
 
 // ItemListItem is one entry in a collection-page ItemList JSON-LD block.
@@ -77,7 +83,7 @@ func BuildJSONLD(in JSONLDInputs) []meta.JSONLDBlock {
 	// cannot be sourced truthfully from front-matter or the build mani-
 	// fest (see § Date sources for embedded content). Attach the audit
 	// comment to the first block (the TechArticle) when applicable.
-	if (in.Family == "doc-article" || in.Family == "api") && len(out) > 0 {
+	if (in.Family == "doc-article" || in.Family == "api" || in.Family == "benchmarks") && len(out) > 0 {
 		var notes []string
 		if in.DatePublished.IsZero() {
 			notes = append(notes, "omitted: datePublished on TechArticle — front-matter date not yet authored")
@@ -88,6 +94,12 @@ func BuildJSONLD(in JSONLDInputs) []meta.JSONLDBlock {
 		if len(notes) > 0 {
 			out[0].Comment = strings.Join(notes, "; ")
 		}
+	}
+	// The benchmarks Dataset omits license: no licence is declared for the
+	// campaign archive in this repository (spec/structured-data.md
+	// § Dataset). The audit comment sits above the Dataset block.
+	if in.Family == "benchmarks" && len(out) > 0 {
+		out[len(out)-1].Comment = "omitted: license on Dataset — no licence is declared for the campaign archive in this repository"
 	}
 	return out
 }
@@ -101,10 +113,10 @@ const schema = "https://schema.org"
 // update this constant whenever the upstream go.mod bumps the minimum.
 // Hard-coded rather than parsed at runtime because go.mod is not
 // embedded in this binary; the constant is the build-time mirror.
-const UpstreamMinimumGoVersion = "1.26"
+const UpstreamMinimumGoVersion = "1.27.1"
 
 // softwareRuntimePlatform formats the minimum supported Go version as a
-// schema.org runtimePlatform value (e.g. "Go 1.26"). Returns "" when the
+// schema.org runtimePlatform value (e.g. "Go 1.27.1"). Returns "" when the
 // caller did not thread a Go version through Deps/Page; the caller emits
 // the field with omitempty so an absent value produces no fabrication.
 func softwareRuntimePlatform(goVersion string) string {
@@ -112,6 +124,25 @@ func softwareRuntimePlatform(goVersion string) string {
 		return ""
 	}
 	return "Go " + goVersion
+}
+
+// SoftwareDescription is SoftwareSourceCode.description on /. Per
+// specification/structured-data.md SD-LAND-1 it states the HTTP QUERY
+// method support and a performance-positioning statement in words, with
+// the categories, handler modes, and measured routers named (INT-PERF-3)
+// and no performance numbers (INT-PERF-7). The positioning follows the
+// campaign archive reports/benchmarks-2026-09-26/README.md.
+const SoftwareDescription = "MuxMaster is a zero-dependency HTTP router for Go with O(k) radix-tree lookups and full net/http compatibility. " +
+	"It supports the HTTP QUERY method (RFC 10008). " +
+	"In this website's benchmark campaign against httprouter, bunrouter, chi, and gorilla/mux, MuxMaster was the fastest on static, not-found, and parallel static routes in its default mode, " +
+	"on 1-parameter routes with HandleFast, and on 3-parameter and parallel 1-parameter routes with PoolRequestBundle; " +
+	"httprouter was the fastest on catch-all routes, and MuxMaster's default mode was slower than httprouter on every parameterised route."
+
+// softwareVersion converts the chrome version label ("v1.3.0") to the bare
+// semantic version ("1.3.0") used by SoftwareSourceCode.version and
+// APIReference.assemblyVersion (spec/structured-data.md field tables).
+func softwareVersion(label string) string {
+	return strings.TrimPrefix(label, "v")
 }
 
 // jsonOrgID, jsonSiteID, jsonSoftwareID, jsonAuthorID are the canonical @id
@@ -186,8 +217,8 @@ func buildEntityGraph(in JSONLDInputs) []string {
 		CodeRepository:      "https://github.com/FlavioCFOliveira/MuxMaster",
 		ProgrammingLanguage: "Go",
 		License:             "https://opensource.org/licenses/MIT",
-		Version:             in.Page.Version,
-		Description:         in.Page.Description,
+		Version:             softwareVersion(in.Page.Version),
+		Description:         SoftwareDescription,
 		RuntimePlatform:     softwareRuntimePlatform(in.Page.GoVersion),
 		TargetProduct: targetProductT{
 			Type:                "SoftwareApplication",
@@ -271,8 +302,8 @@ func buildEntityGraph(in JSONLDInputs) []string {
 // Q→A pairs answer the questions an AI ingestion pipeline is most
 // likely to receive about MuxMaster from a cold prompt. The FAQ HTML in
 // templates/pages/landing.html and the FAQ JSON-LD here MUST be kept in
-// sync; a TestLandingFAQHTMLAndJSONLDAgree test in jsonld_test.go
-// enforces the invariant by comparing the question lists.
+// sync; TestLandingFAQHTMLAndJSONLDAgree in internal/server enforces the
+// invariant by comparing the question and answer lists.
 func buildLandingJSONLD(in JSONLDInputs) []string {
 	out := buildEntityGraph(in)
 	if faq := buildLandingFAQPageJSONLD(in); faq != "" {
@@ -285,50 +316,47 @@ func buildLandingJSONLD(in JSONLDInputs) []string {
 // in templates/pages/landing.html duplicates the same question text and
 // answer text inside <section data-conversation="landing-faq">.
 //
-// The HTML inside an answer is allowed by schema.org FAQPage.acceptedAnswer
-// (the text field accepts inline HTML markup); we embed the same
-// formatting (<code>, <strong>, <a href>) that the rendered page shows.
-// Absolute URLs in <a href> are required so AI ingestion pipelines that
-// parse the JSON-LD in isolation can still resolve every link without
-// needing the page context. The BuildJSONLD caller threads the site's
-// canonical base URL so this stays correct in dev (http://localhost:8080)
-// and production (https://muxmaster.net) alike.
+// Each answer is written with the same inline formatting (<code>, <a href>)
+// that the rendered page shows; buildLandingFAQPageJSONLD reduces it to
+// plain text with faqPlainText before emission, because FAQPage answer
+// text MUST carry no HTML markup (specification/structured-data.md
+// SD-TEXT-1).
 var landingFAQEntries = []struct {
 	Q, A string
 }{
 	{
 		Q: "What is MuxMaster?",
-		A: `MuxMaster is a high-performance, zero-dependency HTTP router for Go. It implements a radix tree with O(k) lookups, allocates zero bytes on the static-route hot path, and is fully compatible with the <code>net/http</code> <code>Handler</code> interface so existing handlers compile unchanged.`,
+		A: `MuxMaster is a zero-dependency HTTP router for Go that uses a radix tree for O(k) route lookups and keeps full compatibility with the <code>net/http</code> <code>Handler</code> interface. Static routes allocate nothing, parameterised routes make one allocation by default or none with the opt-in <code>PoolRequestBundle</code>, and the <code>middleware</code> package provides 21 middleware constructors.`,
 	},
 	{
 		Q: "What Go version does MuxMaster require?",
-		A: `Go 1.26 or later. The minimum is set by the <code>go</code> directive in the upstream <code>go.mod</code>; see <a href="{base}/compatibility">Compatibility</a> for the full version policy.`,
+		A: `MuxMaster {version} requires Go {go} or later, as declared by the <code>go</code> directive in its <code>go.mod</code>. With the default <code>GOTOOLCHAIN=auto</code>, an older Go toolchain switches to Go {go} or newer automatically. See <a href="{base}/compatibility">Compatibility</a> for the version policy.`,
+	},
+	{
+		Q: "Does MuxMaster support the HTTP QUERY method?",
+		A: `Yes: MuxMaster has supported the HTTP QUERY method defined in RFC 10008 since v1.2.0, through <code>MethodQuery</code> and the <code>QUERY</code>, <code>QUERYE</code>, and <code>QUERYFast</code> registration methods. The <a href="{base}/docs/http-query-method">HTTP QUERY method (RFC 10008)</a> guide shows how to register a QUERY route, validate its request body, and call it with <code>curl</code>.`,
 	},
 	{
 		Q: "Is MuxMaster compatible with net/http?",
-		A: `100%. Handlers remain <code>http.Handler</code> and middleware remains <code>func(http.Handler) http.Handler</code>. A <code>*muxmaster.Mux</code> is a drop-in replacement for <code>http.ServeMux</code> everywhere the standard library accepts an <code>http.Handler</code>, so adoption is incremental: a single route, a single sub-tree, or a whole service.`,
+		A: `Yes: a <code>*muxmaster.Mux</code> implements <code>http.Handler</code>, handlers use the <code>http.HandlerFunc</code> signature, and middleware uses <code>func(http.Handler) http.Handler</code>. Any code that accepts an <code>http.Handler</code>, such as <code>http.Server</code> or <code>httptest.NewServer</code>, accepts the router, so adoption can be incremental.`,
 	},
 	{
-		Q: "How fast is MuxMaster?",
-		A: `Static-route lookups complete in <strong>25 ns</strong> with zero allocations. One-parameter routes complete in <strong>49.6 ns with zero allocations</strong> when the opt-in <code>mux.PoolRequestBundle = true</code> is enabled, or 105 ns / 1 alloc on the default path. Numbers measured on AMD Ryzen 9 5900HX, Go 1.26.2; the competitive 1-parameter measurement (45 ns, +20 % over <code>httprouter</code>) is reproduced from the upstream competitor showdown. See the performance tables above and <a href="{base}/benchmarks">Benchmarks</a> for the full data and reproduce instructions.`,
+		Q: "How fast is MuxMaster compared with other routers?",
+		A: `In this website's 2026-09-26 benchmark campaign, MuxMaster v1.3.0 was the fastest of five measured Go routers (MuxMaster, httprouter, bunrouter, chi, and gorilla/mux) in six of the eight route categories of the upstream competitor suite, and httprouter was the fastest on catch-all routes. MuxMaster led on static, not-found, and parallel static routes in its default mode, on 1-parameter routes with <code>HandleFast</code>, and on 3-parameter and parallel 1-parameter routes with <code>PoolRequestBundle</code>; on 2-parameter routes, MuxMaster with <code>PoolRequestBundle</code> and httprouter showed no significant difference. MuxMaster's default mode was slower than httprouter on every parameterised route. The full data, host, and method are on the <a href="{base}/benchmarks">Benchmarks</a> page.`,
 	},
 	{
 		Q: "What is the catch with PoolRequestBundle?",
-		A: `<code>PoolRequestBundle</code> recycles the per-request bundle via tiered <code>sync.Pool</code>s. The contract is strict: handlers must not retain <code>*http.Request</code> past return — for instance, never capture <code>r</code> in a goroutine that outlives the handler. The full contract, the failure modes, and the only safe goroutine pattern (drain before spawn) are documented in <a href="{base}/docs/max-performance">/docs/max-performance</a>.`,
+		A: `<code>PoolRequestBundle</code> recycles the per-request bundle through <code>sync.Pool</code>, so handlers must not retain <code>*http.Request</code> after they return, for example in a goroutine that outlives the handler. Reverse proxies built on <code>net/http.Transport</code> and handlers that hijack the connection must keep the pool off. The <a href="{base}/docs/max-performance">Maximum performance guide</a> lists the rules and an audit checklist.`,
 	},
 	{
 		Q: "What is MuxMaster's license?",
-		A: `MIT. The full text is in the upstream repository at <a href="https://github.com/FlavioCFOliveira/MuxMaster/blob/main/LICENSE">LICENSE</a>. MIT permits commercial use, modification, distribution, and private use; the only requirement is preserving the copyright notice.`,
-	},
-	{
-		Q: "How does MuxMaster compare to chi, gin, gorilla/mux, and httprouter?",
-		A: `MuxMaster keeps the <code>net/http</code> handler signature (unlike <code>gin</code>, which introduces a <code>gin.Context</code>) and ships zero external dependencies. On a 1-parameter route it is <strong>20 % faster than <code>httprouter</code></strong> at the same handler signature MuxMaster preserves; <strong>6.6 × faster than <code>chi v5</code></strong>; <strong>76 000 × faster than <code>gorilla/mux</code></strong>. See the competitor table on the homepage and the <a href="{base}/docs/migration">migration guide</a> for side-by-side equivalents.`,
+		A: `MuxMaster is released under the MIT License. The full text is in the upstream repository at <a href="https://github.com/FlavioCFOliveira/MuxMaster/blob/main/LICENSE">LICENSE</a>.`,
 	},
 }
 
 // buildLandingFAQPageJSONLD emits the homepage FAQPage block. Returns the
 // JSON string ready to embed; never empty (landingFAQEntries is a
-// compile-time constant with six entries, well above the FAQPage minimum
+// compile-time constant with seven entries, well above the FAQPage minimum
 // of three).
 func buildLandingFAQPageJSONLD(in JSONLDInputs) string {
 	base := in.Page.BaseURL
@@ -341,12 +369,15 @@ func buildLandingFAQPageJSONLD(in JSONLDInputs) string {
 		Name           string  `json:"name"`
 		AcceptedAnswer answerT `json:"acceptedAnswer"`
 	}
+	// {base}, {version}, and {go} are expanded from the page so that the
+	// answers state the same version facts as the rendered chrome.
+	expand := strings.NewReplacer("{base}", base, "{version}", in.Page.Version, "{go}", in.Page.GoVersion)
 	mainEntity := make([]questionT, 0, len(landingFAQEntries))
 	for _, e := range landingFAQEntries {
 		mainEntity = append(mainEntity, questionT{
 			Type:           "Question",
 			Name:           e.Q,
-			AcceptedAnswer: answerT{Type: "Answer", Text: strings.ReplaceAll(e.A, "{base}", base)},
+			AcceptedAnswer: answerT{Type: "Answer", Text: faqPlainText([]byte(expand.Replace(e.A)))},
 		})
 	}
 	faq := struct {
@@ -386,6 +417,8 @@ func buildArticleJSONLD(in JSONLDInputs) []string {
 		IsPartOf         idRef  `json:"isPartOf"`
 		Author           idRef  `json:"author"`
 		Publisher        idRef  `json:"publisher"`
+		About            *idRef `json:"about,omitempty"`
+		Version          string `json:"version,omitempty"`
 	}{
 		Context: schema, Type: "TechArticle", ID: canonical + "#article",
 		Headline: in.Page.Title, Description: in.Page.Description, URL: canonical,
@@ -404,6 +437,10 @@ func buildArticleJSONLD(in JSONLDInputs) []string {
 		// § TechArticle table); previously mis-wired to Organization@id.
 		Author:    idRef{ID: jsonAuthorID(base)},
 		Publisher: idRef{ID: jsonOrgID(base)},
+		Version:   in.ArticleVersion,
+	}
+	if in.AboutSoftware {
+		article.About = &idRef{ID: jsonSoftwareID(base)}
 	}
 	out := []string{mustJSON(article), breadcrumbJSON(in.Page)}
 	if howto := buildHowToJSONLD(in); howto != "" {
@@ -531,17 +568,17 @@ func buildAPIJSONLD(in JSONLDInputs) []string {
 		out = append(out, dts)
 	}
 	apiRef := struct {
-		Context              string `json:"@context"`
-		Type                 string `json:"@type"`
-		ID                   string `json:"@id"`
-		Name                 string `json:"name"`
-		Description          string `json:"description"`
-		URL                  string `json:"url"`
-		TargetPlatform       string `json:"targetPlatform"`
-		ProgrammingModel     string `json:"programmingModel"`
+		Context               string `json:"@context"`
+		Type                  string `json:"@type"`
+		ID                    string `json:"@id"`
+		Name                  string `json:"name"`
+		Description           string `json:"description"`
+		URL                   string `json:"url"`
+		TargetPlatform        string `json:"targetPlatform"`
+		ProgrammingModel      string `json:"programmingModel"`
 		ExecutableLibraryName string `json:"executableLibraryName"`
-		AssemblyVersion      string `json:"assemblyVersion,omitempty"`
-		About                idRef  `json:"about"`
+		AssemblyVersion       string `json:"assemblyVersion,omitempty"`
+		About                 idRef  `json:"about"`
 	}{
 		Context:               schema,
 		Type:                  "APIReference",
@@ -552,7 +589,7 @@ func buildAPIJSONLD(in JSONLDInputs) []string {
 		TargetPlatform:        "Go",
 		ProgrammingModel:      "HTTP request multiplexer (radix-tree, net/http-compatible)",
 		ExecutableLibraryName: "github.com/FlavioCFOliveira/MuxMaster",
-		AssemblyVersion:       in.Page.Version,
+		AssemblyVersion:       softwareVersion(in.Page.Version),
 		About:                 idRef{ID: jsonSoftwareID(base)},
 	}
 	return append(out, mustJSON(apiRef))
@@ -652,15 +689,74 @@ func buildAPIDefinedTermSetJSONLD(in JSONLDInputs) string {
 	return mustJSON(set)
 }
 
+// CampaignArchiveCommit is the full commit SHA of this repository that
+// contains the benchmark campaign archive. Every link into the archive
+// (Dataset.distribution on /benchmarks, the /benchmarks "Source" link) is
+// pinned to it (specification/url-and-versioning.md URL-EXT-1,
+// specification/structured-data.md SD-BENCH-1).
+//
+// "26abbe6c1cf2f4c9c16af45f4c02377a685f352d" is a deliberate placeholder, identical to the one in
+// content/benchmarks.md: the SHA is known only after the archive is
+// committed. Replace this constant and the occurrences in
+// content/benchmarks.md with the 40-hex commit SHA before release.
+const CampaignArchiveCommit = "26abbe6c1cf2f4c9c16af45f4c02377a685f352d"
+
+// CampaignArchiveDir is the repository-relative directory of the current
+// benchmark campaign archive (content-sources.md CS-BENCH-1).
+const CampaignArchiveDir = "reports/benchmarks-2026-09-26"
+
+// campaignDate is the date the campaign's measurements were taken, from
+// the host facts in CampaignArchiveDir/README.md; it is the Dataset's
+// temporalCoverage.
+const campaignDate = "2026-09-26"
+
+// campaignFiles lists the raw go test and benchstat output files of the
+// campaign archive published as Dataset.distribution. Historical
+// v1.1.0-era upstream data is deliberately absent (SD-BENCH-1).
+var campaignFiles = []string{
+	"raw/root-v110.txt",
+	"raw/root-v130.txt",
+	"raw/root-v130aa.txt",
+	"raw/pa-v110-clean.txt",
+	"raw/pa-v130-clean.txt",
+	"raw/middleware-v130.txt",
+	"raw/wastehunt-v130.txt",
+	"raw/competitor-v130.txt",
+	"raw/competitor-v130-by-router.txt",
+	"benchstat/root-v110-vs-v130.txt",
+	"benchstat/root-v130-aa-noise-floor.txt",
+	"benchstat/perfaudit-v110-vs-v130.txt",
+	"benchstat/middleware-v130.txt",
+	"benchstat/wastehunt-v130.txt",
+	"benchstat/competitor-v130.txt",
+	"benchstat/competitor-v130-vs-MuxMaster.txt",
+	"benchstat/competitor-v130-vs-MuxMasterPooled.txt",
+	"benchstat/competitor-v130-vs-MuxMasterFast.txt",
+	"benchstat/competitor-v130-vs-HTTProuter.txt",
+}
+
+// CampaignArchiveURL is the GitHub tree URL of the campaign archive,
+// pinned to CampaignArchiveCommit.
+func CampaignArchiveURL() string {
+	return "https://github.com/FlavioCFOliveira/MuxMasterWebsite/tree/" + CampaignArchiveCommit + "/" + CampaignArchiveDir
+}
+
+// campaignFileURL is the raw download URL of one archive file, pinned to
+// CampaignArchiveCommit.
+func campaignFileURL(rel string) string {
+	return "https://raw.githubusercontent.com/FlavioCFOliveira/MuxMasterWebsite/" + CampaignArchiveCommit + "/" + CampaignArchiveDir + "/" + rel
+}
+
 // benchmarks graph: TechArticle + BreadcrumbList + Dataset. The Dataset
-// surfaces the benchmark numbers as citeable measurements for AI
-// ingestion and Google's Dataset rich result.
+// describes the current campaign results only (SD-BENCH-1): its
+// distribution lists the raw files of the campaign archive.
 func buildBenchmarksJSONLD(in JSONLDInputs) []string {
 	out := buildArticleJSONLD(in)
 	base := in.Page.BaseURL
 	canonical := in.Page.Canonical
 	type distribution struct {
 		Type           string `json:"@type"`
+		Name           string `json:"name"`
 		EncodingFormat string `json:"encodingFormat"`
 		ContentURL     string `json:"contentUrl"`
 	}
@@ -670,44 +766,52 @@ func buildBenchmarksJSONLD(in JSONLDInputs) []string {
 		Description string `json:"description"`
 		UnitText    string `json:"unitText"`
 	}
+	dist := make([]distribution, 0, len(campaignFiles))
+	for _, f := range campaignFiles {
+		dist = append(dist, distribution{
+			Type:           "DataDownload",
+			Name:           CampaignArchiveDir + "/" + f,
+			EncodingFormat: "text/plain",
+			ContentURL:     campaignFileURL(f),
+		})
+	}
+	// license is omitted: no licence is declared for the campaign archive
+	// in this repository. BuildJSONLD attaches the audit-trail comment.
 	dataset := struct {
-		Context          string         `json:"@context"`
-		Type             string         `json:"@type"`
-		ID               string         `json:"@id"`
-		Name             string         `json:"name"`
-		Description      string         `json:"description"`
-		URL              string         `json:"url"`
-		InLanguage       string         `json:"inLanguage"`
-		License          string         `json:"license"`
-		Creator          idRef          `json:"creator"`
-		TemporalCoverage string         `json:"temporalCoverage,omitempty"`
-		VariableMeasured []variable     `json:"variableMeasured"`
-		Distribution     []distribution `json:"distribution"`
+		Context          string     `json:"@context"`
+		Type             string     `json:"@type"`
+		ID               string     `json:"@id"`
+		Name             string     `json:"name"`
+		Description      string     `json:"description"`
+		URL              string     `json:"url"`
+		InLanguage       string     `json:"inLanguage"`
+		Creator          idRef      `json:"creator"`
+		TemporalCoverage string     `json:"temporalCoverage"`
+		VariableMeasured []variable `json:"variableMeasured"`
+		// SD-BENCH-2 fields.
+		MeasurementTechnique string         `json:"measurementTechnique"`
+		Keywords             []string       `json:"keywords"`
+		IsAccessibleForFree  bool           `json:"isAccessibleForFree"`
+		Distribution         []distribution `json:"distribution"`
 	}{
-		Context:     schema,
-		Type:        "Dataset",
-		ID:          canonical + "#dataset",
-		Name:        in.Page.Title,
-		Description: in.Page.Description,
-		URL:         canonical,
-		InLanguage:  "en",
-		License:     "https://opensource.org/licenses/MIT",
-		Creator:     idRef{ID: jsonOrgID(base)},
-		// temporalCoverage is omitted (omitempty) until the benchmark
-		// report's date range is threaded through Page; truthful value
-		// not yet available, never fabricated.
+		Context:          schema,
+		Type:             "Dataset",
+		ID:               canonical + "#dataset",
+		Name:             "MuxMaster v1.3.0 router benchmark campaign, " + campaignDate,
+		Description:      in.Page.Description,
+		URL:              canonical,
+		InLanguage:       "en",
+		Creator:          idRef{ID: jsonOrgID(base)},
+		TemporalCoverage: campaignDate,
 		VariableMeasured: []variable{
 			{Type: "PropertyValue", Name: "ns/op", Description: "Nanoseconds per operation; lower is better.", UnitText: "ns"},
 			{Type: "PropertyValue", Name: "B/op", Description: "Bytes allocated per operation; lower is better.", UnitText: "B"},
 			{Type: "PropertyValue", Name: "allocs/op", Description: "Heap allocations per operation; lower is better.", UnitText: "allocations"},
 		},
-		Distribution: []distribution{
-			{
-				Type:           "DataDownload",
-				EncodingFormat: "text/x-go",
-				ContentURL:     "https://github.com/FlavioCFOliveira/MuxMaster/blob/main/bench_test.go",
-			},
-		},
+		MeasurementTechnique: "go test -bench, -count=10, benchstat, alpha = 0.05",
+		Keywords:             []string{"MuxMaster", "Go", "HTTP router", "benchmark", "httprouter", "bunrouter", "chi", "gorilla/mux"},
+		IsAccessibleForFree:  true,
+		Distribution:         dist,
 	}
 	return append(out, mustJSON(dataset))
 }
@@ -789,10 +893,10 @@ func buildDefinedTermSetJSONLD(in JSONLDInputs) string {
 		Description string `json:"description"`
 	}
 	type set struct {
-		Context  string `json:"@context"`
-		Type     string `json:"@type"`
-		ID       string `json:"@id"`
-		Name     string `json:"name"`
+		Context        string `json:"@context"`
+		Type           string `json:"@type"`
+		ID             string `json:"@id"`
+		Name           string `json:"name"`
 		HasDefinedTerm []term `json:"hasDefinedTerm"`
 	}
 	var terms []term
@@ -1002,17 +1106,39 @@ func buildFAQPageJSONLD(in JSONLDInputs) string {
 }
 
 // faqPlainText converts an HTML fragment to a normalised single-line
-// plain-text string suitable for FAQPage schema fields. Tags are removed,
-// entities decoded, whitespace collapsed.
+// plain-text string suitable for FAQPage schema fields
+// (specification/structured-data.md SD-TEXT-1 and SD-TEXT-2). Inline tags
+// (code, a, em, strong, span, b, i) are removed without a separator, so
+// "<code>Mux</code>," stays "Mux,"; every other tag is a block boundary
+// and becomes a space. Entities are decoded, whitespace is collapsed, no
+// whitespace is kept before a closing punctuation mark, and none after an
+// opening parenthesis.
 func faqPlainText(b []byte) string {
-	stripped := htmlTagsRE.ReplaceAllString(string(b), " ")
+	stripped := htmlTagsRE.ReplaceAllStringFunc(string(b), func(tag string) string {
+		if faqInlineTagRE.MatchString(tag) {
+			return ""
+		}
+		return " "
+	})
 	for ent, repl := range htmlEntities {
 		stripped = strings.ReplaceAll(stripped, ent, repl)
 	}
 	// Collapse runs of whitespace into a single space.
 	stripped = strings.Join(strings.Fields(stripped), " ")
+	stripped = spaceBeforePunctRE.ReplaceAllString(stripped, "$1")
+	stripped = spaceAfterOpenParenRE.ReplaceAllString(stripped, "(")
 	return strings.TrimSpace(stripped)
 }
+
+// faqInlineTagRE matches an opening or closing inline HTML tag whose removal
+// must not introduce a word boundary.
+var faqInlineTagRE = regexp.MustCompile(`(?i)^</?(code|a|em|strong|span|b|i)\b`)
+
+// spaceBeforePunctRE matches whitespace before a closing punctuation mark.
+var spaceBeforePunctRE = regexp.MustCompile(`\s+([,.;:?!)])`)
+
+// spaceAfterOpenParenRE matches whitespace after an opening parenthesis.
+var spaceAfterOpenParenRE = regexp.MustCompile(`\(\s+`)
 
 // stepHeadingRE matches "## Step N — name" or "## Step N - name" (en-dash or
 // hyphen). The pattern is intentionally strict so we do not invent steps
@@ -1034,13 +1160,16 @@ func buildHowToJSONLD(in JSONLDInputs) string {
 		Type string `json:"@type"`
 		Name string `json:"name"`
 		Text string `json:"text"`
+		URL  string `json:"url,omitempty"`
 	}
 	type doc struct {
-		Context string `json:"@context"`
-		Type    string `json:"@type"`
-		Name    string `json:"name"`
-		Steps   []step `json:"step"`
+		Context     string `json:"@context"`
+		Type        string `json:"@type"`
+		Name        string `json:"name"`
+		Description string `json:"description,omitempty"`
+		Steps       []step `json:"step"`
 	}
+	anchors := stepAnchors(in.RenderedHTML)
 	steps := make([]step, 0, len(matches))
 	for i, m := range matches {
 		// Heading text is capture group 1 (m[2]:m[3]).
@@ -1056,9 +1185,48 @@ func buildHowToJSONLD(in JSONLDInputs) string {
 		if text == "" {
 			text = name
 		}
-		steps = append(steps, step{Type: "HowToStep", Name: name, Text: text})
+		// HowToStep.url is the page URL plus the step heading's rendered
+		// anchor (spec/structured-data.md § HowTo). The anchor is read
+		// from the rendered HTML, never recomputed, so it cannot drift
+		// from the id the page carries; a step without a resolvable
+		// anchor omits the field rather than inventing one.
+		var url string
+		if i < len(anchors) {
+			url = in.Page.Canonical + "#" + anchors[i]
+		}
+		steps = append(steps, step{Type: "HowToStep", Name: name, Text: text, URL: url})
 	}
-	return mustJSON(doc{Context: schema, Type: "HowTo", Name: in.Page.Title, Steps: steps})
+	name := in.Page.Title
+	if fixed, ok := howToNames[in.Page.Path]; ok {
+		name = fixed
+	}
+	return mustJSON(doc{Context: schema, Type: "HowTo", Name: name, Description: in.Page.Description, Steps: steps})
+}
+
+// howToNames holds the HowTo.name values that the specification fixes for
+// a given page path; every other page uses its title
+// (specification/structured-data.md § HowTo, SD-QUERY-2).
+var howToNames = map[string]string{
+	"/docs/http-query-method": "How to serve the HTTP QUERY method (RFC 10008) with MuxMaster",
+}
+
+// stepHeadingHTMLRE matches a rendered `<h2 id="…">Step N — …</h2>`
+// heading and captures its id.
+var stepHeadingHTMLRE = regexp.MustCompile(`(?is)<h2\b[^>]*\bid="([^"]+)"[^>]*>\s*Step\s+\d+\s+(?:—|-|&mdash;)`)
+
+// stepAnchors returns the id of every rendered `## Step N — …` heading, in
+// document order. The Markdown step headings and the rendered step
+// headings are the same sequence, so index i of the result belongs to the
+// i-th step heading of the source.
+func stepAnchors(html []byte) []string {
+	if len(html) == 0 {
+		return nil
+	}
+	var ids []string
+	for _, m := range stepHeadingHTMLRE.FindAllSubmatch(html, -1) {
+		ids = append(ids, string(m[1]))
+	}
+	return ids
 }
 
 // firstParagraph returns the first non-empty paragraph in src. A paragraph

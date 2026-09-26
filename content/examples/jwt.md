@@ -1,5 +1,6 @@
 ---
 datePublished: 2026-05-12
+dateModified: 2026-09-26
 ---
 
 # JWT example
@@ -12,10 +13,10 @@ The payload mirrors the standard JWT claims plus one custom claim. `sub`, `iat`,
 
 ```go
 type tokenPayload struct {
-    Sub  string `json:"sub"`  // subject — user ID
-    Name string `json:"name"` // custom claim — username
-    IAT  int64  `json:"iat"`  // issued at (Unix seconds)
-    EXP  int64  `json:"exp"`  // expires at (Unix seconds)
+	Sub  string `json:"sub"`  // subject — user ID
+	Name string `json:"name"` // custom claim — username
+	IAT  int64  `json:"iat"`  // issued at (Unix seconds)
+	EXP  int64  `json:"exp"`  // expires at (Unix seconds)
 }
 ```
 
@@ -27,21 +28,21 @@ The token is the canonical compact form `header.payload.signature`, with each se
 
 ```go
 func signToken(c tokenPayload, secret []byte) (string, error) {
-    const rawHeader = `{"alg":"HS256","typ":"JWT"}`
-    hdr := base64.RawURLEncoding.EncodeToString([]byte(rawHeader))
+	const rawHeader = `{"alg":"HS256","typ":"JWT"}`
+	hdr := base64.RawURLEncoding.EncodeToString([]byte(rawHeader))
 
-    payloadJSON, err := json.Marshal(c)
-    if err != nil {
-        return "", err
-    }
-    pld := base64.RawURLEncoding.EncodeToString(payloadJSON)
+	payloadJSON, err := json.Marshal(c)
+	if err != nil {
+		return "", err
+	}
+	pld := base64.RawURLEncoding.EncodeToString(payloadJSON)
 
-    signingInput := hdr + "." + pld
-    mac := hmac.New(sha256.New, secret)
-    _, _ = io.WriteString(mac, signingInput)
-    sig := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+	signingInput := hdr + "." + pld
+	mac := hmac.New(sha256.New, secret)
+	_, _ = io.WriteString(mac, signingInput)
+	sig := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 
-    return signingInput + "." + sig, nil
+	return signingInput + "." + sig, nil
 }
 ```
 
@@ -53,13 +54,15 @@ The header is a constant string — the algorithm whitelist on the validating si
 
 ```go
 r := mm.New()
-
+// …
 r.Use(
-    mw.RequestID(),
-    mw.Logger(os.Stdout),
-    mw.RecovererWithLogger(log),
+	mw.RequestID(),
+	mw.Logger(os.Stdout),
+	mw.RecovererWithLogger(log),
 )
 ```
+
+The elided lines register the public `/health` route with `GETFast`. Since v1.2.0 the upstream example registers its `/health` fast route between `mm.New()` and `Use` (the elided lines): MuxMaster panics when a `HandleFast` route is registered after `Use` middleware, because `Use` middleware never wraps fast routes and the panic prevents a fast route from silently bypassing it.
 
 `RecovererWithLogger` writes the panic + stack trace through the same structured logger as the request log, so a single grep finds both the panic and the surrounding request lifecycle.
 
@@ -69,15 +72,15 @@ The default not-found and error handlers write plain text. For an API the custom
 
 ```go
 r.NotFound = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-    _ = mm.JSON(w, http.StatusNotFound, errMsg("not found"))
+	_ = mm.JSON(w, http.StatusNotFound, errMsg("not found"))
 })
 r.ErrorHandler = func(w http.ResponseWriter, _ *http.Request, err error) {
-    code := http.StatusInternalServerError
-    var he mm.HTTPError
-    if errors.As(err, &he) {
-        code = he.StatusCode()
-    }
-    _ = mm.JSON(w, code, errMsg(err.Error()))
+	code := http.StatusInternalServerError
+	var he mm.HTTPError
+	if errors.As(err, &he) {
+		code = he.StatusCode()
+	}
+	_ = mm.JSON(w, code, errMsg(err.Error()))
 }
 ```
 
@@ -89,22 +92,22 @@ r.ErrorHandler = func(w http.ResponseWriter, _ *http.Request, err error) {
 
 ```go
 r.POSTE("/auth/login", func(w http.ResponseWriter, r *http.Request) error {
-    var body struct {
-        Username string `json:"username"`
-        Password string `json:"password"`
-    }
-    if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-        return mm.Error(http.StatusBadRequest, errors.New("invalid JSON"))
-    }
-    u, ok := findUser(body.Username, body.Password)
-    if !ok {
-        return mm.Error(http.StatusUnauthorized, errors.New("invalid credentials"))
-    }
-    token, err := issueToken(u.id, body.Username, secret, tokenTTL)
-    if err != nil {
-        return err
-    }
-    return mm.JSON(w, http.StatusOK, map[string]string{"token": token})
+	var body struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		return mm.Error(http.StatusBadRequest, errors.New("invalid JSON"))
+	}
+	u, ok := findUser(body.Username, body.Password)
+	if !ok {
+		return mm.Error(http.StatusUnauthorized, errors.New("invalid credentials"))
+	}
+	token, err := issueToken(u.id, body.Username, secret, tokenTTL)
+	if err != nil {
+		return err
+	}
+	return mm.JSON(w, http.StatusOK, map[string]string{"token": token})
 })
 ```
 
@@ -112,13 +115,13 @@ r.POSTE("/auth/login", func(w http.ResponseWriter, r *http.Request) error {
 
 ## Step 6 — Configure `JWTAuth` with `RequireExpiry: true`
 
-This is the validating side. The configuration is hardened per `SECURITY.md` CDX-S8-001: the algorithm allow-list is restricted to `HS256` (so a token forged with `alg: none` is rejected), and `RequireExpiry: true` rejects any token without an `exp` claim.
+This is the validating side. The configuration follows the [Composite token-handling stack](/security#composite-token-handling-stack) on the Security page: the algorithm allow-list is restricted to `HS256` (so a token forged with `alg: none` is rejected), and `RequireExpiry: true` rejects any token without an `exp` claim.
 
 ```go
 jwtAuth := mw.JWTAuth(mw.JWTOptions{
-    Secret:        secret,
-    Algorithms:    []string{"HS256"},
-    RequireExpiry: true,
+	Secret:        secret,
+	Algorithms:    []string{"HS256"},
+	RequireExpiry: true,
 })
 ```
 
@@ -141,13 +144,13 @@ Inside the protected handlers the claims live on the request context. `GetJWTCla
 
 ```go
 api.GET("/me", func(w http.ResponseWriter, r *http.Request) {
-    c, _ := mw.GetJWTClaims(r.Context())
-    _ = mm.JSON(w, http.StatusOK, map[string]any{
-        "user_id":  c.Subject,
-        "username": usernameFromClaims(c),
-        "issued":   c.IssuedAt.UTC().Format(time.RFC3339),
-        "expires":  c.ExpiresAt.UTC().Format(time.RFC3339),
-    })
+	c, _ := mw.GetJWTClaims(r.Context())
+	_ = mm.JSON(w, http.StatusOK, map[string]any{
+		"user_id":  c.Subject,
+		"username": usernameFromClaims(c),
+		"issued":   c.IssuedAt.UTC().Format(time.RFC3339),
+		"expires":  c.ExpiresAt.UTC().Format(time.RFC3339),
+	})
 })
 ```
 
@@ -159,13 +162,13 @@ The same timeout set as the graceful-shutdown example, plus the same signal-driv
 
 ```go
 srv := &http.Server{
-    Addr:              ":8080",
-    Handler:           r,
-    ReadHeaderTimeout: 30 * time.Second,
-    ReadTimeout:       60 * time.Second,
-    WriteTimeout:      60 * time.Second,
-    IdleTimeout:       120 * time.Second,
-    MaxHeaderBytes:    1 << 20,
+	Addr:              ":8080",
+	Handler:           r,
+	ReadHeaderTimeout: 30 * time.Second,
+	ReadTimeout:       60 * time.Second,
+	WriteTimeout:      60 * time.Second,
+	IdleTimeout:       120 * time.Second,
+	MaxHeaderBytes:    1 << 20,
 }
 ```
 
@@ -177,11 +180,15 @@ For the full goroutine-driven start and `Shutdown(ctx)` drain, see the graceful-
 
 ### How do I verify a JWT on every protected request?
 
-Mount the protected routes inside a group, then call `g.Use(jwt.Authenticate(verifier))` once. The middleware extracts the token from the `Authorization: Bearer <token>` header, verifies it with the supplied `Verifier`, and attaches the parsed claims to the request context.
+Build the middleware once with `mw.JWTAuth(mw.JWTOptions{...})` and register it with `Use` on the group that holds the protected routes.
+
+The middleware reads the token from the `Authorization: Bearer <token>` header, verifies the signature and the registered claims, and stores the parsed claims in the request context.
 
 ### What happens if the token is expired?
 
-The verifier returns an error and the middleware responds with `401 Unauthorized` + `WWW-Authenticate: Bearer error="invalid_token"`. The example respects RFC 6750 so well-known clients (curl, httpie, OpenAPI consumers) surface a precise error message instead of a generic 401.
+`JWTAuth` rejects an expired token with `401 Unauthorized` and the header `WWW-Authenticate: Bearer realm="api", error="invalid_token"`, the error code that RFC 6750 defines for an invalid token.
+
+With `RequireExpiry: true`, as in the example, a token without an `exp` claim is rejected in the same way.
 
 ### How do I read the user id from inside a protected handler?
 
@@ -191,4 +198,6 @@ Read the claims from the request context with `mw.GetJWTClaims(r.Context())` and
 
 ## Upstream source
 
-Every code excerpt above is lifted verbatim from [`examples/jwt/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/examples/jwt/main.go) at the v1.1.0 tag. The upstream file also includes the in-process user store, the `usernameFromClaims` helper, and the `/auth/refresh` route — follow the link for the full program.
+Every code excerpt above is lifted verbatim from [`examples/jwt/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/examples/jwt/main.go) at the v1.3.0 tag. The upstream file also includes the in-process user store, the `usernameFromClaims` helper, and the `/auth/refresh` route — follow the link for the full program.
+
+Source: <https://github.com/FlavioCFOliveira/MuxMaster/tree/v1.3.0/examples/jwt>

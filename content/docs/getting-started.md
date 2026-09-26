@@ -1,5 +1,6 @@
 ---
 datePublished: 2026-05-12
+dateModified: 2026-09-26
 ---
 
 # Getting Started with MuxMaster
@@ -8,7 +9,7 @@ This guide walks you through building a small but realistic REST API with MuxMas
 
 ## Prerequisites
 
-- Go 1.26 or later ([download](https://go.dev/dl/))
+- Go 1.27.1 or later ([download](https://go.dev/dl/))
 - Familiarity with `net/http` and Go modules
 
 ## Install
@@ -88,20 +89,22 @@ mux.GET("/users/:id", func(w http.ResponseWriter, r *http.Request) {
 
 ## Step 3 — Add Middleware
 
-Middleware wraps all routes registered **after** the `Use` call. The most common setup adds logging and panic recovery at the top of `main`:
+Middleware registered with `Use` wraps every route registered **after** the `Use` call; routes registered earlier are not wrapped. The most common setup adds access logging and panic recovery at the top of `main`:
 
 ```go
 import (
+    "log/slog"
     "os"
+
     "github.com/FlavioCFOliveira/MuxMaster/middleware"
 )
 
 mux := muxmaster.New()
 mux.Use(middleware.Logger(os.Stdout))
-mux.Use(middleware.Recoverer)
+mux.Use(middleware.RecovererWithLogger(slog.Default()))
 ```
 
-After restarting, every request prints a log line:
+After restarting, every request prints one line in the format `<RFC 3339 time> <method> <path> <status> <duration>`:
 
 ```
 2026-04-17T10:05:31Z GET /users/42 200 87.5µs
@@ -132,7 +135,7 @@ admin.GET("/stats", getStats)
 
 ## Step 5 — JSON Responses
 
-`muxmaster.JSON` marshals any value to JSON, sets `Content-Type: application/json`, and writes the status code in one call:
+`muxmaster.JSON` marshals any value to JSON, sets `Content-Type: application/json; charset=utf-8`, and writes the status code and body in one call:
 
 ```go
 type User struct {
@@ -165,7 +168,7 @@ mux.GETE("/users/:id", func(w http.ResponseWriter, r *http.Request) error {
 })
 ```
 
-Set a custom error handler to produce consistent JSON error responses:
+Without an `ErrorHandler`, a returned error always produces a plain-text `500 Internal Server Error`, whatever status code the error carries. Set a custom error handler to use the status code of an `HTTPError` and produce consistent JSON error responses:
 
 ```go
 mux.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
@@ -188,6 +191,7 @@ package main
 import (
     "errors"
     "log"
+    "log/slog"
     "net/http"
     "os"
 
@@ -208,7 +212,7 @@ var users = map[int]User{
 func main() {
     mux := muxmaster.New()
     mux.Use(middleware.Logger(os.Stdout))
-    mux.Use(middleware.Recoverer)
+    mux.Use(middleware.RecovererWithLogger(slog.Default()))
 
     mux.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
         code := http.StatusInternalServerError
@@ -254,11 +258,12 @@ curl http://localhost:8080/api/v1/users/99
 
 ## Next Steps
 
-- [Routing](routing.md) — complete pattern syntax and method reference
-- [Middleware](middleware.md) — built-in middleware and writing your own
-- [Groups](groups.md) — advanced grouping and sub-router mounting
-- [Error Handling](error-handling.md) — centralized error patterns
-- [Cookbook](cookbook.md) — common production patterns
+- [Routing](/docs/routing) — complete pattern syntax and method reference
+- [HTTP QUERY method (RFC 10008)](/docs/http-query-method) — routes for the safe, idempotent QUERY method that carries a request body
+- [Middleware](/docs/middleware) — built-in middleware and writing your own
+- [Groups](/docs/groups) — advanced grouping and sub-router mounting
+- [Error Handling](/docs/error-handling) — centralized error patterns
+- [Cookbook](/docs/cookbook) — common production patterns
 
 ## Common questions
 
@@ -266,14 +271,24 @@ curl http://localhost:8080/api/v1/users/99
 
 ### How do I install MuxMaster in a new project?
 
-Run `go get github.com/FlavioCFOliveira/MuxMaster@v1.1.0` inside a module that targets Go 1.26 or later. The command updates `go.sum` and `go.mod`; no other dependency is added because MuxMaster ships with zero external imports.
+Run `go get github.com/FlavioCFOliveira/MuxMaster` inside a Go module; MuxMaster v1.3.0 requires Go 1.27.1 or later.
 
-### What's the smallest working server I can write?
+The command adds MuxMaster to `go.mod` and `go.sum`. No other dependency is added, because the module imports only the standard library. With the default `GOTOOLCHAIN=auto`, an older local toolchain switches to Go 1.27.1 or newer automatically.
 
-The seven-line program in step 1 above is the minimum. Construct the router with `muxmaster.New()`, register at least one route with `mux.GET`, and pass the router to `http.ListenAndServe`. MuxMaster implements `http.Handler`, so any Go HTTP infrastructure that accepts a handler accepts the router.
+### What is the smallest working MuxMaster server?
 
-### How do I read a path parameter?
+The smallest working server is the program in Step 1: create the router with `muxmaster.New()`, register one route with `mux.GET`, and pass the router to `http.ListenAndServe`.
 
-Declare the parameter in the route pattern with a colon prefix (for example `/users/:id`) and read it inside the handler with `muxmaster.PathParam(r, "id")`. The helper returns the matched segment as a string; for a typed parameter use `muxmaster.ParamsFromContext(r.Context()).Int("id")` (and the matching `.Bool`, `.UUID`, and `.Float` helpers).
+`*muxmaster.Mux` implements `http.Handler`, so every part of `net/http` that accepts a handler, such as `http.Server` or `httptest.NewServer`, accepts the router.
+
+### How do I read a path parameter as an integer?
+
+Call `muxmaster.ParamsFromContext(r.Context()).Int("id")`, which returns the parameter parsed as a base-10 `int` and an error.
+
+`muxmaster.PathParam(r, "id")` returns the raw string. `Params` also provides `Int64`, `Uint64`, `Float64`, and `Bool`.
 
 </section>
+
+## Upstream source
+
+This page mirrors [`docs/getting-started.md`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/docs/getting-started.md) at the v1.3.0 tag. The behaviour it describes is implemented in [`mux.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/mux.go), [`params.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/params.go), [`response.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/response.go).

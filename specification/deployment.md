@@ -2,7 +2,7 @@
 title: Deployment
 purpose: Define the Docker model, runtime contract, environment variables, reverse-proxy expectations, health endpoint, log shape, and the production launch gate.
 owners: specification-manager; review by seo-specialist (HTTPS/HTTP/2/security headers), tailwind-specialist (CSS bundle delivery).
-last-updated: 2026-05-11
+last-updated: 2026-09-26
 status: ratified
 ---
 
@@ -24,7 +24,7 @@ The site is shipped as a Docker image built with a multi-stage Dockerfile.
 
 ### Builder stage
 
-- Base image: an official Go toolchain image matching MuxMaster's minimum (Go 1.26 or newer).
+- Base image: an official Go toolchain image matching MuxMaster's minimum (Go 1.27.1 or newer).
 - Installs the **Tailwind CSS v4 standalone CLI binary** (downloaded for the target architecture).
 - Compiles the CSS bundle from the project's templates and source files (see `brand-and-visual.md`).
 - Generates favicons and the Open Graph image from the canonical logo PNG bundled with the repository (sourced from the upstream MuxMaster repository at `assets/logo-muxmaster.png` — see `brand-and-visual.md`).
@@ -82,7 +82,7 @@ The container is intended to run behind a reverse proxy (nginx, Caddy, Traefik, 
 - TLS termination (HTTPS-only in production).
 - Setting and forwarding `X-Forwarded-Proto: https`, `X-Forwarded-Host`, `X-Forwarded-For`.
 - HTTP/2 (and HTTP/3 where the proxy supports it) on the public side. The container speaks h2c on its loopback or container network.
-- **Brotli compression** on the public side. The container MAY emit `Content-Encoding: gzip` directly when the proxy is not configured for Brotli.
+- **Brotli compression** on the public side, when Brotli is wanted. The container never emits `Content-Encoding: br`; it serves its pre-computed gzip representation to every client that accepts gzip, and the identity representation otherwise (see `rendering-and-caching.md` § Compression).
 - HSTS preload (the container also emits `Strict-Transport-Security`, see `seo.md`; the proxy MAY override).
 - A `301 Moved Permanently` redirect from `https://www.muxmaster.net` (and from `http://www.muxmaster.net` and `http://muxmaster.net`) to the apex `https://muxmaster.net`. The apex is the single canonical origin; the `www` host MUST NOT serve content directly. This redirect is implemented at the reverse-proxy layer and is not visible to the container.
 
@@ -99,8 +99,8 @@ The container MUST trust the proxy's `X-Forwarded-*` headers only when configure
 ## Logs
 
 - Format: JSON via `log/slog` (Go standard library). Output: stdout.
-- Required fields per request log: `time` (RFC 3339), `level`, `msg`, `method`, `path`, `status`, `bytes`, `duration_ms`, `remote_addr` (post-proxy resolution), `user_agent`, `referer`, `route_id` (the matched route pattern).
-- `bytes` is the **post-compression** body size — the value on the wire. The access logger wraps the response writer in the outermost middleware position; the compression middleware runs further down the Pre chain, so by the time bytes are counted they have already passed through gzip when the client advertised `Accept-Encoding: gzip`. Bandwidth accounting and CDN tuning therefore work on the value as-is; identity responses log their raw size.
+- Required fields per request log: `time` (RFC 3339), `level`, `msg`, `method`, `path`, `status`, `bytes`, `duration_ms`, `remote_addr` (post-proxy resolution), `user_agent`, `referer`, `route_id` (the matched route pattern; empty for an unmatched request — see `rendering-and-caching.md` § Route identity in logs).
+- `bytes` is the **post-compression** body size — the value on the wire. The access logger wraps the response writer in the outermost middleware position, so it counts the bytes of the representation actually written: the gzip representation, pre-computed at startup, when the client accepts gzip, and the identity representation otherwise (see `rendering-and-caching.md` § Compression). Bandwidth accounting and CDN tuning therefore work on the value as-is; identity responses log their raw size.
 - Errors include `err` and a stable `error_kind`.
 - Logs MUST NOT include request bodies or response bodies.
 - One log line per completed request. Startup, shutdown, and configuration logs are emitted at `info`.

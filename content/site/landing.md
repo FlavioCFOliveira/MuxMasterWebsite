@@ -1,67 +1,53 @@
 ---
 datePublished: 2026-05-12
+dateModified: 2026-09-26
 ---
 
 # MuxMaster
 
-A radix-tree HTTP router for Go. Zero dependencies, O(k) lookups.
-
-MuxMaster routes 25 ns on static paths and, with the opt-in `PoolRequestBundle`, 45 ns on a single parameter with zero allocations (AMD Ryzen 9 5900HX, Go 1.26.2). It is **20 % faster than `httprouter`** and the only stdlib-compatible router that achieves zero allocations on parameterised routes. 100 % compatible with the `net/http` handler interface — build production services on the Go standard library.
+MuxMaster is an HTTP router for Go built on a radix tree: route lookup costs O(k) in the length of the URL path, static routes allocate nothing, and every handler and middleware keeps the standard `net/http` signatures. It has zero external dependencies, supports the HTTP QUERY method (RFC 10008), and requires Go 1.27.1 or later. The current release is v1.3.0.
 
 ## Highlights
 
-- **Zero dependencies.** The router and the 17 bundled middlewares are implemented on the Go standard library alone. `go.mod` declares no `require` beyond the test fixtures.
-- **Fastest stdlib-compatible router.** Static-route lookups in 25 ns / 0 allocs; one-parameter routes in 45 ns / 0 allocs with the opt-in `PoolRequestBundle`. See the tables below.
-- **100 % `net/http` compatible.** Handlers stay `http.Handler`; middleware stays `func(http.Handler) http.Handler`. Adopt incrementally — your existing handlers compile unchanged.
-- **Typed errors and parameters.** Optional `HandlerFuncE` threads errors through middleware. `Params.Int`, `Params.Bool`, `Params.UUID` parse and validate path parameters in one call.
-- **Production-grade middleware.** `RequestID`, `Recoverer`, `Logger`, `Compress`, `RealIP`, `Timeout`, `Throttle`, `BasicAuth`, `JWTAuth`, `OAuth2Introspect`, `APIKey`, `CORS` — all hardened and audited.
-- **Dogfooded.** This documentation site is itself served by a Go binary using MuxMaster as its router. The router is the documentation and the proof.
+- **HTTP QUERY method (RFC 10008).** QUERY is a safe, idempotent method, like GET, that carries its query in the request body, like POST. MuxMaster has supported it since v1.2.0, with `MethodQuery`, `Mux.QUERY`, `Mux.QUERYE`, `Mux.QUERYFast`, `Group.QUERY`, and `Group.QUERYE`; `ANY` includes QUERY, the `Allow` header lists it, and automatic redirects use `307` so the method and body are preserved. Read the [HTTP QUERY method (RFC 10008)](/docs/http-query-method) guide.
+- **`net/http` compatible, zero external dependencies.** A `*muxmaster.Mux` is an `http.Handler`, handlers are `http.HandlerFunc`, and middleware is `func(http.Handler) http.Handler`, so existing handlers and middleware work unchanged. The router and the `middleware` package use only the Go standard library.
+- **Allocation-aware routing.** Static routes allocate nothing. By default a request to a route with path parameters makes one allocation; with the opt-in `PoolRequestBundle`, parameterised routes allocate nothing, under a stricter handler lifetime contract. See the [Maximum performance guide](/docs/max-performance).
+- **Rich path patterns.** Named (`:id`), regex-constrained (`{id:[0-9]+}`), optional (`{/:id}`), and catch-all (`*filepath`) parameters, with typed accessors for `int`, `int64`, `uint64`, `float64`, and `bool`.
+- **Middleware and error-returning handlers.** `Pre` runs before routing, for every request; `Use` wraps standard routes; `UseFast` wraps `FastHandler` routes. The `middleware` package provides 21 middleware constructors, including logging, panic recovery, CORS, Basic Auth, API keys, JWT, OAuth 2.0 introspection, compression, throttling, timeouts, and request IDs. `HandlerFuncE` handlers return an `error`, and one `ErrorHandler` turns errors into responses.
 
-## Performance
+## Performance, measured
 
-Benchmarks measured on AMD Ryzen 9 5900HX, Go 1.26.2. Each row is consolidated from 10 × 2 s runs via `benchstat`. The full methodology, the asm listings, and the per-sprint history are archived in the upstream report at [`reports/perf-audit-2026-05-12/`](https://github.com/FlavioCFOliveira/MuxMaster/tree/v1.1.0/reports/perf-audit-2026-05-12).
+This website's benchmark campaign of 2026-09-26 measured MuxMaster v1.3.0 against httprouter v1.3.0, bunrouter v1.0.23 (through its `http.Handler` adapter), chi v5.3.2, and gorilla/mux v1.8.1 on an AMD Ryzen 9 5900HX with go1.27.1 (`-count=10`, medians, differences tested with `benchstat` at alpha = 0.05; source: [Benchmarks](/benchmarks)). Among these five routers:
 
-> **Two MuxMaster Pooled numbers appear on this page.** The per-route table reports **49.6 ns** (`bench_test.go`, the internal micro-benchmark across all seven route categories). The competitor table reports **45 ns** (`competitor/bench_test.go`, the apples-to-apples harness registering the same route set on every router). Use **45 ns** when comparing MuxMaster against other routers; use **49.6 ns** when comparing across MuxMaster route categories.
+- MuxMaster was the fastest in six categories, each in one of its three modes:
+  - Default mode: static, not-found, and parallel static routes (for example 28.04 ns on a static route).
+  - `HandleFast`: 1-parameter routes.
+  - `PoolRequestBundle`: 3-parameter and parallel 1-parameter routes (for example 6.854 ns on the parallel 1-parameter benchmark).
+- httprouter was the fastest on catch-all routes (42.92 ns, against 45.61 ns for MuxMaster's `HandleFast` mode).
+- On 2-parameter routes, MuxMaster with `PoolRequestBundle` and httprouter showed no significant difference.
+- MuxMaster's default mode, which allocates one request bundle per parameterised request, was slower than httprouter on every parameterised route.
 
-### Per route category — v1.0.1 vs v1.1.0 default vs v1.1.0 Pooled
+The same campaign compared v1.1.0 with v1.3.0 on the same AMD Ryzen 9 5900HX host with go1.27.1, on 2026-09-26, with `-count=10` (source: [Benchmarks](/benchmarks)). Of the 18 root-package benchmarks present in both versions, every one makes the same number of allocations; 3 became faster, 7 showed no significant difference, and 8 became 1.42% to 6.25% slower. Automatic `OPTIONS`, redirects, and several middleware became much faster, and some behaviour changes added cost. Every table, the method, and the caveats are on the [Benchmarks](/benchmarks) page.
 
-| Case                       | v1.0.1                   | v1.1.0 default           | v1.1.0 Pooled                  |
-|----------------------------|--------------------------|--------------------------|--------------------------------|
-| Static route               | 27 ns / 0 B              | 25.1 ns / 0 B            | 25.1 ns / 0 B                  |
-| 1-parameter route          | 110 ns / 416 B / 1 alloc | 105 ns / 384 B / 1 alloc | **49.6 ns / 0 B / 0 allocs**   |
-| 2-parameter route          | 124 ns / 448 B / 1 alloc | 119 ns / 416 B / 1 alloc | **55.9 ns / 0 B / 0 allocs**   |
-| 3-parameter route          | 138 ns / 480 B / 1 alloc | 135 ns / 480 B / 1 alloc | **58.6 ns / 0 B / 0 allocs**   |
-| Catch-all                  | 112 ns / 384 B / 1 alloc | 108 ns / 384 B / 1 alloc | **43.9 ns / 0 B / 0 allocs**   |
-| Parallel 1-parameter route | 105 ns / 384 B / 1 alloc | 100 ns / 384 B / 1 alloc | **6.3 ns / 0 B / 0 allocs**    |
-| Fast 1-parameter route     | 51 ns / 32 B / 1 alloc   | 50.3 ns / 32 B / 1 alloc | n/a (Fast path uses `Params`)  |
+This website runs on MuxMaster v1.3.0 with `PoolRequestBundle` and `PoolFastParams` enabled; [Built with MuxMaster](/built-with-muxmaster) shows its configuration and what each request costs.
 
-The `Pooled` column requires the opt-in `mux.PoolRequestBundle = true`. The lifetime contract — handlers must not retain `*http.Request` past return — is documented in [`/docs/max-performance`](/docs/max-performance).
+## What's new
 
-### Versus every other Go HTTP router (1-parameter route)
-
-| Router                          | ns/op     | B/op  | allocs/op | Notes                                                                |
-|---------------------------------|-----------|-------|-----------|----------------------------------------------------------------------|
-| **MuxMaster Pooled (Opt O13)**  | **45**    | **0** | **0**     | Opt-in `PoolRequestBundle = true`. Only `net/http`-compatible router at 0 allocs. |
-| MuxMaster Fast                  | 50        | 32    | 1         | `HandleFast` — bypasses the `net/http` chain for trusted internal routes. |
-| MuxMaster default               | 108       | 384   | 1         | Default `http.Handler` path, no opt-ins.                              |
-| httprouter                      | 56        | 64    | 1         | Different handler signature; not a `net/http` drop-in.                |
-| Fiber v3                        | 212       | 0     | 0         | `fasthttp` stack — not `net/http` compatible.                         |
-| bunrouter                       | 183       | 192   | 3         | `httpRouter` adapter wrapping a vendored fork.                        |
-| chi v5                          | 354       | 304   | 4         | `net/http` compatible, regex-aware.                                   |
-| gorilla/mux                     | 3 444 278 | n/a   | 156 015   | Regex-walk router — included for completeness.                        |
-
-MuxMaster is the fastest Go HTTP router across every route category measured. With `PoolRequestBundle` it is the only stdlib-compatible router with zero allocations on parameterised routes in the entire Go ecosystem. The full per-category report, including 2- and 3-parameter routes, catch-alls, and parallel dispatch, is at [`reports/perf-audit-2026-05-12/2026-05-12-competitor-showdown.md`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/reports/perf-audit-2026-05-12/2026-05-12-competitor-showdown.md).
+- **v1.3.0 (2026-09-26):** Go 1.27.1 is now the minimum version; the default `OAuth2Introspect` client no longer exhausts ephemeral ports under load; `Group.ServeFiles` applies the same raw-path security guard as `Mux.ServeFiles`. The exported API is unchanged. [Release notes v1.3.0](/releases/v1.3.0).
+- **v1.2.0 (2026-09-26):** HTTP QUERY method (RFC 10008); `Mount` fixes for nested routers; routing fixes (no empty-segment parameter matches, correct group prefix joins); behaviour changes to redirects and to `BasicAuth`, `CORS`, `OAuth2Introspect`, and `Recoverer`; route registration that copies O(depth) instead of O(tree size). [Release notes v1.2.0](/releases/v1.2.0).
 
 ## Quick links
 
 - [Getting started](/docs/getting-started)
+- [HTTP QUERY method (RFC 10008)](/docs/http-query-method)
 - [API reference](/api)
 - [Benchmarks](/benchmarks)
 - [Maximum performance guide](/docs/max-performance)
 - [Examples](/examples/)
+- [Built with MuxMaster](/built-with-muxmaster)
 - [Source on GitHub](https://github.com/FlavioCFOliveira/MuxMaster)
 
-Released as v1.1.0. MIT-licensed. Requires Go 1.26+.
+MuxMaster v1.3.0 is MIT-licensed and requires Go 1.27.1 or later.
 
 ## Frequently asked questions
 
@@ -69,30 +55,44 @@ Released as v1.1.0. MIT-licensed. Requires Go 1.26+.
 
 ### What is MuxMaster?
 
-MuxMaster is a high-performance, zero-dependency HTTP router for Go. It implements a radix tree with O(k) lookups, allocates zero bytes on the static-route hot path (and, with the opt-in `PoolRequestBundle`, on parameterised routes too), and is fully compatible with the `net/http` `Handler` interface so existing handlers compile unchanged.
+MuxMaster is a zero-dependency HTTP router for Go that uses a radix tree for O(k) route lookups and keeps full compatibility with the `net/http` `Handler` interface.
+
+Static routes allocate nothing, parameterised routes make one allocation by default or none with the opt-in `PoolRequestBundle`, and the `middleware` package provides 21 middleware constructors.
 
 ### What Go version does MuxMaster require?
 
-Go 1.26 or later. The minimum is set by the `go` directive in the upstream `go.mod`; see [Compatibility](/compatibility) for the full version policy.
+MuxMaster v1.3.0 requires Go 1.27.1 or later, as declared by the `go` directive in its `go.mod`.
+
+With the default `GOTOOLCHAIN=auto`, an older Go toolchain switches to Go 1.27.1 or newer automatically. See [Compatibility](/compatibility) for the version policy.
+
+### Does MuxMaster support the HTTP QUERY method?
+
+Yes: MuxMaster has supported the HTTP QUERY method defined in RFC 10008 since v1.2.0, through `MethodQuery` and the `QUERY`, `QUERYE`, and `QUERYFast` registration methods.
+
+The [HTTP QUERY method (RFC 10008)](/docs/http-query-method) guide shows how to register a QUERY route, validate its request body, and call it with `curl`.
 
 ### Is MuxMaster compatible with `net/http`?
 
-100 %. Handlers remain `http.Handler` and middleware remains `func(http.Handler) http.Handler`. A `*muxmaster.Mux` is a drop-in replacement for `http.ServeMux` everywhere the standard library accepts an `http.Handler`, so adoption is incremental: a single route, a single sub-tree, or a whole service.
+Yes: a `*muxmaster.Mux` implements `http.Handler`, handlers use the `http.HandlerFunc` signature, and middleware uses `func(http.Handler) http.Handler`.
 
-### How fast is MuxMaster?
+Any code that accepts an `http.Handler`, such as `http.Server` or `httptest.NewServer`, accepts the router, so adoption can be incremental.
 
-Static-route lookups complete in 25 ns with zero allocations. One-parameter routes complete in 49.6 ns with **zero allocations** when the opt-in `mux.PoolRequestBundle = true` is enabled, or 105 ns / 1 alloc on the default path. Numbers measured on AMD Ryzen 9 5900HX, Go 1.26.2; the competitive 1-parameter measurement (45 ns, +20 % over `httprouter`) is reproduced from the upstream competitor showdown. See the [performance tables above](#performance) and [Benchmarks](/benchmarks) for the full data and reproduce instructions.
+### How fast is MuxMaster compared with other routers?
+
+In this website's 2026-09-26 benchmark campaign, MuxMaster v1.3.0 was the fastest of five measured Go routers (MuxMaster, httprouter, bunrouter, chi, and gorilla/mux) in six of the eight route categories of the upstream competitor suite, and httprouter was the fastest on catch-all routes.
+
+MuxMaster led on static, not-found, and parallel static routes in its default mode, on 1-parameter routes with `HandleFast`, and on 3-parameter and parallel 1-parameter routes with `PoolRequestBundle`; on 2-parameter routes, MuxMaster with `PoolRequestBundle` and httprouter showed no significant difference. MuxMaster's default mode was slower than httprouter on every parameterised route. The full data, host, and method are on the [Benchmarks](/benchmarks) page.
 
 ### What is the catch with `PoolRequestBundle`?
 
-`PoolRequestBundle` recycles the per-request bundle via tiered `sync.Pool`s. The contract is strict: handlers must not retain `*http.Request` past return — for instance, never capture `r` in a goroutine that outlives the handler. The full contract, the failure modes, and the only safe goroutine pattern (drain before spawn) are documented in [`/docs/max-performance`](/docs/max-performance).
+`PoolRequestBundle` recycles the per-request bundle through `sync.Pool`, so handlers must not retain `*http.Request` after they return, for example in a goroutine that outlives the handler.
+
+Reverse proxies built on `net/http.Transport` and handlers that hijack the connection must keep the pool off. The [Maximum performance guide](/docs/max-performance) lists the rules and an audit checklist.
 
 ### What is MuxMaster's license?
 
-MIT. The full text is in the upstream repository at [LICENSE](https://github.com/FlavioCFOliveira/MuxMaster/blob/main/LICENSE). MIT permits commercial use, modification, distribution, and private use; the only requirement is preserving the copyright notice.
+MuxMaster is released under the MIT License.
 
-### How does MuxMaster compare to chi, gin, gorilla/mux, and httprouter?
-
-MuxMaster keeps the `net/http` handler signature (unlike `gin`, which introduces `gin.Context`) and ships zero external dependencies (unlike `chi`, which depends on `go-chi` sub-packages, or `gorilla/mux`, which depends on `gorilla/context`). On a 1-parameter route it is **20 % faster than `httprouter`** at the same handler signature MuxMaster preserves; **7.9 × faster than `chi v5`**; **76 000 × faster than `gorilla/mux`**. See the [competitor table above](#versus-every-other-go-http-router-1-parameter-route) and the [migration guide](/docs/migration) for side-by-side equivalents.
+The full text is in the upstream repository at [LICENSE](https://github.com/FlavioCFOliveira/MuxMaster/blob/main/LICENSE).
 
 </section>

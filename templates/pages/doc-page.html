@@ -34,9 +34,9 @@
             {{range .Body.SidebarItems}}
               <li>
                 {{if eq .Path $.Meta.Path}}
-                  <a href="{{.Path}}" aria-current="page" class="block rounded px-2 py-1 font-semibold text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-zinc-900">{{.Title}}</a>
+                  <a href="{{.Path}}" aria-current="page" class="flex items-center min-h-11 rounded px-2 py-1 font-semibold text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-zinc-900">{{.Title}}</a>
                 {{else}}
-                  <a href="{{.Path}}" class="block rounded px-2 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-900">{{.Title}}</a>
+                  <a href="{{.Path}}" class="flex items-center min-h-11 rounded px-2 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-900">{{.Title}}</a>
                 {{end}}
               </li>
             {{end}}
@@ -78,9 +78,13 @@
         {{end}}
       </article>
 
+      {{if .Body.SeeAlso}}
+        <p class="mt-10 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">{{.Body.SeeAlso.Lead}} <a href="{{.Body.SeeAlso.Path}}" class="font-semibold text-cyan-700 underline dark:text-cyan-300">{{.Body.SeeAlso.Title}}</a>.</p>
+      {{end}}
+
       <footer class="markdown-meta mt-12 border-t border-zinc-200 pt-6 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
         <p>Last updated <time datetime="{{.Body.LastModified.Format "2006-01-02"}}">{{.Body.LastModified.Format "2 January 2006"}}</time>.</p>
-        {{if .Meta.UpstreamURL}}<p class="mt-1">Source: <a href="{{.Meta.UpstreamURL}}" rel="noopener" class="text-cyan-700 underline dark:text-cyan-300">{{.Meta.UpstreamURL}}</a></p>{{end}}
+        {{if .Meta.UpstreamURL}}<p class="mt-1">Source: <a href="{{.Meta.UpstreamURL}}" rel="noopener" class="text-cyan-700 underline [overflow-wrap:anywhere] dark:text-cyan-300">{{.Meta.UpstreamURL}}</a></p>{{end}}
       </footer>
 
       {{if .Body.HasPrevNext}}

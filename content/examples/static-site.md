@@ -1,5 +1,6 @@
 ---
 datePublished: 2026-05-12
+dateModified: 2026-09-26
 ---
 
 # Static site example
@@ -12,12 +13,14 @@ The four flags on `*Mux` declare how the dispatcher behaves on edge cases the st
 
 ```go
 r := mm.New()
-
+// …
 r.RedirectTrailingSlash = true
 r.RedirectFixedPath = false
 r.HandleMethodNotAllowed = true
 r.HandleOPTIONS = true
 ```
+
+The elided lines register the `/health` probe of Step 5. Since v1.2.0 the upstream example registers its `/health` fast routes between `mm.New()` and `Use` (the elided lines): MuxMaster panics when a `HandleFast` route is registered after `Use` middleware, because `Use` middleware never wraps fast routes and the panic prevents a fast route from silently bypassing it.
 
 `RedirectTrailingSlash` matters because `http.FileServer` requires a trailing slash on directories — keeping both layers in agreement avoids a redirect loop.
 
@@ -28,18 +31,21 @@ r.HandleOPTIONS = true
 ```go
 r.NotFound = http.HandlerFunc(serveNotFound(staticRoot))
 
+// MethodNotAllowed: return a simple HTML message for non-GET/HEAD requests on
+// static routes (browsers never POST to a static file, but robots might).
 r.MethodNotAllowed = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-    w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-    w.Header().Set("Allow", w.Header().Get("Allow")) // already set by the router
-    http.Error(w, fmt.Sprintf("method %s not allowed", req.Method), http.StatusMethodNotAllowed)
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Allow", w.Header().Get("Allow")) // already set by the router
+	http.Error(w, fmt.Sprintf("method %s not allowed", req.Method), http.StatusMethodNotAllowed)
 })
 
+// GlobalOPTIONS: respond to preflight requests for all registered routes.
 r.GlobalOPTIONS = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-    w.Header().Set("Access-Control-Allow-Origin", "*")
-    w.Header().Set("Access-Control-Allow-Methods", w.Header().Get("Allow"))
-    w.Header().Set("Access-Control-Allow-Headers", "Accept, Accept-Encoding, Range")
-    w.Header().Set("Access-Control-Max-Age", "86400")
-    w.WriteHeader(http.StatusNoContent)
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", w.Header().Get("Allow"))
+	w.Header().Set("Access-Control-Allow-Headers", "Accept, Accept-Encoding, Range")
+	w.Header().Set("Access-Control-Max-Age", "86400")
+	w.WriteHeader(http.StatusNoContent)
 })
 ```
 
@@ -61,16 +67,35 @@ Five layers of cross-cutting concerns: `RealIP` (rewrite `RemoteAddr` from `X-Fo
 
 ```go
 r.Use(
-    mw.RealIP(&loopback, &private10, &private172, &private192),
-    mw.RequestID(),
-    mw.Logger(os.Stdout),
-    mw.RecovererWithLogger(log),
-    mw.ThrottleBacklog(500, 200, 8*time.Second),
-    mw.Compress(gzip.BestSpeed),
-    mw.SetHeader("X-Content-Type-Options", "nosniff"),
-    mw.SetHeader("X-Frame-Options", "SAMEORIGIN"),
-    mw.SetHeader("Referrer-Policy", "strict-origin-when-cross-origin"),
-    mw.SetHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()"),
+	// Overwrite r.RemoteAddr with X-Forwarded-For when behind nginx/Caddy.
+	mw.RealIP(&loopback, &private10, &private172, &private192),
+
+	// Assign or propagate X-Request-ID for access log correlation.
+	mw.RequestID(),
+
+	// Structured access log: "2026-04-21T... GET /assets/style.css 200 1.2ms"
+	mw.Logger(os.Stdout),
+
+	// Recover from panics so a bad handler does not bring down the whole server.
+	mw.RecovererWithLogger(log),
+
+	// Global rate limit: max 500 concurrent requests, backlog 200, 8s timeout.
+	// Protects against accidental DDoS from scrapers or CI load tests.
+	mw.ThrottleBacklog(500, 200, 8*time.Second),
+
+	// Gzip: compress text/* and application/* responses >= 1 kB.
+	// http.FileServer sets Content-Type before writing — Compress picks it up.
+	mw.Compress(gzip.BestSpeed),
+
+	// Security headers applied to every response.
+	// X-Content-Type-Options prevents MIME sniffing.
+	mw.SetHeader("X-Content-Type-Options", "nosniff"),
+	// X-Frame-Options prevents clickjacking.
+	mw.SetHeader("X-Frame-Options", "SAMEORIGIN"),
+	// Referrer-Policy controls how much info is sent in Referer headers.
+	mw.SetHeader("Referrer-Policy", "strict-origin-when-cross-origin"),
+	// Permissions-Policy restricts access to browser APIs.
+	mw.SetHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()"),
 )
 ```
 
@@ -82,13 +107,14 @@ Health probes are called thousands of times per second by load balancers and ope
 
 ```go
 r.GETFast("/health", func(w http.ResponseWriter, _ *http.Request, _ mm.Params) {
-    w.Header().Set("Content-Type", "application/json")
-    _, _ = io.WriteString(w, `{"status":"ok"}`)
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = io.WriteString(w, `{"status":"ok"}`)
 })
 
+// HEAD /health for tools that only probe with HEAD.
 r.HEADFast("/health", func(w http.ResponseWriter, _ *http.Request, _ mm.Params) {
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 })
 ```
 
@@ -111,9 +137,15 @@ api.GET("/api/config", serveConfig)
 
 ```go
 pages := r.With(
-    mw.SetHeader("Cache-Control", "no-cache, must-revalidate"),
+	mw.SetHeader("Cache-Control", "no-cache, must-revalidate"),
 )
 
+// Serve the site root — http.FileServer handles:
+//   • ETag generation and If-None-Match → 304 Not Modified
+//   • Last-Modified and If-Modified-Since → 304 Not Modified
+//   • Range requests → 206 Partial Content
+//   • HEAD (automatically — no body but all headers present)
+//   • Directory index (index.html auto-served for directories)
 pages.GET("/", serveFile(staticRoot, "/index.html"))
 pages.HEAD("/", serveFile(staticRoot, "/index.html"))
 ```
@@ -126,10 +158,10 @@ pages.HEAD("/", serveFile(staticRoot, "/index.html"))
 
 ```go
 r.GET("/doc", func(w http.ResponseWriter, req *http.Request) {
-    mm.Redirect(w, req, http.StatusMovedPermanently, "/docs/v2/")
+	mm.Redirect(w, req, http.StatusMovedPermanently, "/docs/v2/")
 })
 r.GET("/documentation", func(w http.ResponseWriter, req *http.Request) {
-    mm.Redirect(w, req, http.StatusMovedPermanently, "/docs/v2/")
+	mm.Redirect(w, req, http.StatusMovedPermanently, "/docs/v2/")
 })
 ```
 
@@ -154,20 +186,30 @@ Versioned assets (e.g. `/assets/style.abc123.css`) carry their content hash in t
 
 ```go
 assetsGroup := r.With(
-    mw.SetHeader("Cache-Control", "public, max-age=31536000, immutable"),
-    mw.CORS(mw.CORSOptions{
-        AllowedOrigins: []string{"*"},
-        AllowedMethods: []string{http.MethodGet, http.MethodHead},
-        AllowedHeaders: []string{"Accept-Encoding", "Range"},
-        ExposedHeaders: []string{"Content-Length", "Content-Range", "ETag"},
-        MaxAge:         86400,
-    }),
+	// Long-lived cache for fingerprinted assets.
+	mw.SetHeader("Cache-Control", "public, max-age=31536000, immutable"),
+	// Allow CDNs and cross-origin pages to load fonts and scripts.
+	mw.CORS(mw.CORSOptions{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{http.MethodGet, http.MethodHead},
+		AllowedHeaders: []string{"Accept-Encoding", "Range"},
+		ExposedHeaders: []string{"Content-Length", "Content-Range", "ETag"},
+		MaxAge:         86400,
+	}),
 )
 
-assetsGroup.ServeFiles("/assets/*filepath", staticRoot)
+// …
+//
+// The root passed here must already be scoped to the assets directory:
+// ServeFiles forwards ONLY the captured "*filepath" suffix to the
+// http.FileServer built from root (the "/assets" prefix is stripped, not
+// included). Passing staticRoot ("./static") here would look up
+// "/assets/style.css" under "./static/style.css" — a 404 — and the file
+// would only be reachable at the doubled path "/assets/assets/style.css".
+assetsGroup.ServeFiles("/assets/*filepath", http.Dir("./static/assets"))
 ```
 
-`ServeFiles` registers GET and HEAD for the catch-all pattern; `http.FileServer` handles ETag, range, conditional GET, and HEAD transparently. Per `SECURITY.md` CDX-S8-002, `ServeFiles` refuses to register when the mux is configured with both `UseRawPath=true` and `UnescapePathValues=true` simultaneously — both stay at default to let `net/http` canonicalise the path before dispatch.
+`ServeFiles` registers GET and HEAD for the catch-all pattern; `http.FileServer` handles ETag, range, conditional GET, and HEAD transparently. The root passed to `ServeFiles` must already point at the assets directory, because `ServeFiles` forwards only the captured `*filepath` suffix to the file server; from v1.2.0 onward, the example passes `http.Dir("./static/assets")` for that reason. `ServeFiles` refuses to register when the mux is configured with both `UseRawPath=true` and `UnescapePathValues=true` simultaneously — both stay at default to let `net/http` canonicalise the path before dispatch.
 
 ## Step 11 — Expose route introspection for debugging
 
@@ -175,18 +217,18 @@ assetsGroup.ServeFiles("/assets/*filepath", staticRoot)
 
 ```go
 r.GET("/debug/routes", func(w http.ResponseWriter, req *http.Request) {
-    traceID := mw.GetRequestID(req.Context())
-    w.Header().Set("X-Trace-ID", traceID)
-    routes := r.Routes()
-    type entry struct {
-        Method  string `json:"method"`
-        Pattern string `json:"pattern"`
-    }
-    list := make([]entry, 0, len(routes))
-    for _, ri := range routes {
-        list = append(list, entry{Method: ri.Method, Pattern: ri.Pattern})
-    }
-    _ = mm.JSON(w, http.StatusOK, list)
+	traceID := mw.GetRequestID(req.Context())
+	w.Header().Set("X-Trace-ID", traceID)
+	routes := r.Routes()
+	type entry struct {
+		Method  string `json:"method"`
+		Pattern string `json:"pattern"`
+	}
+	list := make([]entry, 0, len(routes))
+	for _, ri := range routes {
+		list = append(list, entry{Method: ri.Method, Pattern: ri.Pattern})
+	}
+	_ = mm.JSON(w, http.StatusOK, list)
 })
 ```
 
@@ -198,11 +240,11 @@ The same shape as the graceful-shutdown example: a goroutine-driven start, signa
 
 ```go
 srv := &http.Server{
-    Addr:         ":8080",
-    Handler:      r,
-    ReadTimeout:  15 * time.Second,
-    WriteTimeout: 60 * time.Second,
-    IdleTimeout:  120 * time.Second,
+	Addr:         ":8080",
+	Handler:      r,
+	ReadTimeout:  15 * time.Second,
+	WriteTimeout: 60 * time.Second,
+	IdleTimeout:  120 * time.Second,
 }
 ```
 
@@ -214,7 +256,9 @@ srv := &http.Server{
 
 ### How do I serve a directory tree of static files through MuxMaster?
 
-Register a catch-all route that delegates to `mux.ServeFiles`: for example `assetsGroup.ServeFiles("/assets/*filepath", staticRoot)`. The helper resolves the requested path, sets `Content-Type` from the file extension, and delegates to `http.FileServer`, which handles ETag, conditional GET, range requests, and HEAD transparently.
+Call `ServeFiles` with a pattern that ends in a catch-all and a root scoped to the directory, for example `assetsGroup.ServeFiles("/assets/*filepath", http.Dir("./static/assets"))`.
+
+`ServeFiles` hands the captured suffix to `http.FileServer`, which sets `Content-Type` and handles ETag, conditional GET, range requests, and HEAD.
 
 ### How do I use the immutable-cache directive correctly?
 
@@ -222,10 +266,14 @@ Apply `Cache-Control: public, max-age=31536000, immutable` ONLY to URLs whose bo
 
 ### How do I support partial-content (range) requests for large files?
 
-`mux.ServeFiles` already handles `Range` headers and returns 206 with `Content-Range` when the request asks for a slice of the file. No extra handler code is needed; the helper delegates to `http.ServeContent`, which negotiates ranges, ETags, and conditional GETs in one pass.
+`ServeFiles` already supports range requests: it delegates to `http.FileServer`, which answers a `Range` request with `206 Partial Content` and a `Content-Range` header.
+
+No extra handler code is needed; the same file server also handles ETags and conditional GETs.
 
 </section>
 
 ## Upstream source
 
-Every code excerpt above is lifted verbatim from [`examples/static-site/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/examples/static-site/main.go) at the v1.1.0 tag. The upstream directory also contains the `static/` tree the example serves (the index, asset stylesheet, two versioned `docs/` subtrees, and the themed 404 page) and the `serveFile` / `serveNotFound` helpers.
+Every code excerpt above is lifted verbatim from [`examples/static-site/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/examples/static-site/main.go) at the v1.3.0 tag. The upstream directory also contains the `static/` tree the example serves (the index, asset stylesheet, two versioned `docs/` subtrees, and the themed 404 page) and the `serveFile` / `serveNotFound` helpers.
+
+Source: <https://github.com/FlavioCFOliveira/MuxMaster/tree/v1.3.0/examples/static-site>

@@ -1,10 +1,11 @@
 ---
 datePublished: 2026-05-12
+dateModified: 2026-09-26
 ---
 
 # Response Helpers
 
-MuxMaster provides a small set of functions that write complete HTTP responses in one call. They set the appropriate `Content-Type` header, call `WriteHeader`, and write the body.
+MuxMaster provides a small set of functions that write complete HTTP responses in one call. `JSON`, `XML` and `Text` set the `Content-Type` header (replacing any value already set), call `WriteHeader`, and write the body; a `code` of `0` means `200 OK`.
 
 ## Functions
 
@@ -47,7 +48,7 @@ Returns the marshalling or write error; it does not write anything if marshallin
 func XML(w http.ResponseWriter, code int, v any) error
 ```
 
-Marshals `v` to XML, sets `Content-Type: application/xml; charset=utf-8`, and writes the response.
+Marshals `v` to XML with `encoding/xml`, sets `Content-Type: application/xml; charset=utf-8`, and writes the response. Like `JSON`, it returns the marshalling or write error and writes nothing if marshalling fails.
 
 ```go
 type User struct {
@@ -67,7 +68,7 @@ muxmaster.XML(w, http.StatusOK, User{ID: 42, Name: "Alice"})
 func Text(w http.ResponseWriter, code int, s string) error
 ```
 
-Writes `s` as plain text with `Content-Type: text/plain; charset=utf-8`.
+Writes `s` as plain text with `Content-Type: text/plain; charset=utf-8`. It always returns `nil`; the error result exists for symmetry with `JSON` and `XML`.
 
 ```go
 muxmaster.Text(w, http.StatusOK, "pong")
@@ -82,7 +83,7 @@ muxmaster.Text(w, http.StatusOK, fmt.Sprintf("hello, %s", name))
 func Redirect(w http.ResponseWriter, r *http.Request, code int, url string)
 ```
 
-Issues an HTTP redirect. Delegates to `http.Redirect`.
+Issues an HTTP redirect with the given 3xx status code. It delegates to `http.Redirect`, so it does not apply the backslash and control-byte encoding of the router's own redirects. Never pass an unvalidated, user-supplied URL: that creates an open redirect.
 
 ```go
 muxmaster.Redirect(w, r, http.StatusMovedPermanently, "/new-path")
@@ -150,27 +151,33 @@ The helpers are a convenience for the common case; they do not restrict your opt
 
 ## See Also
 
-- [Error Handling](error-handling.md) — `HandlerFuncE` and `ErrorHandler`
-- [Getting Started](getting-started.md#step-5----json-responses) — JSON responses in context
-
-## Upstream source
-
-The `JSON`, `Text`, `XML`, `Stream`, and conditional-GET helpers covered above are implemented in [`response.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/response.go) in the upstream repository.
+- [Error Handling](/docs/error-handling) — `HandlerFuncE` and `ErrorHandler`
+- [Getting Started](/docs/getting-started#step-5--json-responses) — JSON responses in context
 
 ## Common questions
 
 <section data-conversation="response-patterns">
 
-### How do I write a JSON response from a handler?
+### How do I write a JSON response with MuxMaster?
 
-Call `mux.JSON(w, status, value)`. The helper sets `Content-Type: application/json; charset=utf-8`, encodes the value with `encoding/json`, writes the status, and returns any error from the encoder so callers can decide whether to log or surface it.
+Call `muxmaster.JSON(w, code, v)`, which marshals `v`, sets `Content-Type: application/json; charset=utf-8`, writes the status code, and writes the body.
 
-### How do I serve a conditional GET (304)?
+It returns the marshalling or write error and writes nothing if marshalling fails. A `code` of `0` means `200 OK`.
 
-Set the `ETag` (or `Last-Modified`) header before writing the body and call `mux.IfNoneMatch(w, r, etag)` (or `IfModifiedSince`). The helper returns `true` and writes the 304 short-circuit when the request's conditional headers match; the handler returns immediately without writing the body.
+### Which response helpers does MuxMaster provide?
 
-### How do I stream a response without buffering it in memory?
+MuxMaster provides five response helpers: `JSON`, `XML`, `Text`, `Redirect`, and `NoContent`.
 
-Use `mux.Stream(w, contentType, reader)`. The helper sets the content type, copies the reader to the response writer with a fixed-size buffer, and flushes between chunks where the underlying writer supports it. The reader is closed after the copy completes.
+`JSON`, `XML`, and `Text` return an `error`, so they can be returned directly from a `HandlerFuncE`. `Text` always returns `nil`.
+
+### Is `muxmaster.Redirect` safe to use with a URL from the request?
+
+No: `muxmaster.Redirect` delegates to `http.Redirect` and does not validate the target, so passing an unvalidated, user-supplied URL creates an open redirect.
+
+It also does not apply the backslash and control-byte encoding that the router uses for its own automatic redirects.
 
 </section>
+
+## Upstream source
+
+This page mirrors [`docs/response-helpers.md`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/docs/response-helpers.md) at the v1.3.0 tag. The behaviour it describes is implemented in [`response.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/response.go).

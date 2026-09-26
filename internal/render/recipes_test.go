@@ -3,6 +3,7 @@ package render
 import (
 	"bytes"
 	"encoding/xml"
+	"regexp"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -17,32 +18,32 @@ import (
 func fixtureLoader(t *testing.T) *content.Loader {
 	t.Helper()
 	files := map[string]string{
-		"changelog.md":                    "# Changelog\n\n## v1.0.1\n",
-		"api.md":                          "# API\n\n## Overview\n\nText.\n",
-		"compatibility.md":                "# Compatibility\n",
-		"security.md":                     "# Security\n",
-		"contributing.md":                 "# Contributing\n",
-		"benchmarks.md":                   "# Benchmarks\n\n## Numbers\n\nTable.\n",
-		"docs/getting-started.md":         "# Getting started\n\n## Install\n\nText.\n",
-		"docs/routing.md":                 "# Routing\n\n## Patterns\n\nText.\n\n## Priority\n\nText.\n",
-		"docs/groups.md":                  "# Groups\n",
-		"docs/middleware.md":              "# Middleware\n",
-		"docs/error-handling.md":          "# Error handling\n",
-		"docs/configuration.md":           "# Configuration\n",
-		"docs/response-helpers.md":        "# Response helpers\n",
-		"docs/performance.md":             "# Performance\n",
-		"docs/observability.md":           "# Observability\n",
-		"docs/migration.md":               "# Migration\n",
-		"docs/cookbook.md":                "# Cookbook\n",
-		"examples/rest-api.md":            "# REST API\n",
-		"examples/authn.md":               "# Authn\n",
-		"examples/jwt.md":                 "# JWT\n\n```go\nfunc main() {}\n```\n",
-		"examples/oauth2.md":              "# OAuth2\n",
-		"examples/cache.md":               "# Cache\n",
-		"examples/graceful-shutdown.md":   "# Graceful shutdown\n",
-		"examples/server-side-render.md":  "# Server-side render\n",
-		"examples/static-site.md":         "# Static site\n",
-		"release-notes/v1.0.0.md":         "# v1.0.0\n",
+		"changelog.md":                   "# Changelog\n\n## v1.0.1\n",
+		"api.md":                         "# API\n\n## Overview\n\nText.\n",
+		"compatibility.md":               "# Compatibility\n",
+		"security.md":                    "# Security\n",
+		"contributing.md":                "# Contributing\n",
+		"benchmarks.md":                  "# Benchmarks\n\n## Numbers\n\nTable.\n",
+		"docs/getting-started.md":        "# Getting started\n\n## Install\n\nText.\n",
+		"docs/routing.md":                "# Routing\n\n## Patterns\n\nText.\n\n## Priority\n\nText.\n",
+		"docs/groups.md":                 "# Groups\n",
+		"docs/middleware.md":             "# Middleware\n",
+		"docs/error-handling.md":         "# Error handling\n",
+		"docs/configuration.md":          "# Configuration\n",
+		"docs/response-helpers.md":       "# Response helpers\n",
+		"docs/performance.md":            "# Performance\n",
+		"docs/observability.md":          "# Observability\n",
+		"docs/migration.md":              "# Migration\n",
+		"docs/cookbook.md":               "# Cookbook\n",
+		"examples/rest-api.md":           "# REST API\n",
+		"examples/authn.md":              "# Authn\n",
+		"examples/jwt.md":                "# JWT\n\n```go\nfunc main() {}\n```\n",
+		"examples/oauth2.md":             "# OAuth2\n",
+		"examples/cache.md":              "# Cache\n",
+		"examples/graceful-shutdown.md":  "# Graceful shutdown\n",
+		"examples/server-side-render.md": "# Server-side render\n",
+		"examples/static-site.md":        "# Static site\n",
+		"release-notes/v1.0.0.md":        "# v1.0.0\n",
 	}
 	mfs := fstest.MapFS{}
 	for path, body := range files {
@@ -257,8 +258,10 @@ func TestSitemapRecipeConformance(t *testing.T) {
 		if u.Loc == "" {
 			t.Error("empty <loc>")
 		}
-		if u.LastMod == "" {
-			t.Error("empty <lastmod>")
+		// The fixture files carry no front matter, so SEO-MAP-1 omits
+		// <lastmod>; a present value must be a YYYY-MM-DD date.
+		if u.LastMod != "" && !sitemapDateRE.MatchString(u.LastMod) {
+			t.Errorf("<lastmod> %q for %s is not YYYY-MM-DD", u.LastMod, u.Loc)
 		}
 		if u.ChangeFreq == "" {
 			t.Errorf("empty <changefreq> for %s", u.Loc)
@@ -269,6 +272,68 @@ func TestSitemapRecipeConformance(t *testing.T) {
 		if !strings.HasPrefix(u.Loc, "http://localhost:8080/") {
 			t.Errorf("loc %q must use BaseURL", u.Loc)
 		}
+	}
+}
+
+// sitemapDateRE matches the SEO-MAP-1 lastmod format.
+var sitemapDateRE = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
+
+// TestSitemapLastModFromFrontMatter pins SEO-MAP-1: lastmod is the later of
+// dateModified and datePublished, index routes fall back to their latest
+// child, and a route without a date omits the element.
+func TestSitemapLastModFromFrontMatter(t *testing.T) {
+	t.Parallel()
+	mfs := fstest.MapFS{
+		"docs/routing.md":         {Data: []byte("---\ndatePublished: 2026-05-12\ndateModified: 2026-09-26\n---\n\n# Routing\n")},
+		"docs/getting-started.md": {Data: []byte("---\ndatePublished: 2026-06-01\n---\n\n# Getting started\n")},
+		"api.md":                  {Data: []byte("# API\n")},
+		"examples/jwt.md":         {Data: []byte("---\ndatePublished: 2026-07-01\ndateModified: 2026-05-01\n---\n\n# JWT\n")},
+	}
+	loader, err := content.NewLoader(mfs)
+	if err != nil {
+		t.Fatalf("NewLoader: %v", err)
+	}
+	deps := fixtureDeps(t)
+	body, err := SitemapRecipe(loader, map[string]string{
+		"/docs/":                "site/docs-index.md", // absent: falls back to children
+		"/docs/routing":         "docs/routing.md",
+		"/docs/getting-started": "docs/getting-started.md",
+		"/api":                  "api.md",
+		"/examples/jwt":         "examples/jwt.md",
+	}, true).Build(deps)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	var set struct {
+		URLs []struct {
+			Loc     string `xml:"loc"`
+			LastMod string `xml:"lastmod"`
+		} `xml:"url"`
+	}
+	if err := xml.Unmarshal(body, &set); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	got := map[string]string{}
+	for _, u := range set.URLs {
+		got[strings.TrimPrefix(u.Loc, deps.BaseURL)] = u.LastMod
+	}
+	want := map[string]string{
+		"/docs/routing":         "2026-09-26", // dateModified is later
+		"/docs/getting-started": "2026-06-01", // datePublished only
+		"/examples/jwt":         "2026-07-01", // datePublished is later
+		"/docs/":                "2026-09-26", // latest /docs/ child
+		"/examples/":            "2026-07-01", // latest /examples/ child
+		"/":                     "2026-09-26", // latest of every route
+		"/api":                  "",           // no front matter: omitted
+		"/benchmarks":           "",           // no content mapping: omitted
+	}
+	for path, w := range want {
+		if got[path] != w {
+			t.Errorf("%s: lastmod=%q, want %q", path, got[path], w)
+		}
+	}
+	if strings.Contains(string(body), "<lastmod></lastmod>") {
+		t.Error("an omitted lastmod must not be emitted as an empty element")
 	}
 }
 
@@ -529,6 +594,25 @@ func TestPrerenderRoundTrip(t *testing.T) {
 		}
 		if pre.ETag == "" {
 			t.Errorf("empty etag for %s", p)
+		}
+	}
+}
+
+// TestReleasesListedNewestFirst verifies that the /llms.txt navigation
+// lists release notes newest first, comparing versions numerically.
+func TestReleasesListedNewestFirst(t *testing.T) {
+	t.Parallel()
+	routes := []RouteInfo{
+		{Path: "/releases/v1.0.0", Section: "releases"},
+		{Path: "/releases/v1.10.0", Section: "releases"},
+		{Path: "/releases/v1.3.0", Section: "releases"},
+		{Path: "/releases/v1.2.0", Section: "releases"},
+	}
+	got := groupRoutes(routes)["releases"]
+	want := []string{"/releases/v1.10.0", "/releases/v1.3.0", "/releases/v1.2.0", "/releases/v1.0.0"}
+	for i, w := range want {
+		if got[i].Path != w {
+			t.Fatalf("position %d = %s, want %s (full order %v)", i, got[i].Path, w, got)
 		}
 	}
 }

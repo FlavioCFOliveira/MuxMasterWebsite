@@ -1,0 +1,163 @@
+goos: linux
+goarch: amd64
+pkg: github.com/FlavioCFOliveira/MuxMaster/reports/perf-audit-2026-05-12
+cpu: AMD Ryzen 9 5900HX with Radeon Graphics        
+                                     │ pa-v110-clean.txt │           pa-v130-clean.txt            │
+                                     │      sec/op       │    sec/op      vs base                 │
+NotFoundClean-16                            209.7n ±  3%    206.4n ±  1%    -1.53% (p=0.006 n=10)
+NotFoundCustomHandler-16                    16.62n ±  2%    16.41n ±  1%    -1.26% (p=0.027 n=10)
+NotFoundWithMethodAllowedLookup-16          243.7n ±  4%    221.8n ±  1%    -9.03% (p=0.000 n=10)
+MethodNotAllowed-16                         153.2n ±  3%    124.2n ±  1%   -18.96% (p=0.000 n=10)
+OPTIONSAuto-16                             120.45n ±  2%    68.72n ±  1%   -42.95% (p=0.000 n=10)
+GroupDispatch-16                            96.22n ± 12%    97.64n ±  2%         ~ (p=0.255 n=10)
+NestedGroupDispatch-16                      96.30n ± 10%    97.99n ±  2%         ~ (p=0.210 n=10)
+RedirectTSL-16                              865.2n ±  2%    660.9n ±  0%   -23.61% (p=0.000 n=10)
+PathParamLookup-16                          113.1n ±  8%    111.4n ±  2%    -1.55% (p=0.041 n=10)
+PathParamFast-16                            34.54n ±  3%    36.37n ±  1%    +5.28% (p=0.000 n=10)
+ParamsFromContext-16                        111.4n ± 10%    117.5n ±  2%         ~ (p=0.101 n=10)
+Middleware_APIKey_Hit-16                    462.8n ±  2%    438.8n ±  0%    -5.20% (p=0.000 n=10)
+Middleware_APIKey_Miss-16                   409.5n ±  1%    415.5n ±  1%    +1.48% (p=0.003 n=10)
+Middleware_BasicAuth_Hit-16                 199.9n ±  1%    327.6n ±  0%   +63.92% (p=0.000 n=10)
+Middleware_BasicAuth_Miss-16                520.0n ±  1%    658.7n ±  1%   +26.66% (p=0.000 n=10)
+Middleware_CleanPath_Clean-16               20.59n ±  1%    20.83n ±  1%    +1.14% (p=0.007 n=10)
+Middleware_CleanPath_Dirty-16               278.2n ±  3%    196.1n ±  5%   -29.53% (p=0.000 n=10)
+Middleware_Compress_NoGzip-16               28.66n ±  1%    28.93n ±  1%    +0.96% (p=0.011 n=10)
+Middleware_Compress_SmallBody-16            371.4n ±  3%    275.5n ±  4%   -25.81% (p=0.000 n=10)
+Middleware_Compress_LargeBody-16            830.6n ±  3%    299.6n ±  4%   -63.92% (p=0.000 n=10)
+Middleware_CORS_NoOrigin-16                 20.24n ±  2%    81.79n ±  6%  +304.08% (p=0.000 n=10)
+Middleware_CORS_AllowedOrigin-16            207.9n ±  7%    218.1n ± 22%    +4.93% (p=0.029 n=10)
+Middleware_CORS_Preflight-16                226.2n ±  9%    237.0n ±  9%    +4.77% (p=0.037 n=10)
+Middleware_JWTAuth_HS256_Hit-16             4.662µ ±  3%    4.122µ ±  4%   -11.59% (p=0.000 n=10)
+Middleware_JWTAuth_HS256_Miss-16           1239.5n ±  2%    617.6n ±  5%   -50.18% (p=0.000 n=10)
+Middleware_JWTAuth_ES256_Hit-16             64.27µ ±  0%    63.90µ ±  0%    -0.57% (p=0.004 n=10)
+Middleware_Logger-16                        7.261µ ±  0%    5.666µ ±  0%   -21.98% (p=0.000 n=10)
+Middleware_NoCache-16                       171.3n ± 16%    193.2n ± 27%   +12.75% (p=0.029 n=10)
+Middleware_RealIP_NoHeader-16               120.8n ±  2%    128.0n ±  3%    +5.88% (p=0.000 n=10)
+Middleware_RealIP_XFF-16                    48.87n ±  5%    49.93n ±  9%         ~ (p=0.172 n=10)
+Middleware_Recoverer_NoPanic-16             6.502n ±  1%   17.465n ±  1%  +168.59% (p=0.000 n=10)
+Middleware_RequestID_Generate-16           1160.5n ±  5%    293.9n ± 27%   -74.67% (p=0.000 n=10)
+Middleware_RequestID_Propagate-16           432.9n ±  9%    251.9n ± 36%   -41.80% (p=0.000 n=10)
+Middleware_SetHeader-16                     160.6n ± 19%    134.1n ± 35%   -16.56% (p=0.009 n=10)
+Middleware_StripSlashes_Clean-16            3.989n ±  1%    4.187n ±  1%    +4.96% (p=0.000 n=10)
+Middleware_StripSlashes_Dirty-16            192.1n ± 20%    125.5n ± 34%   -34.67% (p=0.000 n=10)
+Middleware_ThrottleBacklog_NoWait-16        31.71n ±  2%    10.70n ±  2%   -66.26% (p=0.000 n=10)
+Middleware_ThrottlePerIP_Hit-16            4464.5n ±  1%    118.1n ±  1%   -97.35% (p=0.000 n=10)
+Middleware_Timeout-16                       6.049µ ±  1%    6.026µ ±  2%         ~ (p=0.324 n=10)
+Middleware_WithValue-16                     107.1n ± 34%    101.5n ± 45%         ~ (p=0.912 n=10)
+Chain_Production-16                         9.069µ ±  1%    6.537µ ±  3%   -27.92% (p=0.000 n=10)
+Chain_AuthBasic-16                          202.3n ±  3%    334.5n ±  2%   +65.37% (p=0.000 n=10)
+Chain_AuthJWT-16                            6.174µ ±  3%    4.637µ ±  7%   -24.90% (p=0.000 n=10)
+Chain_Security-16                           1.235µ ±  6%    1.274µ ±  7%         ~ (p=0.118 n=10)
+Chain_Heavy-16                              9.951µ ±  2%    7.617µ ±  5%   -23.45% (p=0.000 n=10)
+Chain_Minimal-16                            6.594n ±  2%   17.285n ±  1%  +162.13% (p=0.000 n=10)
+RedirectTSLWithMiddleware-16                                805.5n ±  1%
+ParallelRedirectTrailingSlash-16                            122.2n ±  1%
+geomean                                     267.8n          232.9n         -14.16%
+
+                                     │ pa-v110-clean.txt │            pa-v130-clean.txt             │
+                                     │       B/op        │     B/op       vs base                   │
+NotFoundClean-16                            98.00 ± 1%       97.00 ±  1%    -1.02% (p=0.001 n=10)
+NotFoundCustomHandler-16                    0.000 ± 0%       0.000 ±  0%         ~ (p=1.000 n=10) ¹
+NotFoundWithMethodAllowedLookup-16         103.00 ± 1%       99.00 ±  1%    -3.88% (p=0.000 n=10)
+MethodNotAllowed-16                         88.00 ± 2%      102.00 ±  1%   +15.91% (p=0.000 n=10)
+OPTIONSAuto-16                              40.00 ± 0%       16.00 ±  0%   -60.00% (p=0.000 n=10)
+GroupDispatch-16                            384.0 ± 0%       384.0 ±  0%         ~ (p=1.000 n=10) ¹
+NestedGroupDispatch-16                      384.0 ± 0%       384.0 ±  0%         ~ (p=1.000 n=10) ¹
+RedirectTSL-16                            1.219Ki ± 0%     1.062Ki ±  0%   -12.82% (p=0.000 n=10)
+PathParamLookup-16                          384.0 ± 0%       384.0 ±  0%         ~ (p=1.000 n=10) ¹
+PathParamFast-16                            32.00 ± 0%       32.00 ±  0%         ~ (p=1.000 n=10) ¹
+ParamsFromContext-16                        416.0 ± 0%       416.0 ±  0%         ~ (p=1.000 n=10) ¹
+Middleware_APIKey_Hit-16                    448.0 ± 0%       416.0 ±  0%    -7.14% (p=0.000 n=10)
+Middleware_APIKey_Miss-16                   96.00 ± 0%       96.00 ±  0%         ~ (p=1.000 n=10) ¹
+Middleware_BasicAuth_Hit-16                 48.00 ± 0%       48.00 ±  0%         ~ (p=1.000 n=10) ¹
+Middleware_BasicAuth_Miss-16                152.0 ± 0%       152.0 ±  0%         ~ (p=1.000 n=10) ¹
+Middleware_CleanPath_Clean-16               0.000 ± 0%       0.000 ±  0%         ~ (p=1.000 n=10) ¹
+Middleware_CleanPath_Dirty-16               552.0 ± 0%       504.0 ±  0%    -8.70% (p=0.000 n=10)
+Middleware_Compress_NoGzip-16               0.000 ± 0%       0.000 ±  0%         ~ (p=1.000 n=10) ¹
+Middleware_Compress_SmallBody-16           677.00 ± 0%       98.00 ± 19%   -85.52% (p=0.000 n=10)
+Middleware_Compress_LargeBody-16          2862.00 ± 0%       85.50 ± 13%   -97.01% (p=0.000 n=10)
+Middleware_CORS_NoOrigin-16                   0.0 ± 0%       112.0 ±  0%         ? (p=0.000 n=10)
+Middleware_CORS_AllowedOrigin-16            416.0 ± 0%       512.0 ±  0%   +23.08% (p=0.000 n=10)
+Middleware_CORS_Preflight-16                416.0 ± 0%       512.0 ±  0%   +23.08% (p=0.000 n=10)
+Middleware_JWTAuth_HS256_Hit-16             866.0 ± 0%       706.0 ±  0%   -18.48% (p=0.000 n=10)
+Middleware_JWTAuth_HS256_Miss-16            305.0 ± 0%       144.0 ±  0%   -52.79% (p=0.000 n=10)
+Middleware_JWTAuth_ES256_Hit-16           2.004Ki ± 0%     1.848Ki ±  0%    -7.77% (p=0.000 n=10)
+Middleware_Logger-16                        40.00 ± 0%        0.00 ±  0%  -100.00% (p=0.000 n=10)
+Middleware_NoCache-16                       400.0 ± 0%       480.0 ±  0%   +20.00% (p=0.000 n=10)
+Middleware_RealIP_NoHeader-16               16.00 ± 0%       16.00 ±  0%         ~ (p=1.000 n=10) ¹
+Middleware_RealIP_XFF-16                    80.00 ± 0%       80.00 ±  0%         ~ (p=1.000 n=10) ¹
+Middleware_Recoverer_NoPanic-16             0.000 ± 0%       0.000 ±  0%         ~ (p=1.000 n=10) ¹
+Middleware_RequestID_Generate-16            864.0 ± 0%       801.0 ±  0%    -7.29% (p=0.000 n=10)
+Middleware_RequestID_Propagate-16           832.0 ± 0%       800.0 ±  0%    -3.85% (p=0.000 n=10)
+Middleware_SetHeader-16                     416.0 ± 0%       416.0 ±  0%         ~ (p=1.000 n=10) ¹
+Middleware_StripSlashes_Clean-16            0.000 ± 0%       0.000 ±  0%         ~ (p=1.000 n=10) ¹
+Middleware_StripSlashes_Dirty-16            512.0 ± 0%       464.0 ±  0%    -9.38% (p=0.000 n=10)
+Middleware_ThrottleBacklog_NoWait-16        0.000 ± 0%       0.000 ±  0%         ~ (p=1.000 n=10) ¹
+Middleware_ThrottlePerIP_Hit-16             376.0 ± 0%         0.0 ±  0%  -100.00% (p=0.000 n=10)
+Middleware_Timeout-16                       592.0 ± 0%       592.0 ±  0%         ~ (p=1.000 n=10) ¹
+Middleware_WithValue-16                     368.0 ± 0%       368.0 ±  0%         ~ (p=1.000 n=10) ¹
+Chain_Production-16                        1001.0 ± 0%       996.0 ±  0%    -0.50% (p=0.000 n=10)
+Chain_AuthBasic-16                          32.00 ± 0%       32.00 ±  0%         ~ (p=1.000 n=10) ¹
+Chain_AuthJWT-16                          1.692Ki ± 0%     1.478Ki ±  0%   -12.69% (p=0.000 n=10)
+Chain_Security-16                         1.586Ki ± 0%     1.728Ki ±  0%    +8.93% (p=0.000 n=10)
+Chain_Heavy-16                            1.744Ki ± 0%     1.828Ki ±  0%    +4.82% (p=0.000 n=10)
+Chain_Minimal-16                            0.000 ± 0%       0.000 ±  0%         ~ (p=1.000 n=10) ¹
+RedirectTSLWithMiddleware-16                               1.406Ki ±  0%
+ParallelRedirectTrailingSlash-16                             368.0 ±  0%
+geomean                                                ²                  ?                       ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                     │ pa-v110-clean.txt │           pa-v130-clean.txt           │
+                                     │     allocs/op     │ allocs/op   vs base                   │
+NotFoundClean-16                            3.000 ± 0%     3.000 ± 0%         ~ (p=1.000 n=10) ¹
+NotFoundCustomHandler-16                    0.000 ± 0%     0.000 ± 0%         ~ (p=1.000 n=10) ¹
+NotFoundWithMethodAllowedLookup-16          3.000 ± 0%     3.000 ± 0%         ~ (p=1.000 n=10) ¹
+MethodNotAllowed-16                         2.000 ± 0%     1.000 ± 0%   -50.00% (p=0.000 n=10)
+OPTIONSAuto-16                              3.000 ± 0%     1.000 ± 0%   -66.67% (p=0.000 n=10)
+GroupDispatch-16                            1.000 ± 0%     1.000 ± 0%         ~ (p=1.000 n=10) ¹
+NestedGroupDispatch-16                      1.000 ± 0%     1.000 ± 0%         ~ (p=1.000 n=10) ¹
+RedirectTSL-16                              13.00 ± 0%     10.00 ± 0%   -23.08% (p=0.000 n=10)
+PathParamLookup-16                          1.000 ± 0%     1.000 ± 0%         ~ (p=1.000 n=10) ¹
+PathParamFast-16                            1.000 ± 0%     1.000 ± 0%         ~ (p=1.000 n=10) ¹
+ParamsFromContext-16                        1.000 ± 0%     1.000 ± 0%         ~ (p=1.000 n=10) ¹
+Middleware_APIKey_Hit-16                    7.000 ± 0%     6.000 ± 0%   -14.29% (p=0.000 n=10)
+Middleware_APIKey_Miss-16                   6.000 ± 0%     6.000 ± 0%         ~ (p=1.000 n=10) ¹
+Middleware_BasicAuth_Hit-16                 2.000 ± 0%     2.000 ± 0%         ~ (p=1.000 n=10) ¹
+Middleware_BasicAuth_Miss-16                8.000 ± 0%     8.000 ± 0%         ~ (p=1.000 n=10) ¹
+Middleware_CleanPath_Clean-16               0.000 ± 0%     0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Middleware_CleanPath_Dirty-16               5.000 ± 0%     4.000 ± 0%   -20.00% (p=0.000 n=10)
+Middleware_Compress_NoGzip-16               0.000 ± 0%     0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Middleware_Compress_SmallBody-16            2.000 ± 0%     0.000 ± 0%  -100.00% (p=0.000 n=10)
+Middleware_Compress_LargeBody-16            2.000 ± 0%     0.000 ± 0%  -100.00% (p=0.000 n=10)
+Middleware_CORS_NoOrigin-16                 0.000 ± 0%     1.000 ± 0%         ? (p=0.000 n=10)
+Middleware_CORS_AllowedOrigin-16            3.000 ± 0%     3.000 ± 0%         ~ (p=1.000 n=10) ¹
+Middleware_CORS_Preflight-16                3.000 ± 0%     3.000 ± 0%         ~ (p=1.000 n=10) ¹
+Middleware_JWTAuth_HS256_Hit-16            10.000 ± 0%     7.000 ± 0%   -30.00% (p=0.000 n=10)
+Middleware_JWTAuth_HS256_Miss-16           10.000 ± 0%     7.000 ± 0%   -30.00% (p=0.000 n=10)
+Middleware_JWTAuth_ES256_Hit-16             29.00 ± 0%     26.00 ± 0%   -10.34% (p=0.000 n=10)
+Middleware_Logger-16                        4.000 ± 0%     0.000 ± 0%  -100.00% (p=0.000 n=10)
+Middleware_NoCache-16                       2.000 ± 0%     3.000 ± 0%   +50.00% (p=0.000 n=10)
+Middleware_RealIP_NoHeader-16               1.000 ± 0%     1.000 ± 0%         ~ (p=1.000 n=10) ¹
+Middleware_RealIP_XFF-16                    2.000 ± 0%     2.000 ± 0%         ~ (p=1.000 n=10) ¹
+Middleware_Recoverer_NoPanic-16             0.000 ± 0%     0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Middleware_RequestID_Generate-16            9.000 ± 0%     4.000 ± 0%   -55.56% (p=0.000 n=10)
+Middleware_RequestID_Propagate-16           8.000 ± 0%     4.000 ± 0%   -50.00% (p=0.000 n=10)
+Middleware_SetHeader-16                     3.000 ± 0%     3.000 ± 0%         ~ (p=1.000 n=10) ¹
+Middleware_StripSlashes_Clean-16            0.000 ± 0%     0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Middleware_StripSlashes_Dirty-16            3.000 ± 0%     2.000 ± 0%   -33.33% (p=0.000 n=10)
+Middleware_ThrottleBacklog_NoWait-16        0.000 ± 0%     0.000 ± 0%         ~ (p=1.000 n=10) ¹
+Middleware_ThrottlePerIP_Hit-16             5.000 ± 0%     0.000 ± 0%  -100.00% (p=0.000 n=10)
+Middleware_Timeout-16                       5.000 ± 0%     5.000 ± 0%         ~ (p=1.000 n=10) ¹
+Middleware_WithValue-16                     2.000 ± 0%     2.000 ± 0%         ~ (p=1.000 n=10) ¹
+Chain_Production-16                        16.000 ± 0%     7.000 ± 0%   -56.25% (p=0.000 n=10)
+Chain_AuthBasic-16                          2.000 ± 0%     2.000 ± 0%         ~ (p=1.000 n=10) ¹
+Chain_AuthJWT-16                            19.00 ± 0%     11.00 ± 0%   -42.11% (p=0.000 n=10)
+Chain_Security-16                           14.00 ± 0%     14.00 ± 0%         ~ (p=1.000 n=10) ¹
+Chain_Heavy-16                              22.00 ± 0%     14.00 ± 0%   -36.36% (p=0.000 n=10)
+Chain_Minimal-16                            0.000 ± 0%     0.000 ± 0%         ~ (p=1.000 n=10) ¹
+RedirectTSLWithMiddleware-16                               11.00 ± 0%
+ParallelRedirectTrailingSlash-16                           2.000 ± 0%
+geomean                                                ²               ?                       ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

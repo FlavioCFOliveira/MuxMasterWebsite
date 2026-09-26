@@ -34,7 +34,19 @@ The contract this code satisfies lives in `specification/`. Read it before editi
 make build              # produces ./bin/muxmaster-website + hashed CSS bundle
 make test               # `go test -race ./...`
 make vet                # `go vet ./...`
+make bench              # request-path benchmarks: -benchmem -count=6
 ```
+
+`make bench` drives each request type through the complete handler (the `Pre` middleware chain, the MuxMaster router, and the handler) with the production logger configuration. The numbers on `/built-with-muxmaster` come from this target.
+
+## How the server uses MuxMaster
+
+- `Mux.PoolRequestBundle` and `Mux.PoolFastParams` are on. Every handler must honour the lifetime contract: never keep the request, its context, its body, or `Params` after returning, and never start a goroutine that reads them.
+- Cross-cutting middleware is registered with `Mux.Pre` only. Never call `Mux.Use`: MuxMaster panics when a `HandleFast` route is registered after it.
+- Pre-rendered routes and static files are served from `render.Response` values computed once at startup (identity and gzip bodies, ETags, header values). No response is compressed or formatted per request.
+- `/static/*filepath` is a `FastHandler` registered with `GETFast` and `HEADFast`, served from memory.
+
+The normative rules are in `specification/rendering-and-caching.md`.
 
 ## Docker
 

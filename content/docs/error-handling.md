@@ -1,5 +1,6 @@
 ---
 datePublished: 2026-05-12
+dateModified: 2026-09-26
 ---
 
 # Error Handling
@@ -9,7 +10,7 @@ MuxMaster provides a structured approach to error handling that eliminates boile
 ## Table of Contents
 
 - [The Problem with Standard Handlers](#the-problem-with-standard-handlers)
-- [HandlerFuncE](#handlefunce)
+- [HandlerFuncE](#handlerfunce)
 - [HTTPError](#httperror)
 - [The Default Error Handler](#the-default-error-handler)
 - [Custom Error Handler](#custom-error-handler)
@@ -70,7 +71,7 @@ mux.GETE("/users/:id", func(w http.ResponseWriter, r *http.Request) error {
 })
 ```
 
-The same pattern applies to every HTTP method: `GETE`, `POSTE`, `PUTE`, `PATCHE`, `DELETEE`, `HEADE`, `OPTIONSE`.
+The same pattern applies to every HTTP method: `GETE`, `POSTE`, `PUTE`, `PATCHE`, `DELETEE`, `HEADE`, `OPTIONSE`, `QUERYE`.
 
 ---
 
@@ -98,7 +99,7 @@ type HTTPError interface {
 }
 ```
 
-Any error that implements this interface is recognized by MuxMaster's error-handling pipeline, including custom implementations:
+Your `ErrorHandler` can recognise any error that implements this interface with `errors.As`, including custom implementations:
 
 ```go
 type ValidationError struct {
@@ -114,10 +115,9 @@ func (e *ValidationError) StatusCode() int { return http.StatusUnprocessableEnti
 
 ## The Default Error Handler
 
-When no `ErrorHandler` is set, MuxMaster's default behaviour is:
+When no `ErrorHandler` is set, every non-nil error returned by a `HandlerFuncE` produces the same response: `500 Internal Server Error` with the plain-text body `Internal Server Error`. The status code carried by an `HTTPError` and the error message are **not** used, so no error detail reaches the client. Set an `ErrorHandler` to map `HTTPError` values to their status codes.
 
-- If the error implements `HTTPError`, respond with that status code and the error message as plain text.
-- Otherwise, respond with 500 Internal Server Error.
+The handler is read from the configuration snapshot taken on the first request; see [Configuration](/docs/configuration#when-configuration-takes-effect).
 
 ---
 
@@ -181,7 +181,7 @@ mux.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 
 ## Error-Returning Method Variants
 
-Every standard HTTP method has an error-returning variant:
+Eight methods have an error-returning helper:
 
 | Standard     | Error-returning |
 |--------------|-----------------|
@@ -192,6 +192,9 @@ Every standard HTTP method has an error-returning variant:
 | `mux.DELETE` | `mux.DELETEE`   |
 | `mux.HEAD`   | `mux.HEADE`     |
 | `mux.OPTIONS`| `mux.OPTIONSE`  |
+| `mux.QUERY`  | `mux.QUERYE`    |
+
+CONNECT and TRACE have none; use `mux.HandleE(http.MethodConnect, path, h)` or `mux.HandleE(http.MethodTrace, path, h)`.
 
 The same variants exist on `*Group`:
 
@@ -208,7 +211,7 @@ api.DELETEE("/users/:id", deleteUser)
 
 ### Not Found (404)
 
-Called when no route matches the request path:
+Called when no route matches the request path. When `NotFound` is `nil`, the router uses `http.NotFound` (plain-text `404 page not found`).
 
 ```go
 mux.NotFound = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -218,6 +221,10 @@ mux.NotFound = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
     })
 })
 ```
+
+**Middleware wrapping:**
+
+The `NotFound` handler is wrapped by any global middleware registered via `Use()`. The wrapper is applied dynamically: if you call `Use()` after assigning `NotFound`, the existing 404 handler will be re-wrapped with the new middleware chain. This ensures that logging, authentication, and other cross-cutting concerns apply to 404 responses.
 
 ### Method Not Allowed (405)
 
@@ -233,19 +240,29 @@ mux.MethodNotAllowed = http.HandlerFunc(func(w http.ResponseWriter, r *http.Requ
 })
 ```
 
-To enable 405 responses, `HandleMethodNotAllowed` must be `true` (the default).
+To enable 405 responses, `HandleMethodNotAllowed` must be `true` (the default). When `MethodNotAllowed` is `nil`, the router writes `405 Method Not Allowed` as plain text with the `Allow` header and `X-Content-Type-Options: nosniff`.
+
+The automatic OPTIONS response and the router's own redirects are wrapped by `Use()` middleware in the same way.
+
+**Middleware wrapping:**
+
+Like `NotFound`, the `MethodNotAllowed` handler is wrapped by global middleware registered via `Use()`. The wrapper is applied dynamically, so adding middleware after assigning `MethodNotAllowed` will cause existing 405 responses to be re-wrapped with the new chain. This ensures that rate-limiting, logging, authentication, and other policies apply uniformly to 405 errors.
 
 ---
 
 ## Panic Recovery
 
-MuxMaster does not automatically recover from panics. Use `middleware.Recoverer` to catch panics before they crash the server:
+MuxMaster does not recover panics unless you ask it to. Without recovery, `net/http` recovers the panic itself, logs it and closes the connection, so the client gets no normal response. Use `middleware.RecovererWithLogger` to log the panic and answer with a plain `500 Internal Server Error`:
 
 ```go
-mux.Use(middleware.Recoverer)
+mux.Use(middleware.RecovererWithLogger(slog.Default())) // Handle routes registered after this call
+// or
+mux.Pre(middleware.RecovererWithLogger(slog.Default())) // every request, including HandleFast routes
 ```
 
-For custom panic handling, set `mux.PanicHandler`:
+`RecovererWithLogger` writes its 500 response only if the handler has not already sent a status or body bytes; otherwise it leaves the response as the handler left it. `middleware.Recoverer()` is deprecated and equivalent to `RecovererWithLogger(slog.Default())`.
+
+For custom panic handling, set `mux.PanicHandler`. It recovers panics from `Pre` middleware, `Use` middleware and the handlers of both `Handle` and `HandleFast` routes. A `RecovererWithLogger` registered inside it (with `Pre` or `Use`) catches a panic first, in which case `PanicHandler` is not called:
 
 ```go
 mux.PanicHandler = func(w http.ResponseWriter, r *http.Request, rcv any) {
@@ -261,6 +278,8 @@ mux.PanicHandler = func(w http.ResponseWriter, r *http.Request, rcv any) {
 - `w http.ResponseWriter` — the response writer
 - `r *http.Request` — the request that caused the panic
 - `rcv any` — the value passed to `panic()`
+
+`PanicHandler` must not panic itself: a second panic is not recovered by MuxMaster and reaches `net/http`, which closes the connection.
 
 ---
 
@@ -319,28 +338,34 @@ errors.Is(he, base) // true — unwraps through the HTTPError wrapper
 
 ## See Also
 
-- [Response Helpers](response-helpers.md) — JSON, XML, Text helpers
-- [Middleware](middleware.md) — Recoverer middleware
-- [Cookbook](cookbook.md) — error handling patterns for production APIs
-
-## Upstream source
-
-`HandlerFuncE`, the default `ErrorHandler`, and the JSON / Text / XML helpers used for error rendering live in [`handler.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/handler.go) and [`response.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/response.go) in the upstream repository.
+- [Response Helpers](/docs/response-helpers) — JSON, XML, Text helpers
+- [Middleware](/docs/middleware) — `RecovererWithLogger` middleware
+- [Cookbook](/docs/cookbook) — error handling patterns for production APIs
 
 ## Common questions
 
 <section data-conversation="error-handling-patterns">
 
-### How do I return an error from a handler instead of writing the response myself?
+### How do I return an error from a MuxMaster handler?
 
-Use `mux.HandlerFuncE` instead of `http.HandlerFunc`. The signature is `func(http.ResponseWriter, *http.Request) error`; returning a non-nil error invokes the configured `ErrorHandler`, which is responsible for translating the error to an HTTP response.
+Register a `HandlerFuncE`, a handler with the signature `func(http.ResponseWriter, *http.Request) error`, with `GETE`, `POSTE`, `QUERYE`, or another `…E` helper, or with `HandleE`.
 
-### How do I customise the error-to-response translation?
+A returned non-nil error is passed to `Mux.ErrorHandler`. `muxmaster.Error(code, err)` wraps an error with an HTTP status code.
 
-Set `mux.Config.ErrorHandler` (or pass `mux.WithErrorHandler` at construction) to a function that inspects the error and writes the response. The default handler returns 500 with a plain-text body; production services typically branch on `errors.As`/`errors.Is` to map domain errors to specific status codes and content types.
+### What does MuxMaster send when a handler returns an error and no `ErrorHandler` is set?
 
-### How does MuxMaster handle panics in handlers?
+MuxMaster sends `500 Internal Server Error` with a plain-text body for every returned error when `ErrorHandler` is `nil`, even if the error is an `HTTPError` with another status code.
 
-MuxMaster does not recover panics by default — that responsibility belongs to a middleware so the policy is explicit. Add the built-in `Recoverer` (or a custom equivalent) via `m.Use(...)` early in the chain; the middleware logs the panic and writes a 500.
+Set `mux.ErrorHandler` and use `errors.As(err, &he)` with a `muxmaster.HTTPError` to respond with the status code the error carries.
+
+### Does MuxMaster recover panics in handlers?
+
+MuxMaster recovers panics only when you configure it to, with the `RecovererWithLogger` middleware or the `Mux.PanicHandler` field.
+
+Register `RecovererWithLogger` with `Pre` to cover every request, including `HandleFast` routes. Without recovery, `net/http` recovers the panic itself and closes the connection.
 
 </section>
+
+## Upstream source
+
+This page mirrors [`docs/error-handling.md`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/docs/error-handling.md) at the v1.3.0 tag. The behaviour it describes is implemented in [`handler.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/handler.go), [`mux.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/mux.go), [`response.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/response.go).
