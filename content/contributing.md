@@ -25,7 +25,7 @@ make test-race   # zero race conditions
 make vet         # zero warnings
 ```
 
-The Makefile targets exclude `reports/`, whose audit harnesses belong to the same module; `go test ./...` also runs them and takes much longer.
+The Makefile targets exclude `reports/`, whose test harnesses belong to the same module; `go test ./...` also runs them and takes much longer.
 
 ## Development workflow
 
@@ -185,7 +185,7 @@ fix(middleware): look up BasicAuth users in constant time
 
 Use the [GitHub issue tracker](https://github.com/FlavioCFOliveira/MuxMaster/issues).
 
-For security vulnerabilities, see [SECURITY.md](/security).
+To report a security issue, see [SECURITY.md](/security).
 
 ## License
 

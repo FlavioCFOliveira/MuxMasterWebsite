@@ -29,9 +29,9 @@ The specification governs the repository at `/data/dev/github.com/FlavioCFOlivei
 
 ## Files in this specification
 
-1. [overview.md](./overview.md) — purpose, audience, missions, static-tending operating principle, version cadence, language and integrity rules, performance-claim rules, and the objectives of the MuxMaster v1.3.0 content refresh.
+1. [overview.md](./overview.md) — purpose, audience, missions, static-tending operating principle, version cadence, language and integrity rules, performance-claim rules, the security-defect history exclusion, and the objectives of the MuxMaster v1.3.0 content refresh.
 2. [information-architecture.md](./information-architecture.md) — sitemap, URLs, navigation, page templates, breadcrumb and prev/next rules.
-3. [content-sources.md](./content-sources.md) — `/content/` repository layout, route → local-file mapping, examples-file shape, benchmark sources (the website benchmark campaign, corroborating upstream data, historical data), sync workflow performed by the `content-curator` agent.
+3. [content-sources.md](./content-sources.md) — `/content/` repository layout, route → local-file mapping, examples-file shape, benchmark sources (the website benchmark campaign, corroborating upstream data, historical data), sync workflow performed by the `content-curator` agent, including the security-defect history filter.
 4. [rendering-and-caching.md](./rendering-and-caching.md) — static-tending architecture (every public route pre-rendered at startup; recompute trigger is process restart), SSR pipeline, in-process render store, HTTP cache headers, ETag and Last-Modified strategy.
 5. [url-and-versioning.md](./url-and-versioning.md) — URL conventions, redirects, reserved paths, version label rule (read from `/content/changelog.md`).
 6. [seo.md](./seo.md) — SEO contract per page family, JSON-LD shapes, sitemap, robots, security headers, Core Web Vitals targets.

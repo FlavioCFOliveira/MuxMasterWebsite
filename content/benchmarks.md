@@ -13,7 +13,7 @@ Figures: AMD Ryzen 9 5900HX, go1.27.1, 2026-09-26, `-count=10`, medians; source:
 
 - **Router comparison.** Among the five routers measured, MuxMaster was the fastest in six of the eight route categories of the upstream competitor suite: static, 1 parameter, 3 parameters, not found, parallel static, and parallel 1 parameter. The winning MuxMaster mode differs by category (default `Handle`, `Handle` with `PoolRequestBundle`, or `HandleFast`).
 - **Where MuxMaster was not the fastest.** httprouter was the fastest router on catch-all routes, ahead of every MuxMaster mode. On 2 parameters, pooled MuxMaster and httprouter showed no significant difference. MuxMaster's default mode, which allocates one request bundle per parameterised request, was slower than httprouter on every parameterised category.
-- **v1.1.0 compared with v1.3.0.** The request hot path allocates the same in both versions. Of the 18 shared root-package benchmarks, 3 are faster in v1.3.0, 7 show no significant difference, and 8 are 1.42% to 6.25% slower. Several router and middleware paths became much faster (for example `ThrottlePerIP` −97.35% and automatic `OPTIONS` −42.95%), and security fixes made `CORS` without an `Origin` header, `Recoverer`, and `BasicAuth` slower.
+- **v1.1.0 compared with v1.3.0.** The request hot path allocates the same in both versions. Of the 18 shared root-package benchmarks, 3 are faster in v1.3.0, 7 show no significant difference, and 8 are 1.42% to 6.25% slower. Several router and middleware paths became much faster (for example `ThrottlePerIP` −97.35% and automatic `OPTIONS` −42.95%), and behaviour changes made `CORS` without an `Origin` header, `Recoverer`, and `BasicAuth` slower: `CORS` now sends `Vary: Origin` on every response, `Recoverer` tracks whether the response has started, and `BasicAuth` compares credentials in constant time across all users.
 
 This website itself runs on MuxMaster with `PoolRequestBundle` and `PoolFastParams` enabled; [Built with MuxMaster](/built-with-muxmaster) reports what that configuration costs per request on the site's own request path.
 
@@ -153,7 +153,7 @@ Figures: AMD Ryzen 9 5900HX, go1.27.1, 2026-09-26, `-count=10`, medians; source:
 
 ### Changes measured since v1.1.0: gains and costs
 
-This table maps each item of the upstream README's "Measured changes since v1.1.0" list to the benchmark that measures it. Where the benchmark exists at both tags, the v1.1.0 column is a real v1.1.0 measurement from this campaign. The upstream list's "before" values were measured on 2026-09-24 against pre-change commits, not against v1.1.0, and are not used here. Where the benchmark exists only at v1.3.0, the change since v1.1.0 could not be measured and only the v1.3.0 value is given. Costs added by security fixes are listed with the gains. The waste-hunt harness is the upstream benchmark set in `reports/perf-lab-2026-09-24/waste-hunt/` (see [Source](#source)). Caption: AMD Ryzen 9 5900HX, go1.27.1, 2026-09-26, `-count=10`, medians. Sources: `benchstat/perfaudit-v110-vs-v130.txt`, `benchstat/root-v110-vs-v130.txt`, `benchstat/wastehunt-v130.txt`.
+This table maps each item of the upstream README's "Measured changes since v1.1.0" list to the benchmark that measures it. Where the benchmark exists at both tags, the v1.1.0 column is a real v1.1.0 measurement from this campaign. The upstream list's "before" values were measured on 2026-09-24 against pre-change commits, not against v1.1.0, and are not used here. Where the benchmark exists only at v1.3.0, the change since v1.1.0 could not be measured and only the v1.3.0 value is given. Costs added by changes of behaviour are listed with the gains. The waste-hunt harness is the upstream benchmark set in `reports/perf-lab-2026-09-24/waste-hunt/` (see [Source](#source)). Caption: AMD Ryzen 9 5900HX, go1.27.1, 2026-09-26, `-count=10`, medians. Sources: `benchstat/perfaudit-v110-vs-v130.txt`, `benchstat/root-v110-vs-v130.txt`, `benchstat/wastehunt-v130.txt`.
 
 | Item | Benchmark | v1.1.0 | v1.3.0 | Change | p |
 |---|---|---|---|---|---|
@@ -184,12 +184,12 @@ This table maps each item of the upstream README's "Measured changes since v1.1.
 | `RealIP`, no header | `Middleware_RealIP_NoHeader` | 120.8 ns, 16 B, 1 alloc | 128.0 ns, 16 B, 1 alloc | +5.88% | 0.000 |
 | `APIKey`, valid key | `Middleware_APIKey_Hit` | 462.8 ns, 448 B, 7 allocs | 438.8 ns, 416 B, 6 allocs | -5.20% | 0.000 |
 | `APIKey`, invalid key | `Middleware_APIKey_Miss` | 409.5 ns, 96 B, 6 allocs | 415.6 ns, 96 B, 6 allocs | +1.48% | 0.003 |
-| `BasicAuth`, valid credentials (security fix TSC-2026-0002) | `Middleware_BasicAuth_Hit` | 199.9 ns, 48 B, 2 allocs | 327.6 ns, 48 B, 2 allocs | +63.92% | 0.000 |
-| `BasicAuth`, invalid credentials (security fix TSC-2026-0002) | `Middleware_BasicAuth_Miss` | 520.0 ns, 152 B, 8 allocs | 658.7 ns, 152 B, 8 allocs | +26.66% | 0.000 |
-| `CORS`, no `Origin` header (security fix TM-2026-033) | `Middleware_CORS_NoOrigin` | 20.24 ns, 0 B, 0 allocs | 81.79 ns, 112 B, 1 alloc | +304.08% | 0.000 |
+| `BasicAuth`, valid credentials (constant-time scan of all users) | `Middleware_BasicAuth_Hit` | 199.9 ns, 48 B, 2 allocs | 327.6 ns, 48 B, 2 allocs | +63.92% | 0.000 |
+| `BasicAuth`, invalid credentials (constant-time scan of all users) | `Middleware_BasicAuth_Miss` | 520.0 ns, 152 B, 8 allocs | 658.7 ns, 152 B, 8 allocs | +26.66% | 0.000 |
+| `CORS`, no `Origin` header (`Vary: Origin` on every response) | `Middleware_CORS_NoOrigin` | 20.24 ns, 0 B, 0 allocs | 81.79 ns, 112 B, 1 alloc | +304.08% | 0.000 |
 | `CORS`, allowed origin | `Middleware_CORS_AllowedOrigin` | 207.9 ns, 416 B, 3 allocs | 218.1 ns, 512 B, 3 allocs | +4.93% | 0.029 |
 | `CORS`, preflight | `Middleware_CORS_Preflight` | 226.2 ns, 416 B, 3 allocs | 237.0 ns, 512 B, 3 allocs | +4.77% | 0.037 |
-| `Recoverer`, no panic (security fix O-14) | `Middleware_Recoverer_NoPanic` | 6.502 ns, 0 B, 0 allocs | 17.46 ns, 0 B, 0 allocs | +168.59% | 0.000 |
+| `Recoverer`, no panic (tracks whether the response has started) | `Middleware_Recoverer_NoPanic` | 6.502 ns, 0 B, 0 allocs | 17.46 ns, 0 B, 0 allocs | +168.59% | 0.000 |
 
 Not re-measured by this campaign: the `-cpu` scaling results of the upstream contention hunt (`ThrottlePerIP` with many clients at 16 CPUs, `ThrottleBacklog` at 1 and 16 CPUs, `RequestID` at 1, 4, and 16 CPUs, `OAuth2Introspect` eviction at 16 CPUs). The campaign ran every benchmark at `GOMAXPROCS=16` only. Those upstream figures are quoted, with their attribution, on the [Performance](/docs/performance#upstream-measurements-not-repeated-by-the-campaign) page.
 
@@ -246,7 +246,7 @@ The upstream perf-audit harness (`reports/perf-audit-2026-05-12/`) has identical
 | Chain_Heavy | 9.950 µs ± 2% | 7.617 µs ± 5% | -23.45% | 0.000 | 1786 → 1872 (+4.82%, p=0.000) | 22 → 14 |
 | Chain_Minimal | 6.594 ns ± 2% | 17.29 ns ± 1% | +162.13% | 0.000 | identical (0) | identical (0) |
 
-Some rows have confidence intervals of ±20% to ±45% on one or both sides (`Middleware_SetHeader`, `Middleware_WithValue`, `Middleware_RequestID_*`, `Middleware_StripSlashes_Dirty`, `Middleware_NoCache`, `Middleware_CORS_AllowedOrigin`, and `GroupDispatch` and `NestedGroupDispatch` at v1.1.0). Where the rank test reports a significant difference for these rows, the direction is supported but the size is uncertain. The chain benchmarks follow their middleware: `Chain_Minimal` (`Recoverer` only) +162.13% and `Chain_AuthBasic` (`BasicAuth` and `Recoverer`) +65.37% reflect the security-fix costs above. Measured on 2026-09-26 on an AMD Ryzen 9 5900HX with go1.27.1, `-count=10`; source: the benchmark campaign archive [`reports/benchmarks-2026-09-26/`](https://github.com/FlavioCFOliveira/MuxMasterWebsite/tree/26abbe6c1cf2f4c9c16af45f4c02377a685f352d/reports/benchmarks-2026-09-26).
+Some rows have confidence intervals of ±20% to ±45% on one or both sides (`Middleware_SetHeader`, `Middleware_WithValue`, `Middleware_RequestID_*`, `Middleware_StripSlashes_Dirty`, `Middleware_NoCache`, `Middleware_CORS_AllowedOrigin`, and `GroupDispatch` and `NestedGroupDispatch` at v1.1.0). Where the rank test reports a significant difference for these rows, the direction is supported but the size is uncertain. The chain benchmarks follow their middleware: `Chain_Minimal` (`Recoverer` only) +162.13% and `Chain_AuthBasic` (`BasicAuth` and `Recoverer`) +65.37% reflect the behaviour-change costs above. Measured on 2026-09-26 on an AMD Ryzen 9 5900HX with go1.27.1, `-count=10`; source: the benchmark campaign archive [`reports/benchmarks-2026-09-26/`](https://github.com/FlavioCFOliveira/MuxMasterWebsite/tree/26abbe6c1cf2f4c9c16af45f4c02377a685f352d/reports/benchmarks-2026-09-26).
 
 ## Benchmarks new in v1.3.0
 
@@ -317,7 +317,7 @@ Caption: AMD Ryzen 9 5900HX, go1.27.1, 2026-09-26, `-count=10`, median ± 95% CI
 | BasicAuth/100-users/miss | 3.235 µs ± 0% | 168 | 8 |
 | JWTAuthHS256 | 4.384 µs ± 1% | 738 | 7 |
 
-`BasicAuth` scans every registered user in constant time (security fix TSC-2026-0002), so its cost grows with the number of users.
+`BasicAuth` compares credentials in constant time across all registered users, so its cost grows with the number of users.
 
 ## Caveats
 
@@ -370,7 +370,7 @@ The pooled and fast modes require handlers that do not retain the request (or th
 
 Several paths got much faster between v1.1.0 and v1.3.0, but the request hot path did not: 8 of 18 hot-path benchmarks are 1.42% to 6.25% slower in v1.3.0, 3 are faster, and 7 show no significant difference. Measured on 2026-09-26 on an AMD Ryzen 9 5900HX with go1.27.1, `-count=10`; source: the benchmark campaign archive [`reports/benchmarks-2026-09-26/`](https://github.com/FlavioCFOliveira/MuxMasterWebsite/tree/26abbe6c1cf2f4c9c16af45f4c02377a685f352d/reports/benchmarks-2026-09-26).
 
-The large gains are in router features and middleware: automatic `OPTIONS` −42.95%, trailing-slash redirects −23.61%, `ThrottlePerIP` −97.35%, `Logger` −21.98% with zero allocations. Security fixes added cost to `CORS` without an `Origin` header (+304.08%), `Recoverer` (+168.59%), and `BasicAuth` (+63.92% on a valid login). Measured on 2026-09-26 on an AMD Ryzen 9 5900HX with go1.27.1, `-count=10`; source: the benchmark campaign archive [`reports/benchmarks-2026-09-26/`](https://github.com/FlavioCFOliveira/MuxMasterWebsite/tree/26abbe6c1cf2f4c9c16af45f4c02377a685f352d/reports/benchmarks-2026-09-26).
+The large gains are in router features and middleware: automatic `OPTIONS` −42.95%, trailing-slash redirects −23.61%, `ThrottlePerIP` −97.35%, `Logger` −21.98% with zero allocations. Behaviour changes added cost to `CORS` without an `Origin` header (+304.08%; it now sends `Vary: Origin` on every response), `Recoverer` (+168.59%; it tracks whether the response has started), and `BasicAuth` (+63.92% on a valid login; it compares credentials in constant time across all users). Measured on 2026-09-26 on an AMD Ryzen 9 5900HX with go1.27.1, `-count=10`; source: the benchmark campaign archive [`reports/benchmarks-2026-09-26/`](https://github.com/FlavioCFOliveira/MuxMasterWebsite/tree/26abbe6c1cf2f4c9c16af45f4c02377a685f352d/reports/benchmarks-2026-09-26).
 
 </section>
 

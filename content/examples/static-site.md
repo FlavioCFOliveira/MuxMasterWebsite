@@ -209,7 +209,7 @@ assetsGroup := r.With(
 assetsGroup.ServeFiles("/assets/*filepath", http.Dir("./static/assets"))
 ```
 
-`ServeFiles` registers GET and HEAD for the catch-all pattern; `http.FileServer` handles ETag, range, conditional GET, and HEAD transparently. The root passed to `ServeFiles` must already point at the assets directory, because `ServeFiles` forwards only the captured `*filepath` suffix to the file server; from v1.2.0 onward, the example passes `http.Dir("./static/assets")` for that reason. Per `SECURITY.md` CDX-S8-002, `ServeFiles` refuses to register when the mux is configured with both `UseRawPath=true` and `UnescapePathValues=true` simultaneously — both stay at default to let `net/http` canonicalise the path before dispatch.
+`ServeFiles` registers GET and HEAD for the catch-all pattern; `http.FileServer` handles ETag, range, conditional GET, and HEAD transparently. The root passed to `ServeFiles` must already point at the assets directory, because `ServeFiles` forwards only the captured `*filepath` suffix to the file server; from v1.2.0 onward, the example passes `http.Dir("./static/assets")` for that reason. `ServeFiles` refuses to register when the mux is configured with both `UseRawPath=true` and `UnescapePathValues=true` simultaneously — both stay at default to let `net/http` canonicalise the path before dispatch.
 
 ## Step 11 — Expose route introspection for debugging
 

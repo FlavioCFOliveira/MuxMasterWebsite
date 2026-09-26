@@ -1250,7 +1250,7 @@ func TestSitemapListsNewRoutes(t *testing.T) {
 	// SEO-MAP-1: lastmod is the later front-matter date of the route's file.
 	for loc, date := range map[string]string{
 		"https://muxmaster.net/docs/http-query-method": "2026-09-26",
-		"https://muxmaster.net/releases/v1.0.0":        "2026-05-08",
+		"https://muxmaster.net/releases/v1.0.0":        "2026-09-26", // datePublished 2026-05-08, dateModified 2026-09-26
 		"https://muxmaster.net/":                       "2026-09-26",
 		"https://muxmaster.net/docs/":                  "2026-09-26",
 		"https://muxmaster.net/examples/":              "2026-09-26",

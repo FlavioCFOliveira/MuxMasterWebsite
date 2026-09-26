@@ -115,7 +115,7 @@ r.POSTE("/auth/login", func(w http.ResponseWriter, r *http.Request) error {
 
 ## Step 6 — Configure `JWTAuth` with `RequireExpiry: true`
 
-This is the validating side. The configuration is hardened per `SECURITY.md` CDX-S8-001: the algorithm allow-list is restricted to `HS256` (so a token forged with `alg: none` is rejected), and `RequireExpiry: true` rejects any token without an `exp` claim.
+This is the validating side. The configuration follows the [Composite token-handling stack](/security#composite-token-handling-stack) on the Security page: the algorithm allow-list is restricted to `HS256` (so a token forged with `alg: none` is rejected), and `RequireExpiry: true` rejects any token without an `exp` claim.
 
 ```go
 jwtAuth := mw.JWTAuth(mw.JWTOptions{

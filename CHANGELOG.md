@@ -21,6 +21,10 @@ The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - **Static assets served from memory.** `/static/*filepath` is a MuxMaster `FastHandler` (`GETFast`, `HEADFast`, `PoolFastParams`) that serves files loaded at startup. The CSS bundle with gzip now costs 9.9 µs and 5 allocations per request, down from 214.4 µs and 40. `middleware.Compress` is no longer in the chain. Commit `2128202` (#107).
 - **Request pooling and an allocation-free site middleware chain.** `Mux.PoolRequestBundle` is on; the security headers and the access log allocate nothing per request. Commit `89ebe37` (#108).
 
+### Removed
+
+- **MuxMaster security-defect history.** No page, Markdown companion, JSON-LD string, meta description, `llms.txt`, or `llms-full.txt` refers to security defects found or fixed in MuxMaster, carries an audit or finding identifier, or links to the upstream security audit reports (`specification/overview.md` INT-SEC-1 to INT-SEC-6). `/security` states the reporting policy, the supported versions, the current security behaviour, and the accepted limitations; the release pages no longer have a "Security" section; performance costs introduced by those changes are described as behaviour changes. A regression test checks every published surface for finding identifiers and for "security fix" wording outside the supported-versions statement, and a second test checks that every in-site `#fragment` link resolves to an id on its target page.
+
 ### Fixed
 
 - **False performance claims and invented APIs removed.** Unmeasured or contradicted performance claims (for example "20 % faster than httprouter") no longer appear as current facts, and API symbols that MuxMaster does not export are gone from every page. Where such a claim is quoted in historical release notes or changelog entries, it carries a marker stating that the 2026-09-26 campaign does not support it; figures measured on v1.1.0-era code are marked as historical.

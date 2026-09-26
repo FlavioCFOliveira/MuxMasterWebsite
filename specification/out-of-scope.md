@@ -45,7 +45,7 @@ The website does **not** read `../MuxMaster/` at request time, at startup, or at
 ## Audit-report mirroring
 
 - The upstream `reports/` directory is **not** mirrored on the site (and is not part of `/content/`).
-- The `/security` page links to it on GitHub.
+- The site MUST NOT link to the security audit reports or findings registers in it (`overview.md` INT-SEC-2; `content-sources.md` § Audit reports).
 
 ## Benchmark re-execution
 

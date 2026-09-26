@@ -24,7 +24,7 @@ r.UseRawPath = false            // use decoded path for matching
 r.UnescapePathValues = false    // raw param values; opt-in if you need %2F decoded
 ```
 
-`UseRawPath = true` + `UnescapePathValues = true` is the configuration `SECURITY.md` CDX-S8-002 forbids in combination — `ServeFiles` refuses to register on a router with both flags set.
+`UseRawPath = true` + `UnescapePathValues = true` is the combination that [Security](/security#userawpath-traversal) forbids for file serving — `ServeFiles` refuses to register on a router with both flags set.
 
 ## Step 2 — Wire JSON-shaped error / fallback handlers
 

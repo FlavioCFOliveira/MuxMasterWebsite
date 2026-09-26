@@ -141,10 +141,9 @@ with a brief migration note.
 
 ## Security patches
 
-Security fixes for supported versions are released as PATCH versions and
-announced via GitHub Security Advisories. The CHANGELOG `### Security`
-section enumerates each finding with its identifier (e.g.
-`CSA-2026-0060`, `HPS-2026-0005`).
+Only the latest release receives security fixes. They are released as
+PATCH versions and announced via GitHub Security Advisories. The supported
+versions and the reporting policy are on the [Security](/security) page.
 
 ## Glossary
 

@@ -199,7 +199,7 @@ The curator does **not** copy the upstream `main.go` verbatim as a single block.
 ### Corroborating and upstream sources
 
 - **CS-BENCH-9.** The upstream `README.md` `## Benchmarks` section at tag `v1.3.0` and the upstream `reports/perf-lab-2026-09-26-docs/` archive MAY be cited on `/benchmarks` only as corroboration of the campaign's results. They MUST NOT replace a campaign figure.
-- **CS-BENCH-10.** A figure from the upstream "Measured changes since v1.1.0" list (route registration, `Mount`, `CleanPath`, redirects, 405, automatic `OPTIONS`, the `Text` helper, middleware, and the costs added by security fixes) MAY be published only when either (a) the campaign re-measured it, in which case the campaign figure is published, or (b) it is explicitly attributed to upstream, with the upstream measurement date, the upstream sample count, and a link to the upstream source pinned to the `v1.3.0` tag. The "before" values in that upstream list were measured on 2026-09-24 against pre-change commits, not against `v1.1.0`; the page MUST NOT present them as `v1.1.0` values.
+- **CS-BENCH-10.** A figure from the upstream "Measured changes since v1.1.0" list (route registration, `Mount`, `CleanPath`, redirects, 405, automatic `OPTIONS`, the `Text` helper, middleware, and the costs added by changes of behaviour, which the page describes as behaviour changes per `overview.md` INT-SEC-5) MAY be published only when either (a) the campaign re-measured it, in which case the campaign figure is published, or (b) it is explicitly attributed to upstream, with the upstream measurement date, the upstream sample count, and a link to the upstream source pinned to the `v1.3.0` tag. The "before" values in that upstream list were measured on 2026-09-24 against pre-change commits, not against `v1.1.0`; the page MUST NOT present them as `v1.1.0` values.
 - **CS-BENCH-11.** When the upstream commit that a corroborating figure was measured at is not the tag being documented, the page MUST state the measured commit. (For example, the upstream `perf-lab-2026-09-26-docs` host table records commit `bc4edb7`, which precedes the `v1.2.0` tag.)
 
 ### Historical data
@@ -214,6 +214,15 @@ The curator does **not** copy the upstream `main.go` verbatim as a single block.
 
 - **CS-BENCH-17.** `/content/benchmarks.md` MUST end with a "Source" section that lists, for each source used: the campaign archive `reports/benchmarks-<YYYY-MM-DD>/`, linked on `https://github.com/FlavioCFOliveira/MuxMasterWebsite` at the full commit SHA that contains it; the upstream benchmark suites measured (`bench_test.go` at `v1.1.0` and `v1.3.0`, `competitor/bench_test.go` at `v1.3.0`, and `middleware` benchmarks at `v1.3.0` when run); and every corroborating or historical upstream source cited, linked to the upstream file at the `v1.3.0` tag.
 - **CS-BENCH-18.** The refreshed `/content/benchmarks.md` MUST NOT be published before the first campaign archive under `reports/benchmarks-<YYYY-MM-DD>/` exists in this repository.
+
+## Security-defect history filter
+
+The project owner decided on 2026-09-26 that the site does not publish the history of security defects in MuxMaster (`overview.md` § Security-defect history, INT-SEC-1 to INT-SEC-6). These rules apply that decision to the sync workflow. They prevail over every mirror rule in this file.
+
+- **CS-SEC-1.** On every sync, the `content-curator` agent MUST remove from every file it writes under `/content/` the material and wording forbidden by INT-SEC-2 and INT-SEC-3. Where the removed text also states a current behaviour, secure default, limitation, or performance cost, the curator MUST restate that fact in the present tense, without a finding identifier or defect history (INT-SEC-4, INT-SEC-5). Where the text only describes a defect, the curator MUST drop it.
+- **CS-SEC-2.** `/content/changelog.md` is not a faithful mirror of the upstream `CHANGELOG.md` for security-defect history. Each entry that describes a security defect MUST be rewritten as a present-tense behaviour statement or dropped, per CS-SEC-1. Version headings MUST be kept, so that the version label rule (`url-and-versioning.md` § Version label rule) and the version sequence are unaffected.
+- **CS-SEC-3.** Each file under `/content/release-notes/` follows CS-SEC-2. Sections that record defect history, such as "Resolved Findings", "Defects Found and Fixed", "Pre-Existing … Defects", and "Audit-trail breakdown", MUST be dropped whole, except for any present-tense behaviour statement that CS-SEC-1 requires the curator to keep elsewhere in the file.
+- **CS-SEC-4.** `/content/security.md` MUST contain only what INT-SEC-4 permits: the vulnerability-reporting policy, the supported versions, the current security behaviour and secure defaults, and the accepted limitations and operator guidance, each stated in the present tense. It MUST NOT contain finding identifiers, defect history, or links to upstream security audit reports or findings registers.
 
 ## Version label
 
@@ -236,11 +245,11 @@ The website is updated to a new MuxMaster release through the **content sync wor
 4. **Transform and propose.** The curator transforms each upstream document into the corresponding `/content/...md` file:
    - Documentation files under `${MUXMASTER_SOURCE_DIR}/docs/` map one-to-one to `/content/docs/<name>.md`, except `/content/docs/http-query-method.md`, which is composed per CS-QUERY-1 below.
    - `${MUXMASTER_SOURCE_DIR}/api.md` maps to `/content/api.md`.
-   - `${MUXMASTER_SOURCE_DIR}/CHANGELOG.md` maps to `/content/changelog.md`.
-   - `${MUXMASTER_SOURCE_DIR}/SECURITY.md` maps to `/content/security.md`.
+   - `${MUXMASTER_SOURCE_DIR}/CHANGELOG.md` maps to `/content/changelog.md`, filtered per CS-SEC-2.
+   - `${MUXMASTER_SOURCE_DIR}/SECURITY.md` maps to `/content/security.md`, filtered per CS-SEC-4.
    - `${MUXMASTER_SOURCE_DIR}/COMPATIBILITY.md` maps to `/content/compatibility.md`.
    - `${MUXMASTER_SOURCE_DIR}/CONTRIBUTING.md` maps to `/content/contributing.md`.
-   - `${MUXMASTER_SOURCE_DIR}/release-notes/<file>.md` map to `/content/release-notes/<simplified-name>.md` (the curator strips dated suffixes; for example `v1.0.0-20260508.md` becomes `v1.0.0.md`). **CS-REL-1.** `release-notes/v1.2.0-20260926.md` MUST map to `/content/release-notes/v1.2.0.md` (route `/releases/v1.2.0`), and `release-notes/v1.3.0-20260926.md` MUST map to `/content/release-notes/v1.3.0.md` (route `/releases/v1.3.0`).
+   - `${MUXMASTER_SOURCE_DIR}/release-notes/<file>.md` map to `/content/release-notes/<simplified-name>.md` (the curator strips dated suffixes; for example `v1.0.0-20260508.md` becomes `v1.0.0.md`), filtered per CS-SEC-3. **CS-REL-1.** `release-notes/v1.2.0-20260926.md` MUST map to `/content/release-notes/v1.2.0.md` (route `/releases/v1.2.0`), and `release-notes/v1.3.0-20260926.md` MUST map to `/content/release-notes/v1.3.0.md` (route `/releases/v1.3.0`).
    - **CS-QUERY-1.** `/content/docs/http-query-method.md` has no one-to-one upstream counterpart. The curator composes it from these upstream sources at the `v1.3.0` tag: `README.md`, `CHANGELOG.md` `## [1.2.0]`, `release-notes/v1.2.0-20260926.md`, `docs/routing.md`, and `query_method_test.go`. Every claim on the page MUST be verified against the upstream source code at `v1.3.0` (`mux.go`, `group.go`, and the tests), except the pre-v1.2.0 panic message (`information-architecture.md` IA-QUERY-15), which MUST be verified against the upstream source at the `v1.1.0` tag. The page's required content is defined in `information-architecture.md` § HTTP QUERY method page. The page MUST end with a `## Sources` section linking each upstream source it uses, pinned to the `v1.3.0` tag, or to the `v1.1.0` tag for the source of the pre-v1.2.0 panic message. When the page quotes RFC 10008 (IA-QUERY-14), the `## Sources` section MUST also link RFC 10008 on the RFC Editor site.
    - `${MUXMASTER_SOURCE_DIR}/examples/<name>/` maps to `/content/examples/<name>.md`. The curator produces a walkthrough whose excerpts are lifted verbatim from upstream `${MUXMASTER_SOURCE_DIR}/examples/<name>/main.go` (and other files in that directory when a step concerns them). The curator MUST NOT invent code; every excerpt MUST appear in the upstream source. The curator chooses the step segmentation, authors the editorial intro and the per-step didactic prose, and assembles the `## Common questions` chain and `## Upstream source` link as described in "Examples — file shape" above and in `geo.md` § Example walkthrough shape.
    - `/content/benchmarks.md` is written from this repository's campaign archive `reports/benchmarks-<YYYY-MM-DD>/` (primary source), with upstream data used only as corroboration or in the historical section, per "Benchmarks — sources" above. The "Source" section required by CS-BENCH-17 MUST be appended.
@@ -253,7 +262,7 @@ The curator agent does **not** read or write this repository's Go source code, t
 
 ## Audit reports
 
-The `${MUXMASTER_SOURCE_DIR}/reports/` directory is **not** mirrored on the site. The `/security` page links to it on GitHub.
+The `${MUXMASTER_SOURCE_DIR}/reports/` directory is **not** mirrored on the site. The site MUST NOT link to the security audit reports or findings registers in that directory (`overview.md` INT-SEC-2). Performance reports in that directory MAY be linked as "Benchmarks — sources" permits. This replaces the earlier rule, withdrawn on 2026-09-26, that the `/security` page links to the directory on GitHub.
 
 ## MuxMaster's own internal specification
 

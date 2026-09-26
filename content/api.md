@@ -53,7 +53,7 @@ Three orthogonal middleware scopes are supported:
 
   - Mux.Use: stdlib http.Handler middleware applied at registration time;
     wraps Mux.Handle routes only. Registering a HandleFast route after Use
-    panics (FPE-2026-010).
+    panics.
   - Mux.UseFast: FastMiddleware that wraps HandleFast routes only.
   - Mux.Pre: pre-dispatch middleware that wraps BOTH Handle and HandleFast
     routes; ideal for cross-cutting policy (auth, logging, request_id).
@@ -238,7 +238,7 @@ func (g *Group) HandleE(method, path string, h HandlerFuncE)
     HandleE registers a HandlerFuncE under this group. Errors are passed to
     g.mux.ErrorHandler if set, otherwise a 500 is returned. The error handler
     is read from the frozen muxConfig at request time — see Mux.HandleE for the
-    rationale (CSA-2026-0052).
+    rationale.
 
 func (g *Group) HandleFast(method, path string, h FastHandler)
     HandleFast registers a FastHandler under this group with the given
@@ -264,9 +264,8 @@ func (g *Group) Mount(prefix string, h http.Handler)
     section 11), stripping the full prefix before forwarding. See Mux.Mount
     for the registered pattern and panics. The group's stdlib middleware
     (registered via Use) wraps the mounted handler so authentication, logging,
-    etc. apply to every request reaching h — without this wrapping a Group with
-    BasicAuth/JWTAuth would silently leave the mounted handler unprotected
-    (MSR-2026-0062).
+    etc. apply to every request reaching h, and a Group with BasicAuth/JWTAuth
+    protects the mounted handler.
 
 func (g *Group) OPTIONS(path string, h http.HandlerFunc)
     OPTIONS registers a HandlerFunc for OPTIONS requests on path.
@@ -319,7 +318,7 @@ func (g *Group) ServeFiles(prefix string, root http.FileSystem)
     section in specification/README.md): a new *http.Request with a new URL,
     but sharing the original's header map and context.
 
-    SECURITY (CDX-S8-002): like Mux.ServeFiles, it panics when the owning Mux
+    SECURITY: like Mux.ServeFiles, it panics when the owning Mux
     has both UseRawPath and UnescapePathValues set at the time of the call.
     See Mux.ServeFiles for the rationale.
 
@@ -381,12 +380,12 @@ type Mux struct {
 	// UnescapePathValues percent-decodes path parameter values before storing
 	// them. Only takes effect when UseRawPath is also true: when UseRawPath is
 	// false (the default) net/http already decodes the URL path during parsing
-	// and a second decode would corrupt values containing literal '%XX' (the
-	// PRF-2026-0006 double-decode that let %2520 bypass space-blocking input
-	// validators). Set both UseRawPath and UnescapePathValues to retrieve
+	// and a second decode would corrupt values containing literal '%XX' (a
+	// double decode would turn %2520 into a space and bypass space-blocking
+	// input validators). Set both UseRawPath and UnescapePathValues to retrieve
 	// decoded values from the original raw path bytes.
 	//
-	// SECURITY (PRF-2026-0002): when UseRawPath=true AND UnescapePathValues=true,
+	// SECURITY: when UseRawPath=true AND UnescapePathValues=true,
 	// `%2f` inside a single segment is matched as one path segment by the radix
 	// tree (because `/` is preserved as separator only via literal slash) and
 	// then DECODED in the captured param value. A request such as
@@ -394,8 +393,8 @@ type Mux struct {
 	// `..\x2fetc\x2fpasswd` — i.e. the captured value contains a real slash.
 	// Handlers that pass `ParamsFromContext(...).Get("filepath")` to
 	// `os.Open`, `http.FileServer`, or any URL/file API WITHOUT calling
-	// `path.Clean` (and rejecting values that contain `..`) are vulnerable to
-	// directory traversal. The CleanPath middleware does NOT normalise
+	// `path.Clean` (and rejecting values that contain `..`) allow directory
+	// traversal. The CleanPath middleware does NOT normalise
 	// post-decode values; it only canonicalises the request path before
 	// dispatch. See SECURITY.md "UseRawPath traversal" and
 	// examples/static-site/ for the safe pattern.
@@ -424,7 +423,7 @@ type Mux struct {
 	// PanicHandler recovers from panics in handlers and receives the
 	// ResponseWriter, Request, and recovered value.
 	//
-	// SECURITY (CSA-2026-0058 / H8-30): PanicHandler implementations MUST
+	// SECURITY: PanicHandler implementations MUST
 	// NOT themselves panic. MuxMaster's recover frame catches the FIRST
 	// panic and dispatches into PanicHandler; if PanicHandler panics again
 	// the secondary panic is NOT recovered by MuxMaster. It propagates up
@@ -558,8 +557,7 @@ func (m *Mux) HandleE(method, pattern string, h HandlerFuncE)
     HandleE registers a HandlerFuncE for the given method and path. Errors
     are passed to m.ErrorHandler if set, otherwise a 500 is returned. The
     error handler is read from the frozen muxConfig snapshot at request time,
-    eliminating the data race against post-startup mutation of m.ErrorHandler
-    (CSA-2026-0052).
+    so a post-startup mutation of m.ErrorHandler does not race with dispatch.
 
 func (m *Mux) HandleFast(method, pattern string, h FastHandler)
     HandleFast registers a FastHandler for the given HTTP method and path.
@@ -568,8 +566,8 @@ func (m *Mux) HandleFast(method, pattern string, h FastHandler)
     routes. Params are passed as a direct argument — see FastHandler for
     lifetime guarantees.
 
-    SECURITY: Registering a HandleFast route after calling Use() panics
-    (CSA-2026-0054, FPE-2026-010). Stdlib middleware attached via Use does not
+    SECURITY: Registering a HandleFast route after calling Use() panics.
+    Stdlib middleware attached via Use does not
     wrap fast routes. Use Pre() for middleware that must cover both route types,
     or UseFast() for FastMiddleware that wraps only fast routes. See SECURITY.md
     "Pre vs Use security boundary" for the full matrix.
@@ -659,7 +657,7 @@ func (m *Mux) Pre(mw ...func(http.Handler) http.Handler)
     Pre registers middleware that runs before dispatch (e.g. before routing).
     Calling Pre rebuilds the pre-dispatch handler chain.
 
-    SECURITY (CSA-2026-0059): Pre wraps the entire ServeHTTP dispatch and
+    SECURITY: Pre wraps the entire ServeHTTP dispatch and
     covers BOTH Handle (stdlib) and HandleFast routes. This makes Pre the
     correct registration point for cross-cutting policies that must apply
     uniformly — auth gates, CleanPath, RealIP, RecovererWithLogger, request IDs.
@@ -713,10 +711,10 @@ func (m *Mux) ServeFiles(prefix string, root http.FileSystem)
     section in specification/README.md): a new *http.Request with a new URL,
     but sharing the original's header map and context.
 
-    SECURITY (CDX-S8-002): http.FileServer applies path.Clean internally,
+    SECURITY: http.FileServer applies path.Clean internally,
     so a request like /static/../etc/passwd cannot escape root. However,
     when the Mux is configured with UseRawPath=true AND UnescapePathValues=true
-    the captured filepath param contains decoded slashes (PRF-2026-0002)
+    the captured filepath param contains decoded slashes
     and http.FileServer's clean step happens AFTER the param has already
     been re-set as r2.URL.Path — the decoded slashes act as path separators
     inside FileServer's tree. Registration with that combination panics
@@ -743,9 +741,9 @@ func (m *Mux) Use(middleware ...func(http.Handler) http.Handler)
     all handlers registered after this call. The first middleware added is
     outermost.
 
-    SECURITY (CSA-2026-0059): Use does NOT wrap HandleFast routes — registering
+    SECURITY: Use does NOT wrap HandleFast routes — registering
     a fast route after Use(authMiddleware) panics at HandleFast call time on
-    BOTH the root Mux (FPE-2026-010) and Groups (CSA-2026-0054), so the bypass
+    BOTH the root Mux and Groups, so the bypass
     cannot occur silently regardless of where the operator places the route.
     To apply policy to both stdlib and fast routes, use Pre(...) (outermost,
     route-type agnostic) or UseFast(...) for FastMiddleware. See SECURITY.md
@@ -756,7 +754,7 @@ func (m *Mux) UseFast(mw ...FastMiddleware)
     HandleFast routes registered after this call. The first middleware added is
     outermost. Has no effect on routes registered via Handle.
 
-    SECURITY (CSA-2026-0059): UseFast is the FastHandler counterpart of Use;
+    SECURITY: UseFast is the FastHandler counterpart of Use;
     together with Pre (which covers BOTH route types) it forms the route-type
     matrix documented in SECURITY.md "Pre vs Use security boundary". An auth
     gate applied only via Use(...) does NOT cover HandleFast routes.
@@ -853,7 +851,7 @@ const DefaultThrottlePerIPMaxTableSize = 100_000
     DefaultThrottlePerIPMaxTableSize is the default upper bound on the number of
     distinct keys ThrottlePerIP will track concurrently. When the table is full,
     requests for NEW keys are rejected with 503 to bound memory under IP-churn
-    attacks (MSR-2026-0068). Existing keys keep working.
+    attacks. Existing keys keep working.
 
 
 FUNCTIONS
@@ -876,26 +874,25 @@ func BasicAuth(realm string, creds map[string]string) func(http.Handler) http.Ha
     lookup. Every request scans the ENTIRE entry slice unconditionally with
     subtle.ConstantTimeCompare / subtle.ConstantTimeCopy: there is no early
     exit and no branch whose outcome depends on whether the supplied username
-    matches a registered one. This removes the user-enumeration timing oracle
-    inherent to Go's `map[string]V` lookup (`runtime.mapaccess2_faststr`,
-    whose running time depends on hash-bucket occupancy and key comparison),
-    tracked as TSC-2026-0002 in SECURITY.md. Cost scales linearly with the
+    matches a registered one. A Go `map[string]V` lookup
+    (`runtime.mapaccess2_faststr`) would take time that depends on hash-bucket
+    occupancy and key comparison, and so would reveal whether a username
+    exists; the constant-time scan does not. Cost scales linearly with the
     number of registered users (O(n) per request, always — matched or not); see
-    BenchmarkBasicAuth for the per-user overhead. The historical password-length
-    oracle (MM-2026-0020) and user-enumeration oracle (MM-2026-0009) remain
-    fixed by the same hash-before-compare technique this function has always
-    used. Panics if creds is nil.
+    BenchmarkBasicAuth for the per-user overhead. Both the supplied and the
+    stored password are hashed before the comparison, so its time does not
+    depend on the supplied password's length. Panics if creds is nil.
 
 func CORS(opts CORSOptions) func(http.Handler) http.Handler
     CORS handles Cross-Origin Resource Sharing. Panics on invalid configuration.
 
     SECURITY: AllowedOrigins must be set explicitly. Passing nil or an
-    empty slice is a misconfiguration trap (HPS-2026-0003): the middleware
+    empty slice is a misconfiguration trap: the middleware
     would silently let cross-origin requests through with no ACAO header,
     hiding the issue from the operator. We panic at construction time so the
     misconfiguration is caught at boot.
 
-    ORDERING (MSR-2026-0070): CORS sets `Access-Control-Allow-Origin` (and
+    ORDERING: CORS sets `Access-Control-Allow-Origin` (and
     related Access-Control-* headers) when its frame runs. If another middleware
     that calls `Header().Set(...)` runs AFTER CORS in the request flow
     (innermost in the Use() chain), the late Set will OVERWRITE the CORS-managed
@@ -904,7 +901,7 @@ func CORS(opts CORSOptions) func(http.Handler) http.Handler
     headers (i.e. last in the Use() chain that handles them) or avoid calling
     SetHeader on CORS-managed names. See SetHeader for the composition rule.
 
-    VARY (TM-2026-033, spec section 16): unlike the Access-Control-* headers
+    VARY (spec section 16): unlike the Access-Control-* headers
     above, `Vary: Origin` is added with Header.Add semantics — as an additional
     value alongside whatever Vary already carries, never overwriting it — so
     its correctness does not depend on Use()-chain order relative to other
@@ -915,14 +912,14 @@ func CleanPath() func(http.Handler) http.Handler
     CleanPath normalises r.URL.Path via path.Clean before routing. When
     r.URL.RawPath is set, it is also cleaned; if the cleaned RawPath differs
     from what path.Clean produces for the percent-decoded Path, RawPath is
-    zeroed to prevent encoded path-traversal bypass (MM-2026-0018).
+    zeroed to prevent encoded path-traversal bypass.
 
     ORDERING: When composing CleanPath with path-inspecting Pre-gates
     (authorization checks that reject certain prefixes), CleanPath MUST
     be registered first. A gate registered before CleanPath sees the raw,
     unnormalised path and can be bypassed by /admin/../public, //admin,
     or %2e%2e-encoded variants. CleanPath must run first to normalise before the
-    gate inspects the path (rmp #284, TM-2026-040).
+    gate inspects the path.
 
     When the path changes, next receives a shallow copy of the request (see
     the Terminology section in the MuxMaster specification/README.md): a new
@@ -935,21 +932,19 @@ func Compress(level int) func(http.Handler) http.Handler
     streaming compression — memory usage is bounded regardless of response size.
     Panics on invalid compression level.
 
-    OPERATIONAL (DOS-2026-0007): the compress middleware buffers up to 8 KiB
+    OPERATIONAL: the compress middleware buffers up to 8 KiB
     per stalled connection while sniffing whether the response is large enough
     to compress. Operators MUST configure http.Server.ReadHeaderTimeout and
     http.Server.WriteTimeout (and a connection cap via a Listener limit) to
     bound the total memory held by N stalled connections; the middleware itself
     does not enforce a per-connection timeout.
 
-    SECURITY (BREACH / DOS-2026-0006): do NOT echo user-controlled input
+    SECURITY (BREACH): do NOT echo user-controlled input
     alongside a secret (OAuth2 scope, CSRF token, session ID, JWT) inside
     a gzip-compressed response body. Compression amplifies tiny size
     differences that depend on whether the user's input matches a prefix
-    of the secret — this is the BREACH oracle (Cohen's d > 10 measured in
-    reports/dos-resilience-tester/harness/breach_oracle_test.go), letting an
-    attacker recover the secret character-by-character with ~2 requests per
-    character.
+    of the secret (the BREACH attack), letting a client recover the secret
+    character by character.
 
     Mitigations, in order of preference:
 
@@ -958,8 +953,8 @@ func Compress(level int) func(http.Handler) http.Handler
      2. Move secrets out of the response body (set them in headers, cookies,
         or separate API endpoints not reachable via attacker-controlled input).
      3. Add variable-length random padding (>= 256 bytes, length
-        randomised per request) to the response body. Validated by
-        TestBREACHOracleWithRandomPadding (Cohen's d drops below 0.03).
+        randomised per request) to the response body. Fixed-length padding is
+        not sufficient.
 
     MuxMaster cannot apply these mitigations on the operator's behalf because
     they require knowledge of which fields are secret vs user-controlled.
@@ -1021,14 +1016,14 @@ func OAuth2Introspect(opts OAuth2Options) func(http.Handler) http.Handler
 
     Panics if opts.Endpoint is empty, malformed, or non-HTTPS (unless
     opts.AllowInsecureEndpoint is true). Bearer tokens transmitted over
-    plaintext are exposed to passive observers (MSR-2026-0067 / RFC 7662 §4).
+    plaintext are exposed to passive observers (RFC 7662 §4).
 
 func RealIP(trustedCIDRs ...*netip.Prefix) func(http.Handler) http.Handler
     RealIP overwrites r.RemoteAddr with the client IP derived from the
     X-Forwarded-For or X-Real-IP header. Only mutates RemoteAddr when the direct
     peer is within one of the trusted CIDR prefixes.
 
-    XFF selection (MSR-2026-0065): the header is parsed as a comma-separated
+    XFF selection: the header is parsed as a comma-separated
     list and walked from RIGHTMOST toward leftmost, skipping entries that
     lie inside any trustedCIDRs. The first entry NOT inside a trusted CIDR
     is the real client IP. This rejects attacker-injected leftmost values:
@@ -1040,7 +1035,7 @@ func RealIP(trustedCIDRs ...*netip.Prefix) func(http.Handler) http.Handler
     proxy stripping inbound XFF (the documented baseline) the behaviour is
     identical to picking the leftmost.
 
-    SECURITY (MSR-2026-0055): calling RealIP() with no CIDRs trusts every
+    SECURITY: calling RealIP() with no CIDRs trusts every
     peer — any client can spoof the X-Forwarded-For / X-Real-IP header and the
     router will accept it as the real client IP. This is only safe behind a
     single trusted proxy that strips inbound XFF; in any other deployment it
@@ -1054,8 +1049,7 @@ func RealIP(trustedCIDRs ...*netip.Prefix) func(http.Handler) http.Handler
     early and the proxy IP (rather than the real client) becomes RemoteAddr.
 
     IP values are validated via netip.ParseAddr, which rejects CRLF injection
-    and malformed addresses, and IPv6 zone IDs are stripped via WithZone("")
-    (FPE-2026-003 / FPE-2026-003b).
+    and malformed addresses, and IPv6 zone IDs are stripped via WithZone("").
 
 func Recoverer() func(http.Handler) http.Handler
     Recoverer recovers from panics and writes a 500 response. Logs via
@@ -1071,17 +1065,16 @@ func RecovererWithLogger(logger *slog.Logger) func(http.Handler) http.Handler
     own response is a handler bug independent of Recoverer: net/http itself
     discards a WriteHeader call once the status line is on the wire (logging
     "superfluous response.WriteHeader call" to its own ErrorLog), and Recoverer
-    now applies the same rule to the body, instead of unconditionally appending
-    "Internal Server Error\n" after whatever the handler already streamed (O-14,
-    rmp #276).
+    applies the same rule to the body: it never appends "Internal Server
+    Error\n" after whatever the handler already streamed.
 
     The panic value is never written to the response body, preventing
-    information leakage to clients (MM-2026-0023).
+    information leakage to clients.
 
 func RequestID() func(http.Handler) http.Handler
     RequestID generates or propagates a request ID via X-Request-ID header.
     Incoming X-Request-ID values are validated; invalid or oversized values are
-    replaced with a freshly generated random ID (MM-2026-0011).
+    replaced with a freshly generated random ID.
 
     Allocation budget: exactly 2 allocations per request, on either path
     (generated or propagated) — (1) the fused *requestIDCtx node, which also
@@ -1101,7 +1094,7 @@ func SetHeader(key, value string) func(http.Handler) http.Handler
     bytes can reach downstream middleware in raw form even though Go's wire
     serialiser strips them before writing to the network.
 
-    ORDERING (MSR-2026-0070): SetHeader runs Header().Set on the response at the
+    ORDERING: SetHeader runs Header().Set on the response at the
     START of its frame, BEFORE calling next. Middleware composition in MuxMaster
     wraps from outermost to innermost — the first Use() call is outermost. So if
     Use(CORS, SetHeader(...)) is registered, SetHeader runs LAST in the request
@@ -1122,8 +1115,7 @@ func StripSlashes() func(http.Handler) http.Handler
     When r.URL.RawPath is set (the original raw form is preserved by
     net/http only when it differs from the decoded Path), StripSlashes
     also strips trailing '/' bytes from RawPath. Without this the dispatch
-    path would diverge between Path and RawPath when Mux.UseRawPath is true
-    (HPS-2026-0004).
+    path would diverge between Path and RawPath when Mux.UseRawPath is true.
 
     When the path has trailing slashes to strip, next receives a shallow
     copy of the request (see the Terminology section in the MuxMaster
@@ -1154,7 +1146,7 @@ func ThrottlePerIP(limit int, timeout time.Duration, keyFn func(*http.Request) s
     of r.RemoteAddr is used. limit is the maximum concurrent requests per key;
     timeout is how long a request waits for a slot before receiving 503.
 
-    SECURITY (DOS-2026-0002): when keyFn is nil, ThrottlePerIP keys on
+    SECURITY: when keyFn is nil, ThrottlePerIP keys on
     r.RemoteAddr — which is whatever the TCP peer's address is unless RealIP
     has previously rewritten it. Behind a load balancer that does not strip the
     LB's own address from RemoteAddr, every request appears to come from the LB
@@ -1162,7 +1154,7 @@ func ThrottlePerIP(limit int, timeout time.Duration, keyFn func(*http.Request) s
     trusted-proxy CIDRs) MUST be registered BEFORE ThrottlePerIP for per-client
     limits to be effective. See SECURITY.md "RealIP + ThrottlePerIP ordering".
 
-    SECURITY (MSR-2026-0068): the internal per-key table is capped at
+    SECURITY: the internal per-key table is capped at
     DefaultThrottlePerIPMaxTableSize. When full, requests for NEW keys (those
     not already in the table) receive 503 immediately to bound memory under
     IP-churn attacks. Use ThrottlePerIPCapped to override the cap.
@@ -1174,7 +1166,7 @@ func ThrottlePerIPCapped(limit int, timeout time.Duration, maxTableSize int, key
     distinct keys tracked. maxTableSize <= 0 disables the cap (legacy unbounded
     behaviour, NOT recommended in production).
 
-    SATURATION BEHAVIOUR (TM-2026-013, DOS-2026-0057): when the table reaches
+    SATURATION BEHAVIOUR: when the table reaches
     maxTableSize and every slot has refs > 0 (i.e. all entries are in active
     use), new client IPs receive 503 immediately until at least one slot drains.
     An attacker controlling N >= maxTableSize distinct IPs can sustain this
@@ -1189,7 +1181,7 @@ func ThrottlePerIPCapped(limit int, timeout time.Duration, maxTableSize int, key
 func Timeout(d time.Duration) func(http.Handler) http.Handler
     Timeout applies a context deadline to each request. Panics if d <= 0.
 
-    SECURITY (DOS-2026-0003): Timeout cancels the request context after d, but
+    SECURITY: Timeout cancels the request context after d, but
     it does NOT preempt the handler goroutine — Go has no preemption primitive
     for blocked syscalls. Handlers MUST observe ctx.Done() on every blocking
     call (DB, network, file I/O); a handler that ignores ctx.Done() will run to
@@ -1220,7 +1212,7 @@ func WithValue(key, val any) func(http.Handler) http.Handler
         type ctxKey struct{}
         mux.Use(middleware.WithValue(ctxKey{}, myValue))
 
-    MSR-2026-0059: passing a string (or any built-in type) as the key is a
+    SECURITY: passing a string (or any built-in type) as the key is a
     CWE-1021 cross-package collision risk — any package that uses the same
     string literal can read or overwrite this value. WithValue emits a slog.Warn
     at construction time when called with a string-kind key.
@@ -1302,7 +1294,7 @@ type JWTOptions struct {
 	// RequireExpiry, when true, rejects any token whose payload has no "exp"
 	// claim. RFC 8725 §4.4 recommends rejecting tokens without expiry unless
 	// there is a compelling reason: a stolen token without "exp" is valid
-	// indefinitely (TM-2026-001).
+	// indefinitely.
 	//
 	// SECURITY: production deployments SHOULD set RequireExpiry: true. The
 	// default is false ONLY for backward compatibility with code written
@@ -1315,12 +1307,12 @@ type JWTOptions struct {
 }
     JWTOptions configures the JWTAuth middleware.
 
-    SECURITY (TSC-2026-0003): mixing algorithm families (HS* with RS* or ES*) in
-    Algorithms leaks the algorithm path via response latency: the measured HS256
-    and RS256 paths differ by about 25 µs (see SECURITY.md "JWT Mixed-Family
-    Algorithms"), and an attacker submitting tokens with different alg labels
+    SECURITY: mixing algorithm families (HS* with RS* or ES*) in
+    Algorithms reveals the algorithm path via response latency: the HS256
+    and RS256 paths take measurably different time (see SECURITY.md "JWT
+    Mixed-Family Algorithms"), and a client submitting tokens with different alg labels
     can determine which path the server runs from the response time alone —
-    narrowing the attack surface for algorithm-confusion attacks (RFC 8725
+    narrowing the search space for algorithm-confusion attacks (RFC 8725
     §3.1). Configure each endpoint with a single algorithm family. JWTAuth emits
     a slog.Warn at construction time when a mixed-family Algorithms list is
     detected.
@@ -1342,10 +1334,10 @@ type OAuth2Options struct {
 	ClientSecret string
 	// CacheTTL is how long active tokens are cached. Default: 60s.
 	// Set to -1 (or any negative value) to disable caching entirely — every
-	// request hits the introspection endpoint, eliminating the cache-poisoning
-	// blast radius (MSR-2026-0063) at the cost of higher IDP load. Use
+	// request hits the introspection endpoint, so a revoked token is rejected
+	// immediately, at the cost of higher IDP load. Use
 	// disabled caching for high-security endpoints; the singleflight group
-	// (DOS-OAUTH2-001 fix) still coalesces concurrent introspection calls
+	// still coalesces concurrent introspection calls
 	// for the same token.
 	// Cache respects the token's own exp: effective TTL = min(CacheTTL, token.exp - now).
 	// Note: caching means revoked tokens remain valid until TTL expires.

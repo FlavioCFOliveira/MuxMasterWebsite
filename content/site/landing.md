@@ -27,14 +27,14 @@ This website's benchmark campaign of 2026-09-26 measured MuxMaster v1.3.0 agains
 - On 2-parameter routes, MuxMaster with `PoolRequestBundle` and httprouter showed no significant difference.
 - MuxMaster's default mode, which allocates one request bundle per parameterised request, was slower than httprouter on every parameterised route.
 
-The same campaign compared v1.1.0 with v1.3.0 on the same AMD Ryzen 9 5900HX host with go1.27.1, on 2026-09-26, with `-count=10` (source: [Benchmarks](/benchmarks)). Of the 18 root-package benchmarks present in both versions, every one makes the same number of allocations; 3 became faster, 7 showed no significant difference, and 8 became 1.42% to 6.25% slower. Automatic `OPTIONS`, redirects, and several middleware became much faster, and some security fixes added cost. Every table, the method, and the caveats are on the [Benchmarks](/benchmarks) page.
+The same campaign compared v1.1.0 with v1.3.0 on the same AMD Ryzen 9 5900HX host with go1.27.1, on 2026-09-26, with `-count=10` (source: [Benchmarks](/benchmarks)). Of the 18 root-package benchmarks present in both versions, every one makes the same number of allocations; 3 became faster, 7 showed no significant difference, and 8 became 1.42% to 6.25% slower. Automatic `OPTIONS`, redirects, and several middleware became much faster, and some behaviour changes added cost. Every table, the method, and the caveats are on the [Benchmarks](/benchmarks) page.
 
 This website runs on MuxMaster v1.3.0 with `PoolRequestBundle` and `PoolFastParams` enabled; [Built with MuxMaster](/built-with-muxmaster) shows its configuration and what each request costs.
 
 ## What's new
 
 - **v1.3.0 (2026-09-26):** Go 1.27.1 is now the minimum version; the default `OAuth2Introspect` client no longer exhausts ephemeral ports under load; `Group.ServeFiles` applies the same raw-path security guard as `Mux.ServeFiles`. The exported API is unchanged. [Release notes v1.3.0](/releases/v1.3.0).
-- **v1.2.0 (2026-09-26):** HTTP QUERY method (RFC 10008); `Mount` fixes for nested routers; routing fixes (no empty-segment parameter matches, correct group prefix joins); security hardening of redirects, `BasicAuth`, `CORS`, `OAuth2Introspect`, and `Recoverer`; route registration that copies O(depth) instead of O(tree size). [Release notes v1.2.0](/releases/v1.2.0).
+- **v1.2.0 (2026-09-26):** HTTP QUERY method (RFC 10008); `Mount` fixes for nested routers; routing fixes (no empty-segment parameter matches, correct group prefix joins); behaviour changes to redirects and to `BasicAuth`, `CORS`, `OAuth2Introspect`, and `Recoverer`; route registration that copies O(depth) instead of O(tree size). [Release notes v1.2.0](/releases/v1.2.0).
 
 ## Quick links
 

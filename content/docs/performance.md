@@ -57,7 +57,7 @@ For a `Handle` route with parameters, MuxMaster copies `*http.Request` and fuses
 
 More than three parameters add a separate overflow slice. Opt O12 (v1.1.0) removed a redundant `params Params` field from `requestCtx1` and `requestCtx2`; the slice is now derived from `small[:N]`, which moved `reqBundle1` from the 416 B to the 384 B size class and `reqBundle2` from 448 B to 416 B.
 
-The copy's context is set with `setReqCtxUnsafe`, an `unsafe.Add` write at the reflected offset of the private `ctx` field of `http.Request`. This is safe because the bundle is not visible to any other goroutine until after the write, and the original `r` is never modified. If a future Go release renames or removes that field, the router detects it at start-up (`hasReqCtxField`) and falls back to `r.WithContext`, which costs a second allocation. An earlier design that wrote to the original `r` was rejected after the `concurrency-security-auditor` demonstrated a data race (CSA-001, recorded as MM-2026-0003 in `reports/overview/threat-model.md`).
+The copy's context is set with `setReqCtxUnsafe`, an `unsafe.Add` write at the reflected offset of the private `ctx` field of `http.Request`. This is safe because the bundle is not visible to any other goroutine until after the write, and the original `r` is never modified. If a future Go release renames or removes that field, the router detects it at start-up (`hasReqCtxField`) and falls back to `r.WithContext`, which costs a second allocation.
 
 A request whose internal context is `nil` — for example a struct literal passed to `ServeHTTP` in a test — is dispatched with `context.Background()` as the parent context.
 
@@ -194,15 +194,15 @@ Figures: AMD Ryzen 9 5900HX, go1.27.1, 2026-09-26, `-count=10`, medians; source:
 
 Every change in this table is significant with p < 0.0005 (perf-audit harness under `reports/perf-audit-2026-05-12/`, identical benchmark bodies at both tags). Route registration and `Mount` have no benchmark at v1.1.0, so their change since v1.1.0 could not be measured; their v1.3.0 values are in the root-package table above.
 
-### Costs added by security fixes
+### Costs added by behaviour changes
 
 Figures: AMD Ryzen 9 5900HX, go1.27.1, 2026-09-26, `-count=10`, medians; source: the campaign archive published on [Benchmarks](/benchmarks).
 
-| Fix | v1.1.0 | v1.3.0 | Change |
+| Change of behaviour | v1.1.0 | v1.3.0 | Change |
 |---|---|---|---|
-| `CORS` always adds `Vary: Origin` (TM-2026-033); request without `Origin` | 20.24 ns, 0 allocs | 81.79 ns, 1 alloc (112 B) | +304.08% |
-| `Recoverer` tracks whether the response has started (O-14); no panic | 6.502 ns | 17.46 ns | +168.59% |
-| `BasicAuth` constant-time scan over all users (TSC-2026-0002); valid credentials | 199.9 ns | 327.6 ns | +63.92% |
+| `CORS` always adds `Vary: Origin`; request without `Origin` | 20.24 ns, 0 allocs | 81.79 ns, 1 alloc (112 B) | +304.08% |
+| `Recoverer` tracks whether the response has started; no panic | 6.502 ns | 17.46 ns | +168.59% |
+| `BasicAuth` constant-time scan over all users; valid credentials | 199.9 ns | 327.6 ns | +63.92% |
 | `BasicAuth`; invalid credentials | 520.0 ns | 658.7 ns | +26.66% |
 
 Each change is significant with p < 0.0005. `BasicAuth` now costs more as users are added: the v1.3.0 middleware table above shows a successful check at 314.4 ns with 1 user, 547.5 ns with 10, and 2 866 ns with 100. Measured on 2026-09-26 on an AMD Ryzen 9 5900HX with go1.27.1, `-count=10`; source: the benchmark campaign archive published on [Benchmarks](/benchmarks).
@@ -254,7 +254,7 @@ benchstat results.txt
 cd competitor && go test -mod=mod -run='^$' -bench=. -benchmem -count=3 .
 ```
 
-`go test -bench=. ./...` from the repository root also runs the audit harnesses under `reports/`, which belong to the same module.
+`go test -bench=. ./...` from the repository root also runs the test harnesses under `reports/`, which belong to the same module.
 
 To compare before and after a change, use at least `-count=6` so `benchstat` can report confidence intervals, and pin the CPU governor to `performance` if you can:
 
@@ -347,7 +347,7 @@ Both options require that handlers never retain the request (or the `Params` sli
 
 MuxMaster v1.3.0 is not uniformly faster than v1.1.0: its request hot path allocates the same, several router and middleware paths are much faster, and some hot-path benchmarks are slightly slower.
 
-In the campaign, 3 of 18 shared root-package benchmarks were faster in v1.3.0, 7 showed no significant difference, and 8 were slower by 1.42% to 6.25%. Middleware such as `ThrottlePerIP`, `Logger`, `Compress`, and `RequestID` became much faster, while security fixes made `CORS` without an `Origin` header, `Recoverer`, and `BasicAuth` slower. The [Changes Since v1.1.0](#changes-since-v110) section lists every figure. Measured on 2026-09-26 on an AMD Ryzen 9 5900HX with go1.27.1, `-count=10`; source: the benchmark campaign archive published on [Benchmarks](/benchmarks).
+In the campaign, 3 of 18 shared root-package benchmarks were faster in v1.3.0, 7 showed no significant difference, and 8 were slower by 1.42% to 6.25%. Middleware such as `ThrottlePerIP`, `Logger`, `Compress`, and `RequestID` became much faster, while behaviour changes made `CORS` without an `Origin` header, `Recoverer`, and `BasicAuth` slower. The [Changes Since v1.1.0](#changes-since-v110) section lists every figure. Measured on 2026-09-26 on an AMD Ryzen 9 5900HX with go1.27.1, `-count=10`; source: the benchmark campaign archive published on [Benchmarks](/benchmarks).
 
 </section>
 

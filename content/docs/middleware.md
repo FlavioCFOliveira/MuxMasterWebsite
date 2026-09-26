@@ -62,7 +62,7 @@ The router's own responses — the `NotFound` and `MethodNotAllowed` handlers, t
 | `mux.Use(...)` / `group.Use(...)` (`func(http.Handler) http.Handler`) | Yes | No — registering a `HandleFast` route after `Use` panics |
 | `mux.UseFast(...)` / `group.UseFast(...)` (`FastMiddleware`) | No | Yes |
 
-An authentication gate that must also cover `HandleFast` routes must be registered with `Pre`. See [SECURITY.md](/security#pre-vs-use-security-boundary-csa-2026-0059--h8-01).
+An authentication gate that must also cover `HandleFast` routes must be registered with `Pre`. See [SECURITY.md](/security#pre-vs-use-security-boundary).
 
 Execution order mirrors nesting order: the first middleware listed in `Use` is the outermost wrapper (runs first on request, last on response).
 
@@ -354,7 +354,7 @@ mux.Use(middleware.BasicAuth("My API", credentials))
 
 A request without valid credentials receives `401 Unauthorized` with `WWW-Authenticate: Basic realm="<realm>"`.
 
-**Constant-time lookup:** usernames and passwords are SHA-256 hashed at construction. Every request compares the supplied credentials against **all** registered users with `crypto/subtle`, with no early exit, so response time does not reveal whether a username exists (TSC-2026-0002). The cost therefore grows with the number of users. In this website's benchmark campaign (MuxMaster v1.3.0, AMD Ryzen 9 5900HX, go1.27.1, 2026-09-26, `-count=10`, medians), a successful request took 314.4 ns, 547.5 ns, and 2 866 ns with 1, 10, and 100 users, and a rejected one 700.5 ns, 929.1 ns, and 3 235 ns ([Benchmarks](/benchmarks)). For large user bases, use a credential store designed for it.
+**Constant-time lookup:** usernames and passwords are SHA-256 hashed at construction. Every request compares the supplied credentials against **all** registered users with `crypto/subtle`, with no early exit, so response time does not reveal whether a username exists. The cost therefore grows with the number of users. In this website's benchmark campaign (MuxMaster v1.3.0, AMD Ryzen 9 5900HX, go1.27.1, 2026-09-26, `-count=10`, medians), a successful request took 314.4 ns, 547.5 ns, and 2 866 ns with 1, 10, and 100 users, and a rejected one 700.5 ns, 929.1 ns, and 3 235 ns ([Benchmarks](/benchmarks)). For large user bases, use a credential store designed for it.
 
 ---
 
@@ -421,17 +421,17 @@ type JWTClaims struct {
 
 **Security Considerations:**
 
-- **Pre-routing placement (Auth gates):** If this middleware must cover routes registered with `HandleFast`, register it via `mux.Pre(...)`, not `mux.Use(...)`. The `Use()` family does not wrap fast routes and will panic if both are present. See [Pre vs. Use security boundary](/security#pre-vs-use-security-boundary-csa-2026-0059--h8-01) in SECURITY.md.
+- **Pre-routing placement (Auth gates):** If this middleware must cover routes registered with `HandleFast`, register it via `mux.Pre(...)`, not `mux.Use(...)`. The `Use()` family does not wrap fast routes and will panic if both are present. See [Pre vs. Use security boundary](/security#pre-vs-use-security-boundary) in SECURITY.md.
 
 - **Supported algorithms only:** `Algorithms` accepts HS256, HS384, HS512, RS256, RS384, RS512, ES256, ES384 and ES512. Any other value, including `none`, panics at construction, as does a listed algorithm whose key material (`Secret` or a `PublicKey` of the right type and curve) is missing. Tokens whose `alg` is not listed are rejected with 401.
 
-- **Algorithm mixing (timing oracle — TSC-2026-0003):** Mixing algorithm families (e.g., HS256 alongside RS256) in `Algorithms` leaks the verification path via response latency: the measured HS256 and RS256 paths differ by about 25 µs. An attacker submitting tokens with different `alg` values can infer which path the server runs. Configure each endpoint with a single algorithm family (e.g., only `ES256`, not a mix). JWTAuth emits a `slog.Warn` at construction time when this misconfiguration is detected.
+- **Algorithm mixing:** Mixing algorithm families (e.g., HS256 alongside RS256) in `Algorithms` reveals the verification path via response latency: the HS256 and RS256 paths take measurably different time. A client submitting tokens with different `alg` values can infer which path the server runs. Configure each endpoint with a single algorithm family (e.g., only `ES256`, not a mix). JWTAuth emits a `slog.Warn` at construction time when this misconfiguration is detected.
 
-- **Require expiry (RFC 8725 §4.4 — TM-2026-001):** The default `RequireExpiry: false` is unsafe in production. A stolen token without an `"exp"` claim remains valid indefinitely. Production deployments **must** set `RequireExpiry: true`. JWTAuth emits a `slog.Warn` at construction time when this default is in effect.
+- **Require expiry (RFC 8725 §4.4):** The default `RequireExpiry: false` is unsafe in production. A stolen token without an `"exp"` claim remains valid indefinitely. Production deployments **must** set `RequireExpiry: true`. JWTAuth emits a `slog.Warn` at construction time when this default is in effect.
 
 - **Critical extensions rejected:** Tokens with a `"crit"` field in the header (RFC 7515 §4.1.11) are rejected, as MuxMaster does not support custom critical extensions.
 
-- **Negative timestamps rejected (TM-2026-002):** Any negative value in `"exp"`, `"nbf"`, or `"iat"` claims is rejected as malformed per RFC 7519 §2.
+- **Negative timestamps rejected:** Any negative value in `"exp"`, `"nbf"`, or `"iat"` claims is rejected as malformed per RFC 7519 §2.
 
 ---
 
@@ -496,17 +496,17 @@ type IntrospectResponse struct {
 
 **Security Considerations:**
 
-- **Pre-routing placement (Auth gates):** If this middleware must cover routes registered with `HandleFast`, register it via `mux.Pre(...)`, not `mux.Use(...)`. See [Pre vs. Use security boundary](/security#pre-vs-use-security-boundary-csa-2026-0059--h8-01) in SECURITY.md.
+- **Pre-routing placement (Auth gates):** If this middleware must cover routes registered with `HandleFast`, register it via `mux.Pre(...)`, not `mux.Use(...)`. See [Pre vs. Use security boundary](/security#pre-vs-use-security-boundary) in SECURITY.md.
 
-- **HTTPS endpoint required (RFC 7662 §4 — MSR-2026-0067):** Bearer tokens transmitted over plaintext are exposed to passive observers and man-in-the-middle attackers. The `Endpoint` must use the `https://` scheme. MuxMaster panics at construction time unless `AllowInsecureEndpoint: true` is explicitly set (testing/localhost only). Production deployments must use HTTPS.
+- **HTTPS endpoint required (RFC 7662 §4):** Bearer tokens transmitted over plaintext are exposed to passive observers and man-in-the-middle attackers. The `Endpoint` must use the `https://` scheme. MuxMaster panics at construction time unless `AllowInsecureEndpoint: true` is explicitly set (testing/localhost only). Production deployments must use HTTPS.
 
-- **Endpoint URL validation (TM-2026-004):** The `Endpoint` URL is validated to ensure it has a non-empty host and contains no embedded userinfo (which could exfiltrate credentials). Misconfigured endpoints are detected at construction time.
+- **Endpoint URL validation:** The `Endpoint` URL is validated to ensure it has a non-empty host and contains no embedded userinfo (which would expose credentials). Misconfigured endpoints are detected at construction time.
 
-- **Credential redaction (TM-2026-005, CWE-532):** Construction-time log lines and panic messages never render credentials embedded in the `Endpoint` URL.
+- **Credential redaction:** Construction-time log lines and panic messages never render credentials embedded in the `Endpoint` URL.
 
-- **Cache poisoning (MSR-2026-0063):** Because tokens are cached, a revoked token remains valid until the TTL expires. High-security endpoints should disable caching by setting `CacheTTL` to a negative value (e.g., `-1`). The singleflight mechanism still coalesces concurrent calls for the same token, preventing IDP load spikes.
+- **Revocation window:** Because tokens are cached, a revoked token remains valid until the TTL expires. High-security endpoints should disable caching by setting `CacheTTL` to a negative value (e.g., `-1`). The singleflight mechanism still coalesces concurrent calls for the same token, preventing IDP load spikes.
 
-- **Singleflight defense (DOS-OAUTH2-001, MSR-2026-0071):** Concurrent requests for the same token share a single upstream introspection call. The call runs on a context detached from the leader's cancellation (`context.WithoutCancel`) with a 30-second timeout, so a cancelled leader does not fail its followers with a 401; request-scoped context values are kept.
+- **Singleflight coalescing:** Concurrent requests for the same token share a single upstream introspection call. The call runs on a context detached from the leader's cancellation (`context.WithoutCancel`) with a 30-second timeout, so a cancelled leader does not fail its followers with a 401; request-scoped context values are kept.
 
 ---
 
@@ -550,11 +550,11 @@ func myHandler(w http.ResponseWriter, r *http.Request) {
 
 **Security Considerations:**
 
-- **Pre-routing placement (Auth gates):** If this middleware must cover routes registered with `HandleFast`, register it via `mux.Pre(...)`, not `mux.Use(...)`. See [Pre vs. Use security boundary](/security#pre-vs-use-security-boundary-csa-2026-0059--h8-01) in SECURITY.md.
+- **Pre-routing placement (Auth gates):** If this middleware must cover routes registered with `HandleFast`, register it via `mux.Pre(...)`, not `mux.Use(...)`. See [Pre vs. Use security boundary](/security#pre-vs-use-security-boundary) in SECURITY.md.
 
-- **WWW-Authenticate header (RFC 7235 §3.1 — MM-2026-0052):** MuxMaster sets the `WWW-Authenticate: ApiKey realm="api"` header on 401 responses to comply with the HTTP specification.
+- **WWW-Authenticate header (RFC 7235 §3.1):** MuxMaster sets the `WWW-Authenticate: ApiKey realm="api"` header on 401 responses to comply with the HTTP specification.
 
-- **Timing oracle mitigation (TSC-2026-0008):** To avoid leaking whether the API key was found via response latency, the hit path (valid key) performs an equivalent header operation (set + delete) as the miss paths, equalising the cost of both branches. This prevents attackers from distinguishing valid keys from invalid ones by measuring response time.
+- **Equal header work on hit and miss:** The hit path (valid key) performs an equivalent header operation (set + delete) as the miss paths, equalising the cost of the header work on both branches. The map lookup itself still takes different time for a hit and a miss; see [Timing differences in authentication and throttling](/security#timing-differences-in-authentication-and-throttling).
 
 - **Pre-hashing:** All keys are SHA-256 hashed at construction time, and the submitted key is hashed before the map lookup, so the lookup never compares the raw key bytes.
 
@@ -640,7 +640,7 @@ mux.Use(middleware.RequestID())
 
 **Header behaviour:**
 
-- **Inbound:** If the incoming request has an `X-Request-ID` header, it is validated (MM-2026-0011): ASCII alphanumeric plus `-`, `_`, `.`; length 1–128 characters. Invalid or empty values are replaced with a freshly generated ID.
+- **Inbound:** If the incoming request has an `X-Request-ID` header, it is validated: ASCII alphanumeric plus `-`, `_`, `.`; length 1–128 characters. Invalid or empty values are replaced with a freshly generated ID.
 - **Outbound:** The request ID is written to the `X-Request-ID` response header.
 
 **Reading the request ID in a handler:**
