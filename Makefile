@@ -5,7 +5,7 @@ BIN_DIR     := bin
 PKG         := ./cmd/muxmaster-website
 
 # Tailwind v4 standalone CLI — pinned for reproducible builds.
-TAILWIND_VERSION := v4.0.6
+TAILWIND_VERSION := v4.3.3
 TAILWIND_BIN     := $(BIN_DIR)/tailwindcss
 TAILWIND_OS      := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 TAILWIND_ARCH    := $(shell uname -m)

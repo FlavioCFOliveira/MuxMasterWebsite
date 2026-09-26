@@ -24,7 +24,7 @@ The site is shipped as a Docker image built with a multi-stage Dockerfile.
 
 ### Builder stage
 
-- Base image: an official Go toolchain image matching MuxMaster's minimum (Go 1.26 or newer).
+- Base image: an official Go toolchain image matching MuxMaster's minimum (Go 1.27.1 or newer).
 - Installs the **Tailwind CSS v4 standalone CLI binary** (downloaded for the target architecture).
 - Compiles the CSS bundle from the project's templates and source files (see `brand-and-visual.md`).
 - Generates favicons and the Open Graph image from the canonical logo PNG bundled with the repository (sourced from the upstream MuxMaster repository at `assets/logo-muxmaster.png` — see `brand-and-visual.md`).

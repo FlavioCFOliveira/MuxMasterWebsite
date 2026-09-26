@@ -72,7 +72,7 @@ Skipping, reordering, or merging steps is not permitted. If a step appears unnec
 
 ## Stack
 
-- **Language:** Go (matches MuxMaster's own minimum, currently Go 1.26+).
+- **Language:** Go (matches MuxMaster's own minimum, currently Go 1.27.1+).
 - **HTTP router:** **MuxMaster itself** is used as the router for this site — the project is therefore also a real-world dogfooding example of MuxMaster. Treat any router-related work as both a website task and a public showcase of the module.
 - **Dependencies:** keep them as minimal as MuxMaster does (zero external dependencies preferred for the server side). Static assets and templates over heavy frameworks.
 

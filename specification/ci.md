@@ -40,7 +40,7 @@ This linter is the Critical-error gate. It runs in CI on every PR; pull requests
 
 ## CI host
 
-GitHub Actions, running on `ubuntu-latest`, Go version pinned to the `go.mod` directive (currently 1.26).
+GitHub Actions, running on `ubuntu-latest`, Go version pinned to the `go.mod` directive (currently 1.27.1).
 
 The workflow lives at `.github/workflows/ci.yml`. The structured-data step depends on `make prerender` (or equivalent) so the linter sees the same byte-for-byte HTML the runtime would serve.
 

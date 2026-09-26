@@ -4,6 +4,13 @@ All notable changes to the MuxMaster documentation website are recorded in this 
 
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html). The website's `MAJOR.MINOR` mirrors the MuxMaster release it documents; the website's `PATCH` digit is independent and advances for website-only operational fixes. See `specification/overview.md § Version cadence` for the full cadence policy.
 
+## [Unreleased]
+
+### Changed
+
+- **Dependencies updated to their latest releases.** MuxMaster v1.1.0 → v1.3.0, `github.com/yuin/goldmark` v1.7.13 → v1.8.6, `golang.org/x/image` v0.40.0 → v0.46.0 (indirect `golang.org/x/text` → v0.42.0), and the Tailwind CSS standalone CLI v4.0.6 → v4.3.3. The compiled CSS bundle keeps the same set of utility classes; Tailwind v4.3.3 no longer emits unused theme variables, so the bundle shrinks from 44,337 to 35,291 bytes.
+- **Go toolchain raised to 1.27.1.** MuxMaster v1.3.0 requires Go 1.27.1, so the `go.mod` directive and the Docker builder image (`golang:1.27`) now match it. The site content still documents MuxMaster v1.1.0 until the next content sync.
+
 ## [v1.1.0] — 2026-05-12
 
 MINOR release. Documents MuxMaster v1.1.0, the maximum-performance milestone that brings MuxMaster to **45 ns / 0 B / 0 allocs** on a one-parameter route via the opt-in `Mux.PoolRequestBundle`. The website is fully refreshed: five new example walkthroughs, a canonical zero-allocation guide, a rewritten benchmarks page, a competitive router showdown, an updated landing page with a performance section and competitor table, and a coordinated review by all four coordinator agents (SEO, GEO, Tailwind, UX) with all blocking fixes applied.
