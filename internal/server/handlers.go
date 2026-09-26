@@ -48,7 +48,7 @@ func (s *Server) notFoundHandler() http.HandlerFunc {
 
 // LandingDescription is the canonical landing-page description used by the
 // recipes and any handler that needs it.
-const LandingDescription = "Zero-dependency Go HTTP router. Radix-tree O(k), 25 ns static, 45 ns / 0 alloc one-parameter Pooled — 20 % faster than httprouter, 100 % net/http compatible."
+const LandingDescription = "MuxMaster: Go router with HTTP QUERY method (RFC 10008) support, faster on static routes than httprouter, bunrouter, chi, and gorilla/mux in every mode."
 
 func (s *Server) isProduction() bool {
 	return string(s.cfg.Env) == "production"

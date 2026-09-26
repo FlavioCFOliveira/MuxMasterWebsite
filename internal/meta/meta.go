@@ -24,7 +24,12 @@ type JSONLDBlock struct {
 // All absolute URLs (Canonical, OGImage) are resolved by the renderer using
 // SITE_BASE_URL.
 type Page struct {
-	Title       string // <title> content, before the " — MuxMaster" suffix.
+	Title string // <title> content, before the " — MuxMaster" suffix.
+	// HeadTitle, when set, is the complete <title> text and replaces the
+	// Title-plus-suffix form. It serves pages whose <title> the
+	// specification fixes independently of their navigation label
+	// (specification/seo.md SEO-QUERY-1 and SEO-REL-1).
+	HeadTitle   string
 	Description string // <meta name="description"> body, 110-160 chars.
 	Path        string // Absolute path on the site, e.g. "/docs/routing".
 	Canonical   string // Absolute canonical URL. Empty means "do not emit a canonical link" (used for noindex pages such as /404 and /500).
@@ -33,12 +38,12 @@ type Page struct {
 	Robots      string // Empty unless a noindex value is required.
 	Breadcrumbs []Breadcrumb
 	JSONLD      []JSONLDBlock // Pre-encoded JSON-LD blocks (one per <script>); each may carry an audit-trail HTML comment.
-	Version     string   // Current MuxMaster version label.
-	GoVersion   string   // Minimum supported Go version (e.g. "1.26"); sourced from ../MuxMaster/go.mod at build time.
-	CSSPath     string   // Hashed CSS bundle URL.
-	BaseURL     string   // SITE_BASE_URL for absolute references.
-	UpstreamURL string   // Optional link to the upstream source file on GitHub.
-	HasMarkdown bool     // True when the page exposes a Markdown companion at <Canonical>.md.
+	Version     string        // Current MuxMaster version label.
+	GoVersion   string        // Minimum supported Go version (e.g. "1.27.1"); sourced from ../MuxMaster/go.mod at build time.
+	CSSPath     string        // Hashed CSS bundle URL.
+	BaseURL     string        // SITE_BASE_URL for absolute references.
+	UpstreamURL string        // Optional link to the upstream source file on GitHub.
+	HasMarkdown bool          // True when the page exposes a Markdown companion at <Canonical>.md.
 	// MarkdownAlternateURL is the explicit Markdown-companion URL used by
 	// <link rel="alternate" type="text/markdown" href="...">. When empty
 	// the head template falls back to `<Canonical>.md`, which is correct
@@ -49,9 +54,13 @@ type Page struct {
 	MarkdownAlternateURL string
 }
 
-// FullTitle returns the title with the canonical " — MuxMaster" suffix.
+// FullTitle returns the title with the canonical " — MuxMaster" suffix,
+// or HeadTitle verbatim when it is set.
 // The landing page is the only place the suffix is suppressed (Title=="").
 func (p Page) FullTitle() string {
+	if p.HeadTitle != "" {
+		return p.HeadTitle
+	}
 	if p.Title == "" {
 		return "MuxMaster — High-performance HTTP router for Go"
 	}

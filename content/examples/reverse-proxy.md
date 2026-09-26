@@ -1,113 +1,137 @@
 ---
 datePublished: 2026-05-12
+dateModified: 2026-09-26
 ---
 
 # Reverse-proxy example
 
-A production-shaped HTTP gateway built on top of MuxMaster and the standard library's [`httputil.ReverseProxy`](https://pkg.go.dev/net/http/httputil#ReverseProxy): **catch-all path routing**, **round-robin load balancing** with a lock-free atomic counter, **per-route gating** for an admin upstream, and the opt-in `PoolRequestBundle` for zero-allocation dispatch on every proxied request.
+This program is an HTTP gateway built on MuxMaster and the standard library's [`httputil.ReverseProxy`](https://pkg.go.dev/net/http/httputil#ReverseProxy): it routes by catch-all path, balances `/api/*` across two upstreams with a lock-free atomic counter, and gates an admin upstream behind a header check. It also shows when **not** to enable `PoolRequestBundle`: from v1.2.0 onward, the gateway keeps pooling off, because a proxy built on `net/http.Transport` is not pool-safe.
 
-## Why this example is pool-safe
+## Step 1 — Construct the gateway router with pooling off
 
-`PoolRequestBundle` recycles the per-request bundle the instant the handler returns. `httputil.ReverseProxy` **synchronously** forwards the request and waits for the upstream response before returning — it never spawns a goroutine that survives `ServeHTTP`. The `Rewrite` hook mutates the bundle's `r.URL` inline, never captures `r`, and returns before the proxy hands the response back to the client. The contract is satisfied; pooling is safe.
-
-The original `*http.Request` is also never mutated: `Rewrite` writes through `pr.Out`, the fresh outbound request the proxy will send upstream.
-
-## Step 1 — Construct the gateway router
+The gateway router keeps `PoolRequestBundle` set to `false`, because `net/http.Transport`, which `httputil.ReverseProxy` uses, can start a background dial goroutine under concurrent load that reads the request context after the handler has returned. With pooling on, that goroutine would read a recycled, zeroed request bundle; upstream reproduced the resulting nil-pointer crash under load (documented in the example's package comment). `Pre` registers `RequestID`, which correlates every gateway log line, and `RecovererWithLogger`, which protects the gateway against a panic in a per-route wrapper.
 
 ```go
 mux := mm.New()
-mux.PoolRequestBundle = true
+// PoolRequestBundle stays OFF: net/http.Transport (used internally by
+// httputil.ReverseProxy) can start a background dial goroutine that
+// reads the request context after this handler returns — see the
+// package doc comment above for the full explanation and the crash
+// evidence. Enabling pooling here is a use-after-free under load.
+mux.PoolRequestBundle = false
 mux.Pre(mw.RequestID(), mw.RecovererWithLogger(log))
 ```
 
-`Pre` runs once per request, before routing. `RequestID` correlates every gateway log line with the proxied response; `RecovererWithLogger` protects the proxy itself against a `panic` in any per-route wrapper.
+The hazard applies to any reverse proxy built on `net/http.Transport`, not only to this example. The [Maximum performance guide](/docs/max-performance#special-case-libraries-that-spawn-background-goroutines) lists it among the cases where the pool must stay off.
 
 ## Step 2 — Build the upstream targets
 
-The example wires three upstreams: a `static` server on `:9001`, an `admin` server on `:9002`, and a `/api` group that fans out across both. Targets are parsed once at boot.
+The gateway parses its two upstream URLs once at start-up and builds three handlers: `staticProxy` always forwards to `:9001`, `adminProxy` always forwards to `:9002`, and `apiBalanced` alternates between both.
 
 ```go
 upstream1 := mustURL("http://127.0.0.1:9001")
 upstream2 := mustURL("http://127.0.0.1:9002")
 
 staticProxy := newProxy("static", log, upstream1)
-adminProxy  := newProxy("admin",  log, upstream2)
+adminProxy := newProxy("admin", log, upstream2)
 apiBalanced := newRoundRobin("api", log, upstream1, upstream2)
 ```
 
-## Step 3 — `newProxy` — a single-target proxy with `Rewrite`
+## Step 3 — `newProxy`: a single-target proxy with `Rewrite`
 
-`Rewrite` is the post-Go-1.20 way to retarget a `ReverseProxy`. It receives a `*httputil.ProxyRequest` whose `pr.Out` field is the fresh outbound request — mutating it is what redirects traffic at the upstream layer.
+`newProxy` retargets each request with the `Rewrite` hook of `httputil.ReverseProxy`, which receives a `*httputil.ProxyRequest` whose `pr.Out` field is the fresh outbound request. The hook copies the catch-all parameter `path` into the outbound URL, so the upstream sees the path without the gateway prefix.
 
 ```go
 func newProxy(name string, log *slog.Logger, target *url.URL) http.HandlerFunc {
-    rp := &httputil.ReverseProxy{
-        Rewrite: func(pr *httputil.ProxyRequest) {
-            pr.Out.URL.Scheme = target.Scheme
-            pr.Out.URL.Host   = target.Host
-            // The catch-all param "path" contains the captured suffix.
-            // E.g. for the route "/static/*path", a request to
-            // "/static/css/app.css" sets path = "/css/app.css".
-            pr.Out.URL.Path = mm.PathParam(pr.In, "path")
-            if pr.Out.URL.Path == "" {
-                pr.Out.URL.Path = "/"
-            }
-            pr.Out.Host = target.Host
-            pr.SetXForwarded()
-        },
-        ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
-            log.Error("proxy error", "name", name, "path", r.URL.Path, "err", err)
-            http.Error(w, "Bad Gateway", http.StatusBadGateway)
-        },
-    }
-    return rp.ServeHTTP
+	rp := &httputil.ReverseProxy{
+		Rewrite: func(pr *httputil.ProxyRequest) {
+			// pr.Out is a fresh request the proxy will send upstream. We
+			// retarget its URL to the upstream's scheme/host, preserve
+			// the captured wildcard path, and propagate X-Forwarded-* headers.
+			pr.Out.URL.Scheme = target.Scheme
+			pr.Out.URL.Host = target.Host
+			// The catch-all param "path" contains the captured suffix; if
+			// the route registered "/static/*path", a request to
+			// "/static/css/app.css" sets path = "/css/app.css".
+			pr.Out.URL.Path = mm.PathParam(pr.In, "path")
+			if pr.Out.URL.Path == "" {
+				pr.Out.URL.Path = "/"
+			}
+			pr.Out.Host = target.Host
+			pr.SetXForwarded()
+		},
+		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+			log.Error("proxy error", "name", name, "path", r.URL.Path, "err", err)
+			http.Error(w, "Bad Gateway", http.StatusBadGateway)
+		},
+	}
+	return rp.ServeHTTP
 }
 ```
 
-`pr.SetXForwarded()` populates the canonical `X-Forwarded-For`, `X-Forwarded-Host`, and `X-Forwarded-Proto` headers from the inbound request — the receiving upstream sees who originally connected. `ErrorHandler` converts transport failures into a `502 Bad Gateway` so a downed upstream never leaks a misleading 5xx from `net/http`.
+`pr.SetXForwarded()` sets the `X-Forwarded-For`, `X-Forwarded-Host`, and `X-Forwarded-Proto` headers from the inbound request, so the upstream sees who originally connected. `ErrorHandler` turns a transport failure into `502 Bad Gateway`.
 
-## Step 4 — `newRoundRobin` — lock-free load balancing
+## Step 4 — `newRoundRobin`: lock-free load balancing
 
-Round-robin distribution across N upstreams using `atomic.Uint64` — no mutex on the hot path. Each backend gets its own `newProxy`-wrapped handler so logs and error counters are per-target.
+`newRoundRobin` distributes requests across several upstreams with an `atomic.Uint64` counter, so no mutex is taken on the request path. Each upstream gets its own `newProxy` handler, so log lines name the target that served the request.
 
 ```go
 func newRoundRobin(name string, log *slog.Logger, targets ...*url.URL) http.HandlerFunc {
-    proxies := make([]http.HandlerFunc, len(targets))
-    for i, t := range targets {
-        proxies[i] = newProxy(fmt.Sprintf("%s[%d]", name, i), log, t)
-    }
-    var counter atomic.Uint64
-    return func(w http.ResponseWriter, r *http.Request) {
-        idx := counter.Add(1) % uint64(len(proxies))
-        proxies[idx](w, r)
-    }
+	proxies := make([]http.HandlerFunc, len(targets))
+	for i, t := range targets {
+		proxies[i] = newProxy(fmt.Sprintf("%s[%d]", name, i), log, t)
+	}
+	var counter atomic.Uint64
+	return func(w http.ResponseWriter, r *http.Request) {
+		idx := counter.Add(1) % uint64(len(proxies))
+		proxies[idx](w, r)
+	}
 }
 ```
 
-`atomic.Uint64.Add` is wait-free on every architecture MuxMaster supports — the gateway scales linearly with concurrent connections.
-
 ## Step 5 — Wire the routes
 
-Catch-all parameters (`*path`) capture the full suffix and pass it through to the upstream. The same `apiBalanced` handler is registered for every relevant HTTP method.
+Catch-all parameters (`*path`) capture the full suffix of the request path and hand it to the proxy. The same `apiBalanced` handler is registered for each HTTP method the API accepts, and the admin routes live in a group whose `Use(adminAuth)` middleware checks the `X-Admin-Token` header.
 
 ```go
-// /api/* — round-robin to :9001 + :9002
+// /api/* is a catch-all that fans out across upstreams round-robin.
 mux.GET("/api/*path", apiBalanced)
 mux.POST("/api/*path", apiBalanced)
 mux.PUT("/api/*path", apiBalanced)
 mux.DELETE("/api/*path", apiBalanced)
 
-// /static/* — always to :9001
+// /static/* always goes to upstream1.
 mux.GET("/static/*path", staticProxy)
 mux.HEAD("/static/*path", staticProxy)
 
-// /admin/* — :9002, gated behind a token
+// /admin/* always goes to upstream2 — gated behind a token.
 admin := mux.Group("/admin")
 admin.Use(adminAuth)
 admin.GET("/*path", adminProxy)
 ```
 
-The admin group uses `Use(adminAuth)` to apply the `X-Admin-Token: letmein` gate **at registration time** — the gate is wrapped into the registered handler, so it costs nothing on a request that already missed the gate.
+`Use` middleware is applied when the route is registered, so `adminAuth` wraps only the routes registered on the `admin` group after the `Use` call.
+
+## Step 6 — Enable pooling only where it is safe
+
+The fake backend that the example runs for local testing enables `PoolRequestBundle`, because it only reads its own request and writes its own response and never proxies through `net/http.Transport`. The contrast with Step 1 is the rule to apply: the pool is a per-router decision that depends on what the handlers do after they return.
+
+```go
+func runBackend(port string) {
+	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	mux := mm.New()
+	// Unlike the gateway above, this backend only reads its own request and
+	// writes its own response — it never proxies through net/http.Transport,
+	// so it has none of the background-dial-goroutine hazard. Pooling is
+	// genuinely safe here.
+	mux.PoolRequestBundle = true
+	mux.GET("/*path", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintf(w, "backend :%s reached path=%s headers=%v\n",
+			port, r.URL.Path, r.Header.Get("X-Forwarded-For"))
+	})
+	// …
+}
+```
 
 ## Try it
 
@@ -126,30 +150,38 @@ curl -H 'X-Admin-Token: letmein' \
      http://localhost:8080/admin/dashboard         # → :9002
 ```
 
-## Frequently asked questions
+## Common questions
 
 <section data-conversation="reverse-proxy-faq">
 
-### Why is the proxy pool-safe when `httputil.ReverseProxy` may stream the response back?
+### Can I enable `PoolRequestBundle` on a MuxMaster reverse proxy?
 
-`httputil.ReverseProxy.ServeHTTP` is synchronous — it issues the upstream request, copies the response back to the client, and **returns**. It does not spawn a goroutine that survives the call. The `Rewrite` hook mutates `pr.Out` (the fresh outbound request), never `r` itself. The lifetime contract for `PoolRequestBundle` is satisfied, so the bundle recycles cleanly the instant `ServeHTTP` returns.
+No: a MuxMaster router whose handlers proxy through `httputil.ReverseProxy` or any other `net/http.Transport` client must keep `PoolRequestBundle` set to `false`.
+
+Under concurrent load, `net/http.Transport` can start a dial goroutine that reads the request context after the handler returns. With pooling on, that context belongs to a recycled bundle, and upstream reproduced a crash in that situation. Enable the pool only on routers whose handlers never let the request outlive them, such as the example's backends.
 
 ### Where do I add per-upstream timeouts?
 
-Set the `Transport` field on each `httputil.ReverseProxy`. The stdlib `http.Transport` supports `DialContext`, `ResponseHeaderTimeout`, `IdleConnTimeout`, and a per-request `*http.Request.Context()` deadline. For the gateway level, wrap each call with the `mw.Timeout(d)` middleware from `middleware/timeout.go` — it cancels the request context after `d` and returns `503 Service Unavailable` if the upstream is still in flight.
+Set the `Transport` field of each `httputil.ReverseProxy` to an `*http.Transport` with the timeouts you need, such as `ResponseHeaderTimeout` and `IdleConnTimeout`.
+
+The `mw.Timeout(d)` middleware only sets a deadline on the request context; it does not write a response when the deadline passes. `httputil.ReverseProxy` sends the outbound request with that context, so the upstream call is cancelled when the deadline expires.
 
 ### Can I weight the round-robin?
 
-Replace `newRoundRobin` with a weighted scheme. The simplest is a "ticket" slice (`[]http.HandlerFunc` where heavier upstreams appear more than once) plus the same `atomic.Uint64.Add` counter — no mutex, still wait-free. For dynamic weights based on health, use a smoothed weighted round robin (SWRR) implementation; both are independent of MuxMaster's routing.
+Yes: replace `newRoundRobin` with a weighted scheme, for example a slice in which a heavier upstream appears more than once, indexed by the same `atomic.Uint64` counter.
+
+Weighting is independent of MuxMaster's routing; the router only needs an `http.Handler` for each route.
 
 </section>
 
-## Upstream source
-
-Every code excerpt above is lifted verbatim from [`examples/reverse-proxy/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/examples/reverse-proxy/main.go) at the v1.1.0 tag. The upstream file also contains the `runBackend` fake-backend helper used to test the gateway locally, the index page, and the graceful-shutdown wiring — follow the link for the full program.
-
 ## See also
 
-- [Maximum performance](/docs/max-performance) — why `Rewrite` is pool-safe (the proxy returns before `ServeHTTP` exits).
-- [Routing documentation](/docs/routing) — the catch-all `*path` parameter used by every proxy.
-- [Server-sent events example](/examples/server-sent-events) — another pool-safe streaming pattern.
+- [Maximum performance](/docs/max-performance#special-case-libraries-that-spawn-background-goroutines) — why `net/http.Transport`-based proxies must not enable the pool.
+- [Routing documentation](/docs/routing) — the catch-all `*path` parameter used by every proxy route.
+- [Server-sent events example](/examples/server-sent-events) — a streaming handler that is pool-safe because it does not return until the stream ends.
+
+## Upstream source
+
+Every code excerpt above is lifted verbatim from [`examples/reverse-proxy/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/examples/reverse-proxy/main.go) at the v1.3.0 tag. The upstream file also contains the package comment that documents the pooling crash, the `adminAuth` middleware, the index page, and the graceful-shutdown wiring.
+
+Source: <https://github.com/FlavioCFOliveira/MuxMaster/tree/v1.3.0/examples/reverse-proxy>

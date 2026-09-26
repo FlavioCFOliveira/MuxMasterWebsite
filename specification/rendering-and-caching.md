@@ -53,7 +53,7 @@ Every route below is materialised to bytes once at startup. The list is exhausti
 
 - `/` (landing)
 - `/docs/`, `/docs/.md` (docs index)
-- `/docs/<section>`, `/docs/<section>.md` (eleven sections; see `information-architecture.md` for the list)
+- `/docs/<section>`, `/docs/<section>.md` (thirteen sections; see `information-architecture.md` for the list)
 - `/api`, `/api.md`
 - `/examples/`, `/examples/.md` (examples index)
 - `/examples/<name>`, `/examples/<name>.md` (eight examples; see `information-architecture.md` for the list)

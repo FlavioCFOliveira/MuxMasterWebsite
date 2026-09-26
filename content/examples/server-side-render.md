@@ -1,5 +1,6 @@
 ---
 datePublished: 2026-05-12
+dateModified: 2026-09-26
 ---
 
 # Server Side Render example
@@ -23,22 +24,22 @@ Every page is parsed at startup as `base.html` + `<page>.html` together, so each
 
 ```go
 type Templates struct {
-    pages    map[string]*template.Template
-    notFound *template.Template
+	pages    map[string]*template.Template
+	notFound *template.Template
 }
 
 func loadTemplates() *Templates {
-    base := "templates/base.html"
-    pages := make(map[string]*template.Template)
-    for _, name := range []string{"home", "about", "guestbook"} {
-        pages[name] = template.Must(template.ParseFS(
-            files, base, "templates/"+name+".html",
-        ))
-    }
-    return &Templates{
-        pages:    pages,
-        notFound: template.Must(template.ParseFS(files, "templates/404.html")),
-    }
+	base := "templates/base.html"
+	pages := make(map[string]*template.Template)
+	for _, name := range []string{"home", "about", "guestbook"} {
+		pages[name] = template.Must(template.ParseFS(
+			files, base, "templates/"+name+".html",
+		))
+	}
+	return &Templates{
+		pages:    pages,
+		notFound: template.Must(template.ParseFS(files, "templates/404.html")),
+	}
 }
 ```
 
@@ -50,16 +51,16 @@ The render helper looks up the page, sets the content type, and executes the `ba
 
 ```go
 func (t *Templates) render(w http.ResponseWriter, name string, data PageData) {
-    tmpl, ok := t.pages[name]
-    if !ok {
-        http.Error(w, "unknown template: "+name, http.StatusInternalServerError)
-        return
-    }
-    w.Header().Set("Content-Type", "text/html; charset=utf-8")
-    if err := tmpl.ExecuteTemplate(w, "base", data); err != nil {
-        // Headers are already sent — we can only log at this point.
-        slog.Error("template render error", "page", name, "err", err)
-    }
+	tmpl, ok := t.pages[name]
+	if !ok {
+		http.Error(w, "unknown template: "+name, http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := tmpl.ExecuteTemplate(w, "base", data); err != nil {
+		// Headers are already sent — we can only log at this point.
+		slog.Error("template render error", "page", name, "err", err)
+	}
 }
 ```
 
@@ -71,11 +72,11 @@ func (t *Templates) render(w http.ResponseWriter, name string, data PageData) {
 
 ```go
 type PageData struct {
-    Flash     string            // transient message shown once
-    FlashType string            // CSS class: "success" or "error"
-    Entries   []*Entry          // guestbook entries
-    Form      map[string]string // re-populated form values after a failed POST
-    Errors    map[string]string // per-field validation errors
+	Flash     string            // transient message shown once
+	FlashType string            // CSS class: "success" or "error"
+	Entries   []*Entry          // guestbook entries
+	Form      map[string]string // re-populated form values after a failed POST
+	Errors    map[string]string // per-field validation errors
 }
 ```
 
@@ -87,18 +88,18 @@ Validation is a pure function returning a `formErrors` map (field name → messa
 
 ```go
 func validateGuestbook(name, message string) (formErrors, bool) {
-    errs := make(formErrors)
-    if strings.TrimSpace(name) == "" {
-        errs["name"] = "Name is required."
-    } else if len(name) > 100 {
-        errs["name"] = "Name must be 100 characters or fewer."
-    }
-    if strings.TrimSpace(message) == "" {
-        errs["message"] = "Message is required."
-    } else if len(message) > 1000 {
-        errs["message"] = "Message must be 1000 characters or fewer."
-    }
-    return errs, len(errs) == 0
+	errs := make(formErrors)
+	if strings.TrimSpace(name) == "" {
+		errs["name"] = "Name is required."
+	} else if len(name) > 100 {
+		errs["name"] = "Name must be 100 characters or fewer."
+	}
+	if strings.TrimSpace(message) == "" {
+		errs["message"] = "Message is required."
+	} else if len(message) > 1000 {
+		errs["message"] = "Message must be 1000 characters or fewer."
+	}
+	return errs, len(errs) == 0
 }
 ```
 
@@ -111,16 +112,19 @@ Returning the map of errors (rather than a single error) is what enables per-fie
 ```go
 r := mm.New()
 
+// ── Custom 404 — themed HTML page ────────────────────────────────────────
 r.NotFound = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-    tmpl.renderNotFound(w)
+	tmpl.renderNotFound(w)
 })
 
+// ── Global middleware ─────────────────────────────────────────────────────
 r.Use(
-    mw.RequestID(),
-    mw.Logger(os.Stdout),
-    mw.RecovererWithLogger(log),
+	mw.RequestID(),
+	mw.Logger(os.Stdout),
+	mw.RecovererWithLogger(log),
 )
 
+// Pre-routing: normalise double-slashes and dot segments before matching.
 r.Pre(mw.CleanPath())
 ```
 
@@ -133,8 +137,8 @@ r.Pre(mw.CleanPath())
 ```go
 staticFS, err := fs.Sub(files, "static")
 if err != nil {
-    log.Error("cannot create static sub-FS", "err", err)
-    os.Exit(1)
+	log.Error("cannot create static sub-FS", "err", err)
+	os.Exit(1)
 }
 r.ServeFiles("/static/*filepath", http.FS(staticFS))
 ```
@@ -147,20 +151,25 @@ The `/guestbook` GET reads the `?ok=1` query parameter the POST handler redirect
 
 ```go
 r.GET("/", func(w http.ResponseWriter, _ *http.Request) {
-    tmpl.render(w, "home", PageData{})
+	tmpl.render(w, "home", PageData{})
 })
 
+// ── GET /about — about page ───────────────────────────────────────────────
 r.GET("/about", func(w http.ResponseWriter, _ *http.Request) {
-    tmpl.render(w, "about", PageData{})
+	tmpl.render(w, "about", PageData{})
 })
 
+// ── GET /guestbook — list entries ─────────────────────────────────────────
+//
+// Reads the ?ok=1 query parameter written by the POST redirect and converts
+// it into a flash message shown once. No server-side session is needed.
 r.GET("/guestbook", func(w http.ResponseWriter, r *http.Request) {
-    data := PageData{Entries: store.all()}
-    if r.URL.Query().Get("ok") == "1" {
-        data.Flash = "Your entry has been added — thank you!"
-        data.FlashType = "success"
-    }
-    tmpl.render(w, "guestbook", data)
+	data := PageData{Entries: store.all()}
+	if r.URL.Query().Get("ok") == "1" {
+		data.Flash = "Your entry has been added — thank you!"
+		data.FlashType = "success"
+	}
+	tmpl.render(w, "guestbook", data)
 })
 ```
 
@@ -172,28 +181,28 @@ The POST handler validates, stores on success, then redirects to GET (303 See Ot
 
 ```go
 r.POST("/guestbook", func(w http.ResponseWriter, r *http.Request) {
-    if err := r.ParseForm(); err != nil {
-        http.Error(w, "bad request", http.StatusBadRequest)
-        return
-    }
-    name := r.FormValue("name")
-    message := r.FormValue("message")
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	name := r.FormValue("name")
+	message := r.FormValue("message")
 
-    errs, ok := validateGuestbook(name, message)
-    if !ok {
-        // Re-render the form with submitted values and error messages.
-        tmpl.render(w, "guestbook", PageData{
-            Entries: store.all(),
-            Form:    map[string]string{"name": name, "message": message},
-            Errors:  errs,
-        })
-        return
-    }
+	errs, ok := validateGuestbook(name, message)
+	if !ok {
+		// Re-render the form with submitted values and error messages.
+		tmpl.render(w, "guestbook", PageData{
+			Entries: store.all(),
+			Form:    map[string]string{"name": name, "message": message},
+			Errors:  errs,
+		})
+		return
+	}
 
-    store.add(name, message)
+	store.add(name, message)
 
-    // Redirect to GET to prevent duplicate submissions on browser refresh.
-    http.Redirect(w, r, "/guestbook?ok=1", http.StatusSeeOther)
+	// Redirect to GET to prevent duplicate submissions on browser refresh.
+	http.Redirect(w, r, "/guestbook?ok=1", http.StatusSeeOther)
 })
 ```
 
@@ -205,13 +214,13 @@ The same timeout set as the other examples — closes the slowloris vector. Prod
 
 ```go
 srv := &http.Server{
-    Addr:              ":8080",
-    Handler:           r,
-    ReadHeaderTimeout: 30 * time.Second,
-    ReadTimeout:       60 * time.Second,
-    WriteTimeout:      60 * time.Second,
-    IdleTimeout:       120 * time.Second,
-    MaxHeaderBytes:    1 << 20,
+	Addr:              ":8080",
+	Handler:           r,
+	ReadHeaderTimeout: 30 * time.Second,
+	ReadTimeout:       60 * time.Second,
+	WriteTimeout:      60 * time.Second,
+	IdleTimeout:       120 * time.Second,
+	MaxHeaderBytes:    1 << 20,
 }
 ```
 
@@ -237,4 +246,6 @@ Pass the submitted values back to the template via `PageData.Form` (a `map[strin
 
 ## Upstream source
 
-Every code excerpt above is lifted verbatim from [`examples/server-side-render/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/examples/server-side-render/main.go) at the v1.1.0 tag. The upstream directory also contains the `templates/` (base, home, about, guestbook, 404) and `static/style.css` files the example embeds via `//go:embed`.
+Every code excerpt above is lifted verbatim from [`examples/server-side-render/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/examples/server-side-render/main.go) at the v1.3.0 tag. The upstream directory also contains the `templates/` (base, home, about, guestbook, 404) and `static/style.css` files the example embeds via `//go:embed`.
+
+Source: <https://github.com/FlavioCFOliveira/MuxMaster/tree/v1.3.0/examples/server-side-render>

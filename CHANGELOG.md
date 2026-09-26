@@ -8,24 +8,31 @@ The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 ### Added
 
+- **MuxMaster v1.3.0 content pages.** `/docs/http-query-method` (the HTTP QUERY method, RFC 10008, with a `HowTo` in three steps), `/releases/v1.2.0`, and `/releases/v1.3.0`, each with a `.md` companion and listed in `sitemap.xml`, `llms.txt`, and `llms-full.txt`.
+- **Benchmark campaign archive `reports/benchmarks-2026-09-26/`.** Raw `go test` output, `benchstat` comparisons, commands, and host facts for MuxMaster v1.1.0 against v1.3.0 and v1.3.0 against httprouter, bunrouter, chi, and gorilla/mux (AMD Ryzen 9 5900HX, go1.27.1, `-count=10`).
 - **`/built-with-muxmaster` page.** A site-owned page (and its `.md` companion) that shows how this website runs on MuxMaster, with code excerpts from this repository and measured per-request costs. It is linked from the footer, the Reference sidebar, `/benchmarks`, and `/examples/max-performance`, and listed in `sitemap.xml`, `llms.txt`, and `llms-full.txt`. Commit `45b3bb3` (#110).
 - **`make bench`.** Request-path benchmarks for eight request types through the complete handler, with the production logger configuration. Commits `b659846`, `89ebe37` (#109).
 
 ### Changed
 
+- **Content re-synchronised with MuxMaster v1.3.0.** Every documentation page and example walkthrough now describes the v1.3.0 API, defaults, and minimum Go version (1.27.1).
+- **`/benchmarks` and the landing page rewritten from the 2026-09-26 campaign.** Each route category states the fastest router and MuxMaster mode, including the categories where MuxMaster was not the fastest (catch-all) or showed no significant difference (2 parameters). The `Dataset` JSON-LD records the campaign's method as `go test -bench, -count=10, benchstat, alpha = 0.05`.
 - **Pre-computed responses.** Every pre-rendered route stores an identity body and a gzip body (kept only when smaller), one strong `ETag` for each, and every header value, all computed once at startup. Gzip negotiation follows RFC 9110. A documentation page served with gzip now costs 9.9 µs and 4 allocations per request, down from 82.2 µs and 19 (`make bench`, AMD Ryzen 9 5900HX, Go 1.27.1; see `/built-with-muxmaster`). Commit `ba76156` (#106).
 - **Static assets served from memory.** `/static/*filepath` is a MuxMaster `FastHandler` (`GETFast`, `HEADFast`, `PoolFastParams`) that serves files loaded at startup. The CSS bundle with gzip now costs 9.9 µs and 5 allocations per request, down from 214.4 µs and 40. `middleware.Compress` is no longer in the chain. Commit `2128202` (#107).
 - **Request pooling and an allocation-free site middleware chain.** `Mux.PoolRequestBundle` is on; the security headers and the access log allocate nothing per request. Commit `89ebe37` (#108).
 
 ### Fixed
 
+- **False performance claims and invented APIs removed.** Unmeasured or contradicted performance claims (for example "20 % faster than httprouter") no longer appear as current facts, and API symbols that MuxMaster does not export are gone from every page. Where such a claim is quoted in historical release notes or changelog entries, it carries a marker stating that the 2026-09-26 campaign does not support it; figures measured on v1.1.0-era code are marked as historical.
+- **SEO and GEO.** `sitemap.xml` `lastmod` comes from each page's front matter; `FAQPage` and `HowTo` text is plain text; release pages carry a complete breadcrumb; `llms-full.txt` excludes front matter; the QUERY and release pages have the `<title>` the specification defines.
+- **CSS and accessibility.** Wide tables keep their first column visible while they scroll, long code spans and URLs wrap instead of overflowing at 360 px, sidebar links are at least 44 px high, and the last breadcrumb carries `aria-current="page"`.
 - **Duplicate `Vary` header.** Compressed responses carried `Vary: Accept-Encoding` twice. Commit `2128202` (#107).
 - **Static paths in the access log.** Requests for static assets were logged without their `/static` prefix, because the old handler rewrote `r.URL.Path`. Commit `2128202` (#107).
 - **The 404 page answered `304 Not Modified`** to `If-None-Match: *` or a future `If-Modified-Since`. Preconditions now apply only to `2xx` responses, and error responses carry no `ETag` or `Last-Modified` (RFC 9110 § 13.2.1). Commit `05732ac` (#111).
 - **Empty `route_id` in the access log.** The field now holds the matched route pattern, and stays empty for 404s. Commit `89ebe37` (#108).
 
 - **Dependencies updated to their latest releases.** MuxMaster v1.1.0 → v1.3.0, `github.com/yuin/goldmark` v1.7.13 → v1.8.6, `golang.org/x/image` v0.40.0 → v0.46.0 (indirect `golang.org/x/text` → v0.42.0), and the Tailwind CSS standalone CLI v4.0.6 → v4.3.3. The compiled CSS bundle keeps the same set of utility classes; Tailwind v4.3.3 no longer emits unused theme variables, so the bundle shrinks from 44,337 to 35,291 bytes.
-- **Go toolchain raised to 1.27.1.** MuxMaster v1.3.0 requires Go 1.27.1, so the `go.mod` directive and the Docker builder image (`golang:1.27`) now match it. The site content still documents MuxMaster v1.1.0 until the next content sync.
+- **Go toolchain raised to 1.27.1.** MuxMaster v1.3.0 requires Go 1.27.1, so the `go.mod` directive and the Docker builder image (`golang:1.27`) now match it.
 
 ## [v1.1.0] — 2026-05-12
 

@@ -2,7 +2,7 @@
 title: Overview
 purpose: Describe the website's purpose, audiences, missions, and the integrity rules that govern its content.
 owners: specification-manager; review by seo-specialist, geo-specialist, tailwind-specialist, ux-specialist.
-last-updated: 2026-05-11
+last-updated: 2026-09-26
 status: ratified
 ---
 
@@ -55,13 +55,13 @@ The previous rule — that the website is released with the same full semantic v
 
 ### Version label in the page chrome (unchanged)
 
-The version *label* shown in the header and footer is a separate concept from the website's own release tag and is unaffected by this policy. The label is read at server startup from `/content/changelog.md` (rule: first Markdown heading of the form `## vMAJOR.MINOR.PATCH` that is not a pre-release suffix). The `content-curator` agent commits `/content/changelog.md` mirrored from `../MuxMaster/CHANGELOG.md` during a sync (see `content-sources.md`). The label therefore tracks the **MuxMaster** version the site documents, not the website's own tag. A restart is required for the label to roll forward. See `url-and-versioning.md` § Version label rule.
+The version *label* shown in the header and footer is a separate concept from the website's own release tag and is unaffected by this policy. The label is read at server startup from `/content/changelog.md` (rule: first Markdown heading of the form `## vMAJOR.MINOR.PATCH` or `## [MAJOR.MINOR.PATCH]` without a pre-release suffix). The `content-curator` agent commits `/content/changelog.md` mirrored from `../MuxMaster/CHANGELOG.md` during a sync (see `content-sources.md`). The label therefore tracks the **MuxMaster** version the site documents, not the website's own tag. A restart is required for the label to roll forward. See `url-and-versioning.md` § Version label rule.
 
 ### Current state
 
-- Website release as of 2026-05-11: **v1.0.2** (website-only PATCH; ships operational fixes on top of `v1.0.1`).
-- MuxMaster release being documented as of 2026-05-11: **v1.0.1** (released 2026-05-08).
-- The version label shown in the page chrome is therefore **v1.0.1**, sourced from MuxMaster's CHANGELOG mirrored into `/content/changelog.md`.
+- MuxMaster's latest release as of 2026-09-26: **v1.3.0** (released 2026-09-26). It requires Go 1.27.1 or later (`go.mod` declares `go 1.27.1`).
+- The content refresh recorded in "Content refresh for MuxMaster v1.3.0" below brings the site to v1.3.0. After the curator syncs `/content/changelog.md`, the version label shown in the page chrome MUST read **v1.3.0**, and every page that states the minimum Go version MUST state **Go 1.27.1**.
+- Under the Policy above, the website release that documents v1.3.0 adopts `1.3` as its MAJOR.MINOR pair.
 
 ## Language and tone rules (per CLAUDE.md §0)
 
@@ -75,7 +75,36 @@ The version *label* shown in the header and footer is a separate concept from th
 - **Single source of truth.** Versions, API signatures, defaults, supported Go versions, and benchmark numbers MUST match across every page on the site, and MUST match `../MuxMaster` upstream.
 - **Faithful to code.** Documentation MUST describe MuxMaster as it is implemented today. Verify against `../MuxMaster` source before publishing any factual claim. If the code is wrong, fix the code first, then document the fixed behaviour. Never describe planned, intended, or remembered behaviour.
 - **No vague statements.** Replace "fast" with measured numbers, "supported" with the exact versions, "recommended" with the reason. If a fact cannot be stated precisely, omit it.
+- **Performance claims.** Every statement about speed, allocation, or comparison with other routers is governed by "Performance claims" below.
 - **Cross-page consistency on edits.** When a doc page is added or changed in `/content/`, related pages in `/content/` and the relevant upstream files (`../MuxMaster/README.md`, `CHANGELOG.md`, `api.md`) MUST be cross-checked for contradictions, and any contradictions MUST be resolved in the same change. Edits to `/content/` are normally produced by the `content-curator` agent during a sync; see `content-sources.md`.
+
+## Performance claims
+
+These rules govern every performance statement on every surface of the site: page bodies, Markdown companions, `<meta name="description">`, Open Graph and Twitter descriptions, JSON-LD strings, `/llms.txt`, `/llms-full.txt`, image alternative text, and route descriptions. The sources the numbers come from are defined in `content-sources.md` § Benchmarks — sources.
+
+- **INT-PERF-1.** Every published performance number MUST state, in the same paragraph or in the caption of the same table: the host CPU model, the Go toolchain version, the measurement date, the `-count` value, and a link to the source. A table MAY state these once in its caption for all of its cells. INT-PERF-11 applies this rule to prose, FAQ answers, and lists.
+- **INT-PERF-2.** A number taken from upstream rather than from this project's campaign MUST be attributed to upstream, with the upstream measurement date and sample count, and linked to the upstream file pinned to a release tag (see CS-BENCH-9 to CS-BENCH-11).
+- **INT-PERF-3.** A superlative or comparative claim ("fastest", "faster than", "slower than", "level with") MUST be supported by per-category data published on `/benchmarks`. The claim MUST name the route categories it covers, the handler mode it applies to (default `Handle`, `Handle` with `PoolRequestBundle`, or `HandleFast`), and the set of routers measured. It MUST NOT extend to a category, mode, or router the data does not cover.
+- **INT-PERF-4.** A claim that MuxMaster is faster or slower than another router in a category MUST be backed by a `benchstat` comparison that is significant at alpha = 0.05. A difference that is not significant MUST be stated as "no significant difference".
+- **INT-PERF-5.** Where the published data shows MuxMaster slower than a measured competitor in a category or mode, `/benchmarks` MUST publish that result with the same prominence as the favourable ones. Unfavourable categories MUST NOT be omitted.
+- **INT-PERF-6.** A change between two MuxMaster versions MUST be published as measured: a delta that is not significant at alpha = 0.05 is "no significant difference" (CS-BENCH-7); identical B/op and allocs/op are stated as identical. When `/benchmarks` publishes gains since `v1.1.0`, it MUST also publish the measured costs added by security fixes since `v1.1.0`, under the same citation rules.
+- **INT-PERF-7.** Space-limited surfaces — `<meta name="description">`, Open Graph and Twitter descriptions, JSON-LD `description` strings, and one-line entries in `/llms.txt` and `/llms-full.txt` — MUST NOT contain performance numbers, because they cannot carry the citation INT-PERF-1 requires. They MAY carry a comparative claim that satisfies INT-PERF-3 and INT-PERF-4 in words (for example, the categories in which MuxMaster was fastest among the routers measured).
+- **INT-PERF-8.** Historical figures measured on `v1.1.0`-era code MUST appear only in the section `## Historical (v1.1.0-era code)` defined in CS-BENCH-12, MUST be labelled as historical wherever they are quoted, and MUST NOT support a claim about the current release.
+- **INT-PERF-9.** The following phrases, and any paraphrase with the same meaning, are forbidden: "fastest across every route category"; "the only … in the entire Go ecosystem" (or any other claim of uniqueness across the Go ecosystem); "the fastest Go router" or "the fastest HTTP router" without the category, mode, and measured-set qualifiers INT-PERF-3 requires; and any claim about a router that the cited data did not measure. The only exception is the mirrored historical text defined in INT-PERF-10.
+
+- **INT-PERF-10.** The project owner decided on 2026-09-26 that mirrored historical upstream text containing a performance claim forbidden by INT-PERF-9 is kept verbatim. The rule applies to the v1.1.0 entry of `/content/changelog.md` (route `/changelog`) and to `/content/release-notes/v1.1.0.md` (route `/releases/v1.1.0`). Each paragraph that contains such a claim MUST carry, immediately after the claim, the inline marker "*(Historical v1.1.0 claim; not supported by the 2026-09-26 campaign — see [/benchmarks](/benchmarks).)*". A page-level note alone does not satisfy this rule; a page-level note MAY be kept in addition to the markers. Because the paragraph is kept verbatim, its text is exempt from INT-PERF-1, INT-PERF-8 (placement), INT-PERF-9, and INT-PERF-11; the marker is the historical label INT-PERF-8 requires. Text outside such a paragraph gains no exemption.
+- **INT-PERF-11.** INT-PERF-1 applies to every numeric performance statement, wherever it appears: prose paragraphs, FAQ answers, and list items, not only tables. For a prose paragraph or an FAQ answer, the host CPU model, the Go toolchain version, the measurement date, the `-count` value, and a link to the source MUST appear in the same paragraph. For a list, they MUST appear either in the same list item or in a caption line placed directly before the list, which then covers every item of that list.
+
+## Content refresh for MuxMaster v1.3.0
+
+The project owner decided the following objectives on 2026-09-26 for the refresh of the site's content from MuxMaster v1.1.0 to v1.3.0. The rules that implement them are cited against each objective.
+
+1. **Promote MuxMaster's features seriously and honestly.** Governed by "Language and tone rules", "Integrity rules", and "Performance claims" above.
+2. **Surface HTTP QUERY method (RFC 10008) support strongly, for both SEO and GEO.** Implemented by `information-architecture.md` § HTTP QUERY method page, `seo.md` § Page-specific requirements, `geo.md` § HTTP QUERY method coverage, and `structured-data.md` (master schema table).
+3. **Show the performance changes from v1.1.0 to v1.3.0 as measured.** Implemented by CS-BENCH-1 to CS-BENCH-18 and INT-PERF-6.
+4. **Position MuxMaster honestly against the measured competitors.** MuxMaster is described as the fastest router only in the categories and modes where the campaign's data, tested for significance, supports it (INT-PERF-3 to INT-PERF-5). The upstream data at `v1.3.0` (fastest on static, not-found, and parallel static routes; with `PoolRequestBundle`, fastest on 1 and 3 parameters and parallel parameter routes; level with httprouter on 2 parameters; slower on catch-all; default mode slower than httprouter on parameterised routes) is the expected shape, but the published claims follow the campaign's results.
+5. **Update all content to the v1.3.0 feature set.** Implemented by the content sync (`content-sources.md`), CS-REL-1, CS-QUERY-1, and "Current state" above.
+6. **SEO and GEO at the maximum level.** Implemented by `seo.md`, `geo.md`, and `structured-data.md`.
 
 ## TBD register (initial)
 

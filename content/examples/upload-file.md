@@ -1,35 +1,15 @@
 ---
 datePublished: 2026-05-12
+dateModified: 2026-09-26
 ---
 
 # Upload-file example
 
-Multipart file upload with **`PoolRequestBundle` enabled** and the **critical body-drain-before-spawn pattern** that makes background processing safe. Three handlers show the spectrum: single-file synchronous upload, multi-file synchronous upload, and asynchronous processing where the goroutine must not retain `*http.Request`.
-
-## Why this example is pool-safe
-
-`PoolRequestBundle` recycles the per-request bundle the instant the handler returns. A goroutine that reads `r.Body` (or `r.MultipartReader()`) **after** that return observes either a zeroed bundle or another concurrent request's state — a silent use-after-free. The fix is mechanical and reproducible:
-
-**Drain everything you need into local values before spawning the goroutine. Never capture `r` itself.**
-
-```go
-// Wrong — r is recycled the moment the outer handler returns
-go func() {
-    io.Copy(dst, r.Body)
-}()
-
-// Right — drain inline, then spawn with captured values
-body, _ := io.ReadAll(r.Body)
-go func() {
-    process(body)
-}()
-```
-
-This example shows the safe and unsafe patterns side by side so the contract is unambiguous.
+This program accepts multipart file uploads with `PoolRequestBundle` enabled and shows the body-drain-before-spawn pattern that makes background processing safe under the pool. Three handlers cover single-file synchronous upload, multi-file synchronous upload, and asynchronous processing. With the pool on, MuxMaster recycles the request bundle the instant a handler returns, so a goroutine that reads `r` or `r.Body` afterwards reads a recycled request; the asynchronous handler therefore copies everything it needs into local values before it starts the goroutine.
 
 ## Step 1 — Construct the router
 
-Note the `ReadTimeout: 60 * time.Second` on the `http.Server` — file uploads run longer than the default 5 s read timeout, so the value is bumped to a sensible upload-friendly bound.
+The router enables `PoolRequestBundle`, registers `RequestID` and `RecovererWithLogger` with `Pre`, and registers one route per upload pattern. The `http.Server` sets `ReadTimeout: 60 * time.Second`, which gives a large upload time to arrive while still bounding how long a client can take to send the request.
 
 ```go
 mux := mm.New()
@@ -39,14 +19,16 @@ mux.PoolRequestBundle = true
 
 mux.Pre(mw.RequestID(), mw.RecovererWithLogger(log))
 
-mux.POST("/upload", singleUpload)        // 1 file, sync
-mux.POST("/multi", multiUpload)          // N files, sync
-mux.POST("/async", asyncProcessUpload)   // drain → spawn goroutine
+// Each handler illustrates a different correctness pattern.
+mux.POST("/upload", singleUpload)      // 1 file, sync
+mux.POST("/multi", multiUpload)        // N files, sync
+mux.POST("/async", asyncProcessUpload) // drain → spawn goroutine
 
+// …
 srv := &http.Server{
-    Addr:        ":8080",
-    Handler:     mux,
-    ReadTimeout: 60 * time.Second, // upload-friendly
+	Addr:        ":8080",
+	Handler:     mux,
+	ReadTimeout: 60 * time.Second, // upload-friendly
 }
 ```
 
@@ -58,30 +40,31 @@ The simplest pattern: cap the body, parse the multipart form, copy the file to d
 
 ```go
 func singleUpload(w http.ResponseWriter, r *http.Request) {
-    r.Body = http.MaxBytesReader(w, r.Body, maxBody)
-    if err := r.ParseMultipartForm(2 << 20); err != nil {
-        http.Error(w, "parse error: "+err.Error(), http.StatusBadRequest)
-        return
-    }
+	// Cap the body so a hostile uploader can't OOM us.
+	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
+	if err := r.ParseMultipartForm(2 << 20); err != nil {
+		http.Error(w, "parse error: "+err.Error(), http.StatusBadRequest)
+		return
+	}
 
-    file, header, err := r.FormFile("file")
-    if err != nil {
-        http.Error(w, "missing 'file' field", http.StatusBadRequest)
-        return
-    }
-    defer file.Close()
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, "missing 'file' field", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
 
-    sum, written, err := saveFile(file, header.Filename)
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
+	sum, written, err := saveFile(file, header.Filename)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-    _ = json.NewEncoder(w).Encode(map[string]any{
-        "filename": header.Filename,
-        "size":     written,
-        "sha256":   sum,
-    })
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"filename": header.Filename,
+		"size":     written,
+		"sha256":   sum,
+	})
 }
 ```
 
@@ -93,30 +76,36 @@ The `multipart/form-data` spec allows multiple files in one form; `r.MultipartFo
 
 ```go
 func multiUpload(w http.ResponseWriter, r *http.Request) {
-    r.Body = http.MaxBytesReader(w, r.Body, maxBody)
-    if err := r.ParseMultipartForm(2 << 20); err != nil {
-        http.Error(w, "parse error: "+err.Error(), http.StatusBadRequest)
-        return
-    }
+	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
+	if err := r.ParseMultipartForm(2 << 20); err != nil {
+		http.Error(w, "parse error: "+err.Error(), http.StatusBadRequest)
+		return
+	}
 
-    type result struct {
-        Filename string `json:"filename"`
-        Size     int64  `json:"size"`
-        SHA256   string `json:"sha256"`
-    }
-    var results []result
+	type result struct {
+		Filename string `json:"filename"`
+		Size     int64  `json:"size"`
+		SHA256   string `json:"sha256"`
+	}
+	var results []result
 
-    for _, headers := range r.MultipartForm.File {
-        for _, h := range headers {
-            f, err := h.Open()
-            if err != nil { /* … */ return }
-            sum, n, err := saveFile(f, h.Filename)
-            _ = f.Close()
-            if err != nil { /* … */ return }
-            results = append(results, result{Filename: h.Filename, Size: n, SHA256: sum})
-        }
-    }
-    _ = json.NewEncoder(w).Encode(map[string]any{"files": results})
+	for _, headers := range r.MultipartForm.File {
+		for _, h := range headers {
+			f, err := h.Open()
+			if err != nil {
+				http.Error(w, "open: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			sum, n, err := saveFile(f, h.Filename)
+			_ = f.Close()
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			results = append(results, result{Filename: h.Filename, Size: n, SHA256: sum})
+		}
+	}
+	_ = json.NewEncoder(w).Encode(map[string]any{"files": results})
 }
 ```
 
@@ -126,46 +115,41 @@ The canonical safe pattern under `PoolRequestBundle`. Every value the goroutine 
 
 ```go
 func asyncProcessUpload(w http.ResponseWriter, r *http.Request) {
-    r.Body = http.MaxBytesReader(w, r.Body, maxBody)
-    if err := r.ParseMultipartForm(2 << 20); err != nil {
-        http.Error(w, "parse error: "+err.Error(), http.StatusBadRequest)
-        return
-    }
-    file, header, err := r.FormFile("file")
-    if err != nil {
-        http.Error(w, "missing 'file' field", http.StatusBadRequest)
-        return
-    }
-    defer file.Close()
+	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
+	if err := r.ParseMultipartForm(2 << 20); err != nil {
+		http.Error(w, "parse error: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, "missing 'file' field", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
 
-    // Snapshot EVERYTHING the goroutine needs into local values.
-    // `data`, `filename`, `requestID` are captured by value; `r` is not.
-    var buf bytes.Buffer
-    if _, err := io.Copy(&buf, file); err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-    data := buf.Bytes()
-    filename := header.Filename
-    requestID := mw.GetRequestID(r.Context())
+	// Snapshot EVERYTHING the goroutine needs into local values.
+	// `data` and `filename` are captured by value; `r` is not captured.
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, file); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	data := buf.Bytes()
+	filename := header.Filename
+	requestID := mw.GetRequestID(r.Context())
 
-    // Now the goroutine has no reference to r — safe under Pool.
-    go func() {
-        // Simulate background processing — e.g. virus scan, thumbnailing.
-        time.Sleep(500 * time.Millisecond)
-        sum := sha256.Sum256(data)
-        fmt.Fprintf(os.Stderr,
-            "[bg] processed req=%s file=%q size=%d sha256=%x\n",
-            requestID, filename, len(data), sum)
-    }()
+	// Now the goroutine has no reference to r — safe under Pool.
+	go func() {
+		// Simulate background processing — e.g. virus scan, thumbnailing.
+		time.Sleep(500 * time.Millisecond)
+		sum := sha256.Sum256(data)
+		fmt.Fprintf(os.Stderr,
+			"[bg] processed req=%s file=%q size=%d sha256=%x\n",
+			requestID, filename, len(data), sum)
+	}()
 
-    w.WriteHeader(http.StatusAccepted)
-    _ = json.NewEncoder(w).Encode(map[string]any{
-        "accepted":   true,
-        "filename":   filename,
-        "size_bytes": len(data),
-        "request_id": requestID,
-    })
+	w.WriteHeader(http.StatusAccepted)
+	// …
 }
 ```
 
@@ -177,27 +161,27 @@ The shared helper hashes the body while writing it to disk. The filename is norm
 
 ```go
 func saveFile(src multipart.File, filename string) (string, int64, error) {
-    if filename == "" {
-        return "", 0, fmt.Errorf("empty filename")
-    }
-    // Reject path traversal.
-    safe := filepath.Base(filename)
-    if safe == "." || safe == ".." {
-        return "", 0, fmt.Errorf("invalid filename")
-    }
+	if filename == "" {
+		return "", 0, fmt.Errorf("empty filename")
+	}
+	// Reject path traversal.
+	safe := filepath.Base(filename)
+	if safe == "." || safe == ".." {
+		return "", 0, fmt.Errorf("invalid filename")
+	}
 
-    dst, err := os.Create(filepath.Join(uploadDir, safe))
-    if err != nil {
-        return "", 0, fmt.Errorf("create: %w", err)
-    }
-    defer dst.Close()
+	dst, err := os.Create(filepath.Join(uploadDir, safe))
+	if err != nil {
+		return "", 0, fmt.Errorf("create: %w", err)
+	}
+	defer dst.Close()
 
-    hasher := sha256.New()
-    written, err := io.Copy(io.MultiWriter(dst, hasher), src)
-    if err != nil {
-        return "", 0, fmt.Errorf("copy: %w", err)
-    }
-    return hex.EncodeToString(hasher.Sum(nil)), written, nil
+	hasher := sha256.New()
+	written, err := io.Copy(io.MultiWriter(dst, hasher), src)
+	if err != nil {
+		return "", 0, fmt.Errorf("copy: %w", err)
+	}
+	return hex.EncodeToString(hasher.Sum(nil)), written, nil
 }
 ```
 
@@ -221,7 +205,7 @@ curl -F 'file=@/path/to/some/file' \
 curl -F 'file=@/path/to/some/file' http://localhost:8080/async
 ```
 
-## Frequently asked questions
+## Common questions
 
 <section data-conversation="upload-file-faq">
 
@@ -231,20 +215,22 @@ curl -F 'file=@/path/to/some/file' http://localhost:8080/async
 
 ### What does `MaxBytesReader` actually cap?
 
-`http.MaxBytesReader(w, r.Body, n)` wraps `r.Body` so any read past `n` bytes returns an error and writes a `413 Payload Too Large` to `w`. The cap is **wire-level**: it counts bytes off the connection before they are buffered. It is independent of `ParseMultipartForm(memCap)`, which caps how much of the parsed multipart form is held in memory (the rest spills to disk). Set both.
+`http.MaxBytesReader(w, r.Body, n)` caps the request body: a read past `n` bytes returns an `*http.MaxBytesError`, and `net/http` closes the connection after the response. The handler decides the status code; the example answers `400 Bad Request` when parsing fails. It is independent of `ParseMultipartForm(memCap)`, which caps how much of the parsed multipart form is held in memory (the rest spills to disk). Set both.
 
 ### How do I checksum without buffering the whole upload?
 
-Use `io.MultiWriter`. The `saveFile` helper in Step 5 wires `io.Copy(io.MultiWriter(dst, hasher), src)` — every byte read from the upload is written to disk and to the SHA-256 hasher in a single streaming pass. Peak memory is one read buffer (32 KiB by default), not the full file size. Replace `sha256.New()` with `xxhash.New64()` or any other `hash.Hash` if you want a faster non-cryptographic checksum.
+Use `io.MultiWriter`. The `saveFile` helper in Step 5 wires `io.Copy(io.MultiWriter(dst, hasher), src)` — every byte read from the upload is written to disk and to the SHA-256 hasher in a single streaming pass. Peak memory is one read buffer (32 KiB by default), not the full file size.
 
 </section>
-
-## Upstream source
-
-Every code excerpt above is lifted verbatim from [`examples/upload-file/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/examples/upload-file/main.go) at the v1.1.0 tag. The upstream file also contains the in-browser upload form HTML and the graceful-shutdown wiring — follow the link for the full program.
 
 ## See also
 
 - [Maximum performance](/docs/max-performance#lifetime-contract--what-you-must-not-do) — the lifetime contract this example respects, with the full enumeration of unsafe captures.
 - [Server-sent events example](/examples/server-sent-events) — another long-lived handler pattern (stream until disconnect) that satisfies the pool contract.
 - [Reverse-proxy example](/examples/reverse-proxy) — synchronous proxying as a third pool-safe shape.
+
+## Upstream source
+
+Every code excerpt above is lifted verbatim from [`examples/upload-file/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/examples/upload-file/main.go) at the v1.3.0 tag. The upstream file also contains the in-browser upload form HTML and the graceful-shutdown wiring — follow the link for the full program.
+
+Source: <https://github.com/FlavioCFOliveira/MuxMaster/tree/v1.3.0/examples/upload-file>

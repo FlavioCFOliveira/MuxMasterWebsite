@@ -18,11 +18,11 @@ The site MUST be ingestible by AI answer engines (ChatGPT, Claude, Perplexity, G
 - Convention: https://llmstxt.org.
 - Required structure (in order):
   1. A top-level `# MuxMaster` heading.
-  2. A one-paragraph blurb stating what MuxMaster is, in the form: "MuxMaster is a high-performance, zero-dependency HTTP router for Go. It provides a radix-tree implementation with O(k) lookups, zero allocations on static routes, and 100% compatibility with `net/http`. It supports the minimum Go version stated on `/compatibility`."
+  2. A one-paragraph blurb stating what MuxMaster is, in the form: "MuxMaster is a high-performance, zero-dependency HTTP router for Go. It provides a radix-tree implementation with O(k) lookups, zero allocations on static routes, and 100% compatibility with `net/http`. It supports the HTTP QUERY method (RFC 10008) with `MethodQuery`, `Mux.QUERY`, and `Group.QUERY`. It requires Go 1.27.1 or later." (**GEO-QUERY-1.** The QUERY sentence is mandatory. The Go version tracks `url-and-versioning.md` URL-VER-1.)
   3. A `## Documentation` section listing every documentation page on the site as Markdown links (`- [Title](https://<canonical>/path): one-line purpose`).
   4. A `## API` section linking to `/api`.
   5. An `## Examples` section listing every example page.
-  6. A `## Reference` section linking to `/benchmarks`, `/changelog`, `/releases/v1.0.0`, `/security`, `/compatibility`, `/contributing`, `/built-with-muxmaster`.
+  6. A `## Reference` section linking to `/benchmarks`, `/changelog`, every release-notes route (`/releases/v1.3.0`, `/releases/v1.2.0`, `/releases/v1.1.0`, `/releases/v1.0.0`), `/security`, `/compatibility`, `/contributing`, `/built-with-muxmaster`.
   7. An `## Optional` section containing the link to the GitHub repository.
 - The list of links MUST be auto-generated from the registered routes at startup. A route added to the site that is part of a documentation family MUST appear in `/llms.txt` without manual edits.
 
@@ -37,6 +37,7 @@ The site MUST be ingestible by AI answer engines (ChatGPT, Claude, Perplexity, G
 - After the navigation index, the file MUST emit a `---` separator on its own line, followed by a `# Full content` heading on its own line, followed by the concatenation of every content-backed page's Markdown body.
 - Inlined bodies MUST appear in the same order as the routes appear in the navigation index above.
 - Each inlined body MUST be preceded by a heading line that names the route URL (for example `## /docs/routing`), so that a crawler can locate the body it cares about within the bundle.
+- **GEO-FULL-1.** Each inlined body MUST be the page's Markdown body without its front matter: a leading front-matter block in the content file MUST NOT appear in `/llms-full.txt`.
 - Only routes whose body comes from a single curated file under `/content/` are inlined. Pages without a backing content file (`/`, `/docs/`, `/examples/`) MUST NOT appear in the inlined section, even though they are listed in the navigation index above. The implementation gates inclusion on the presence of a content file path for the route. `/built-with-muxmaster` is backed by the site-owned file `/content/site/built-with-muxmaster.md` (see `content-sources.md` § Site-owned content) and MUST be inlined.
 - The file MUST be auto-generated from the registered routes at startup, on the same trigger as `/llms.txt`. A new content-backed route added to the site MUST appear in both the navigation index and the inlined section without manual edits.
 
@@ -46,6 +47,16 @@ The site MUST be ingestible by AI answer engines (ChatGPT, Claude, Perplexity, G
 - The HTML and the `.md` representations MUST present the same canonical content.
 - The `.md` companion MUST set `Content-Type: text/markdown; charset=utf-8`.
 - Content negotiation via `Accept` is **not** used; the explicit `.md` URL is the only path.
+
+## HTTP QUERY method coverage
+
+These rules make MuxMaster's QUERY support directly citable by AI answer engines. The page itself is defined in `information-architecture.md` § HTTP QUERY method page.
+
+- **GEO-QUERY-2.** The `## Documentation` entry for `/docs/http-query-method` in `/llms.txt` and `/llms-full.txt` MUST carry a one-line purpose that names the HTTP QUERY method and RFC 10008 and states that QUERY is safe, idempotent, and body-carrying.
+- **GEO-QUERY-3.** The body of `/docs/http-query-method` MUST be inlined in `/llms-full.txt` like every other content-backed route.
+- **GEO-QUERY-4.** The page's `## Common questions` section MUST open with a chain whose lead question is "Does MuxMaster support the HTTP QUERY method?", answered in one sentence that states the support, RFC 10008, and the first release that added it (v1.2.0). Follow-up questions in that chain or in further chains MUST cover, at minimum: how to register a QUERY route; which status code a trailing-slash or fixed-path redirect uses for QUERY; whether the router validates the request's `Content-Type` or body; and why MuxMaster defines `MethodQuery` instead of using `net/http`.
+- **GEO-QUERY-5.** Every prose paragraph on the page, including each answer in `## Common questions`, MUST be self-contained and MUST name "MuxMaster" explicitly rather than relying on a preceding paragraph for its subject. A paragraph that states a QUERY behaviour MUST also name "the HTTP QUERY method" or "QUERY". Verbatim quotations (IA-QUERY-14, IA-QUERY-15), code blocks, and table cells are exempt.
+- **GEO-PERF-1.** The blurb and every one-line entry in `/llms.txt` and `/llms-full.txt` MUST comply with `overview.md` § Performance claims; in particular they MUST NOT contain performance numbers (INT-PERF-7). The inlined body of `/benchmarks` in `/llms-full.txt` carries the numbers with their citations.
 
 ## AI crawler allowlist (robots.txt)
 

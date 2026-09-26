@@ -138,6 +138,10 @@ func funcMap() template.FuncMap {
 		// — the audit trail mandated by spec/structured-data.md § Field
 		// completeness must be visible to reviewers and validators.
 		"jsonldblock": jsonldBlockHTML,
+		// lastIndex returns the index of the last breadcrumb, so the
+		// breadcrumb partial can set aria-current="page" on the last
+		// crumb only (specification/information-architecture.md IA-BC-2).
+		"lastIndex": func(crumbs []meta.Breadcrumb) int { return len(crumbs) - 1 },
 	}
 }
 

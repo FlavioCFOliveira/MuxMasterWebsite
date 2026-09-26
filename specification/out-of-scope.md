@@ -49,8 +49,8 @@ The website does **not** read `../MuxMaster/` at request time, at startup, or at
 
 ## Benchmark re-execution
 
-- The site does **not** re-run MuxMaster's upstream benchmarks.
-- The `/benchmarks` page quotes upstream numbers verbatim with citations to the source files.
+- The runtime binary does **not** run MuxMaster's benchmarks. The benchmarks behind `/benchmarks` are run at development time by this project's benchmark campaign, archived under `reports/benchmarks-<YYYY-MM-DD>/` (see `content-sources.md` § Benchmarks — sources, which superseded on 2026-09-26 the earlier rule that the site does not re-run upstream benchmarks).
+- The `/benchmarks` page publishes the campaign's numbers, with upstream numbers only as attributed corroboration or in the historical section.
 - The `/built-with-muxmaster` page quotes numbers from recorded runs of this repository's own `make bench` target, which measures the website's handler chain, not MuxMaster's upstream suite (see `content-sources.md` § Site-owned content). The runtime binary never executes a benchmark.
 
 ## Executable example playground
@@ -66,7 +66,7 @@ The website does **not** read `../MuxMaster/` at request time, at startup, or at
 
 ## Compatibility matrix
 
-- The site shows only the **minimum** Go version (currently `Go 1.26+`).
+- The site shows only the **minimum** Go version (currently Go 1.27.1; see `url-and-versioning.md` URL-VER-1).
 - A version-by-version compatibility matrix is out of scope.
 
 ## URL versioning

@@ -2,15 +2,28 @@ package render
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/xml"
+	"errors"
 	"fmt"
+	"io/fs"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/FlavioCFOliveira/MuxMasterWebsite/internal/content"
 	"github.com/FlavioCFOliveira/MuxMasterWebsite/internal/meta"
 )
+
+// DocsIndexDescription is the <meta name="description"> of /docs/ and its
+// one-line entry in /llms.txt. It carries no performance numbers
+// (specification/overview.md INT-PERF-7).
+const DocsIndexDescription = "Thirteen MuxMaster guides: getting started, routing, the HTTP QUERY method, groups, middleware, errors, configuration, performance, and migration."
+
+// ExamplesIndexDescription is the <meta name="description"> of /examples/
+// and its one-line entry in /llms.txt.
+const ExamplesIndexDescription = "Thirteen runnable MuxMaster examples: REST API, maximum performance, versioning, SSE, file upload, reverse proxy, auth, cache, SSR, and static files."
 
 // LandingRecipe builds the landing page from the parsed landing template.
 // Path: /. Content-Type: text/html; charset=utf-8.
@@ -48,7 +61,7 @@ func DocsIndexRecipe(loader *content.Loader, ogImagePath string, productionRobot
 			items := filterRoutes(deps.Routes, "docs", path)
 			page := basePage(deps, path,
 				"Documentation",
-				"Index of MuxMaster documentation: getting started, routing, groups, middleware, error handling, configuration, response helpers, performance, observability, migration, and a cookbook.",
+				DocsIndexDescription,
 				"article", ogImagePath, productionRobots)
 			// Markdown companion at /docs/index.md (built by
 			// DocsIndexMarkdownRecipe from the route table).
@@ -64,7 +77,7 @@ func DocsIndexRecipe(loader *content.Loader, ogImagePath string, productionRobot
 			}
 			body := indexPageBody{
 				Heading:     "Documentation",
-				Description: "Eleven sections, in the order recommended for first-time readers. Every page has a Markdown companion at the same path with a .md suffix.",
+				Description: "Thirteen sections. Every page has a Markdown companion at the same path with a .md suffix.",
 				Items:       items,
 				IntroHTML:   intro,
 			}
@@ -93,7 +106,7 @@ func ExamplesIndexRecipe(loader *content.Loader, ogImagePath string, productionR
 			items := filterRoutesByOrder(deps.Routes, "examples", path)
 			page := basePage(deps, path,
 				"Examples",
-				"Eight runnable MuxMaster examples covering REST APIs, authentication, JWT, OAuth2, caching, graceful shutdown, server-side rendering, and static sites.",
+				ExamplesIndexDescription,
 				"article", ogImagePath, productionRobots)
 			// Markdown companion at /examples/index.md (built by
 			// ExamplesIndexMarkdownRecipe from the route table).
@@ -109,7 +122,7 @@ func ExamplesIndexRecipe(loader *content.Loader, ogImagePath string, productionR
 			}
 			body := indexPageBody{
 				Heading:     "Examples",
-				Description: "Eight programs from the upstream MuxMaster examples directory. Each page links to the upstream source.",
+				Description: "Thirteen programs from the upstream MuxMaster examples directory. Each page links to the upstream source.",
 				Items:       items,
 				IntroHTML:   intro,
 			}
@@ -314,6 +327,9 @@ func LLMsFullRecipe(loader *content.Loader, routeToContent map[string]string) Re
 				// MUST be preceded by a heading line that names the route URL
 				// (for example `## /docs/routing`)."
 				fmt.Fprintf(&b, "## %s\n\n", r.Path)
+				// GEO-FULL-1: the inlined body excludes the front matter
+				// and the blank lines that separated it from the body.
+				src = bytes.TrimLeft(stripFrontmatter(src), "\n")
 				b.Write(src)
 				if len(src) == 0 || src[len(src)-1] != '\n' {
 					b.WriteByte('\n')
@@ -329,12 +345,14 @@ func LLMsFullRecipe(loader *content.Loader, routeToContent map[string]string) Re
 // are excluded per specification (sitemap covers HTML routes only).
 //
 // changefreq and priority are populated per route family per
-// specification/seo.md "sitemap.xml". lastmod is the ISO 8601 datetime of
-// the underlying content file's mtime, when available; otherwise the
-// process build time. Embedded files report a zero mtime under
-// embed.FS — when that happens, the build time is used as a stable
-// fallback so the value is never empty.
-func SitemapRecipe(loader contentMtimer, routeContent map[string]string, productionRobots bool) Recipe {
+// specification/seo.md "sitemap.xml". lastmod follows SEO-MAP-1: the later
+// of dateModified and datePublished in the front matter of the content
+// file mapped to the route in routeContent, formatted YYYY-MM-DD. The index
+// routes /, /docs/, and /examples/ fall back to the latest lastmod among
+// their child routes when their own file carries no date. A route with no
+// date from either source omits <lastmod>; no build-time or mtime value is
+// ever substituted.
+func SitemapRecipe(loader contentReader, routeContent map[string]string, productionRobots bool) Recipe {
 	return Recipe{
 		Path:        "/sitemap.xml",
 		ContentType: "application/xml; charset=utf-8",
@@ -342,7 +360,7 @@ func SitemapRecipe(loader contentMtimer, routeContent map[string]string, product
 			type urlEntry struct {
 				XMLName    xml.Name `xml:"url"`
 				Loc        string   `xml:"loc"`
-				LastMod    string   `xml:"lastmod"`
+				LastMod    string   `xml:"lastmod,omitempty"`
 				ChangeFreq string   `xml:"changefreq"`
 				Priority   string   `xml:"priority"`
 			}
@@ -362,13 +380,14 @@ func SitemapRecipe(loader contentMtimer, routeContent map[string]string, product
 			if !productionRobots {
 				return encodeSitemap(set)
 			}
-			fallback := deps.BuildTime.UTC().Format(time.RFC3339)
+			lastMods, err := sitemapLastMods(loader, routeContent, deps.Routes)
+			if err != nil {
+				return nil, err
+			}
 			for _, r := range deps.Routes {
-				lastMod := fallback
-				if cp, ok := routeContent[r.Path]; ok && loader != nil {
-					if t, err := loader.Mtime(cp); err == nil && !t.IsZero() {
-						lastMod = t.UTC().Format(time.RFC3339)
-					}
+				var lastMod string
+				if t := lastMods[r.Path]; !t.IsZero() {
+					lastMod = t.UTC().Format("2006-01-02")
 				}
 				set.URLs = append(set.URLs, urlEntry{
 					Loc:        deps.BaseURL + r.Path,
@@ -380,6 +399,53 @@ func SitemapRecipe(loader contentMtimer, routeContent map[string]string, product
 			return encodeSitemap(set)
 		},
 	}
+}
+
+// sitemapLastMods resolves the SEO-MAP-1 date of every route. A route maps
+// to the zero time when neither its own front matter nor, for an index
+// route, its children supply a date. A content file that does not exist is
+// treated as carrying no date; any other read error is returned.
+func sitemapLastMods(loader contentReader, routeContent map[string]string, routes []RouteInfo) (map[string]time.Time, error) {
+	out := make(map[string]time.Time, len(routes))
+	for _, r := range routes {
+		cp, ok := routeContent[r.Path]
+		if !ok || loader == nil {
+			continue
+		}
+		src, err := loader.Load(cp)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("sitemap: %s: %w", r.Path, err)
+		}
+		fm := parseFrontmatter(src)
+		t := fm.DateModified
+		if fm.DatePublished.After(t) {
+			t = fm.DatePublished
+		}
+		out[r.Path] = t
+	}
+	// Index fallbacks: /docs/ and /examples/ take the latest child date;
+	// / takes the latest date of every other route.
+	for _, idx := range []string{"/docs/", "/examples/", "/"} {
+		if !out[idx].IsZero() {
+			continue
+		}
+		var latest time.Time
+		for _, r := range routes {
+			if r.Path == idx || (idx != "/" && !strings.HasPrefix(r.Path, idx)) {
+				continue
+			}
+			if t := out[r.Path]; t.After(latest) {
+				latest = t
+			}
+		}
+		if !latest.IsZero() {
+			out[idx] = latest
+		}
+	}
+	return out, nil
 }
 
 // encodeSitemap marshals the supplied urlset to XML with the standard
@@ -397,19 +463,19 @@ func encodeSitemap(v any) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// contentMtimer is the narrow interface the sitemap recipe needs from a
+// contentReader is the narrow interface the sitemap recipe needs from a
 // content loader. Defining it here (rather than importing content.Loader)
-// keeps the render package free of upward dependencies and makes the
-// recipe trivial to fake in tests.
-type contentMtimer interface {
-	Mtime(path string) (time.Time, error)
+// keeps the recipe trivial to fake in tests.
+type contentReader interface {
+	Load(path string) ([]byte, error)
 }
 
 // changeFreqFor returns the sitemap changefreq value per route family. The
 // values are taken verbatim from specification/seo.md "sitemap.xml" table:
-//   weekly:  /, /changelog
-//   monthly: /docs/, /examples/, every other documentation page
-//   yearly:  /releases/<v>  (immutable release notes)
+//
+//	weekly:  /, /changelog
+//	monthly: /docs/, /examples/, every other documentation page
+//	yearly:  /releases/<v>  (immutable release notes)
 func changeFreqFor(path string) string {
 	switch {
 	case path == "/":
@@ -664,14 +730,13 @@ func filterRoutesByOrder(routes []RouteInfo, section, indexPath string) []RouteI
 func buildLLMs(deps Deps) []byte {
 	var b strings.Builder
 	b.WriteString("# MuxMaster\n\n")
+	// The blurb follows specification/geo.md § /llms.txt item 2 verbatim
+	// (GEO-QUERY-1). It carries no performance numbers (GEO-PERF-1).
 	b.WriteString("> MuxMaster is a high-performance, zero-dependency HTTP router for Go. " +
 		"It provides a radix-tree implementation with O(k) lookups, zero allocations on " +
 		"static routes, and 100% compatibility with `net/http`. " +
-		"Since v1.1.0 the opt-in `Mux.PoolRequestBundle` flag drives parameterised " +
-		"routes to 45 ns / 0 B / 0 allocs on a single parameter — 20 % faster than " +
-		"`httprouter`, and the only stdlib-compatible router that achieves zero " +
-		"allocations on parameterised routes. " +
-		"It supports the minimum Go version stated on /compatibility.\n\n")
+		"It supports the HTTP QUERY method (RFC 10008) with `MethodQuery`, `Mux.QUERY`, and `Group.QUERY`. " +
+		"It requires Go " + deps.GoVersion + " or later.\n\n")
 
 	groups := groupRoutes(deps.Routes)
 
@@ -718,6 +783,7 @@ func groupRoutes(routes []RouteInfo) map[string][]RouteInfo {
 		g[r.Section] = append(g[r.Section], r)
 	}
 	for k := range g {
+		newestFirst := k == "releases"
 		sort.SliceStable(g[k], func(i, j int) bool {
 			// Index URLs (trailing slash) sort first within their group.
 			ai := strings.HasSuffix(g[k][i].Path, "/")
@@ -725,10 +791,54 @@ func groupRoutes(routes []RouteInfo) map[string][]RouteInfo {
 			if ai != aj {
 				return ai
 			}
+			// Release notes are listed newest first, as
+			// specification/geo.md § /llms.txt lists them.
+			if newestFirst {
+				return compareReleasePaths(g[k][i].Path, g[k][j].Path) > 0
+			}
 			return g[k][i].Path < g[k][j].Path
 		})
 	}
 	return g
+}
+
+// compareReleasePaths orders two /releases/vX.Y.Z paths by semantic
+// version (numerically, so v1.10.0 sorts after v1.9.0). It returns a
+// negative value when a is older than b, zero when equal, and a positive
+// value when a is newer. Paths that do not parse fall back to string order.
+func compareReleasePaths(a, b string) int {
+	pa, okA := parseReleaseVersion(a)
+	pb, okB := parseReleaseVersion(b)
+	if !okA || !okB {
+		return strings.Compare(a, b)
+	}
+	for i := range pa {
+		if c := cmp.Compare(pa[i], pb[i]); c != 0 {
+			return c
+		}
+	}
+	return 0
+}
+
+// parseReleaseVersion extracts MAJOR, MINOR, PATCH from "/releases/vX.Y.Z".
+func parseReleaseVersion(p string) ([3]int, bool) {
+	var v [3]int
+	s, ok := strings.CutPrefix(p, "/releases/v")
+	if !ok {
+		return v, false
+	}
+	parts := strings.Split(s, ".")
+	if len(parts) != 3 {
+		return v, false
+	}
+	for i, part := range parts {
+		n, err := strconv.Atoi(part)
+		if err != nil {
+			return v, false
+		}
+		v[i] = n
+	}
+	return v, true
 }
 
 func writeSection(b *strings.Builder, heading string, items []RouteInfo, baseURL string) {

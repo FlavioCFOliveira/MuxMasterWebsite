@@ -1,5 +1,6 @@
 ---
 datePublished: 2026-05-12
+dateModified: 2026-09-26
 ---
 
 # Cookbook
@@ -14,6 +15,7 @@ This page collects ready-to-use patterns for common production scenarios.
 - [JWT authentication](#jwt-authentication)
 - [Request validation](#request-validation)
 - [Pagination](#pagination)
+- [QUERY endpoint (RFC 10008)](#query-endpoint-rfc-10008)
 - [Graceful shutdown](#graceful-shutdown)
 - [Health and readiness endpoints](#health-and-readiness-endpoints)
 - [Rate limiting per IP](#rate-limiting-per-ip)
@@ -31,8 +33,8 @@ This page collects ready-to-use patterns for common production scenarios.
 func main() {
     mux := muxmaster.New()
     mux.Use(middleware.Logger(os.Stdout))
-    mux.Use(middleware.Recoverer)
-    mux.Use(middleware.RequestID)
+    mux.Use(middleware.RecovererWithLogger(slog.Default()))
+    mux.Use(middleware.RequestID())
 
     mux.Mount("/api/v1", v1Router())
     mux.Mount("/api/v2", v2Router())
@@ -172,6 +174,8 @@ api.With(requireRole("admin")).DELETE("/users/:id", deleteUser) // admin only
 
 ## JWT authentication
 
+The `middleware` package includes `JWTAuth`, which verifies HS*, RS* and ES* tokens without external dependencies; see [Middleware — JWTAuth](/docs/middleware#jwtauth). If you prefer a third-party JWT library, wrap it in ordinary middleware:
+
 ```go
 import "github.com/golang-jwt/jwt/v5"
 
@@ -287,6 +291,61 @@ mux.GET("/users", func(w http.ResponseWriter, r *http.Request) {
 
 ---
 
+## QUERY endpoint (RFC 10008)
+
+The QUERY method (RFC 10008) is a standard HTTP method for executing queries against resources. It is safe and idempotent like GET, but carries request content in the body like POST. The page [HTTP QUERY method (RFC 10008)](/docs/http-query-method) covers the method in full. Unlike the router, the handler is responsible for validating the Content-Type (RFC 10008 §2.1) and advertising accepted query formats via the `Accept-Query` response header (RFC 10008 §3).
+
+```go
+// Define the query request structure
+type BookQuery struct {
+    Title  string `json:"title"`
+    Author string `json:"author"`
+    Year   int    `json:"year"`
+}
+
+mux.QUERY("/books/search", func(w http.ResponseWriter, r *http.Request) {
+    // RFC 10008 §2.1: reject requests with missing or unsupported Content-Type
+    ct := r.Header.Get("Content-Type")
+    if ct == "" {
+        http.Error(w, "Content-Type is required", http.StatusBadRequest)
+        return
+    }
+    if ct != "application/json" {
+        http.Error(w, "unsupported query media type", http.StatusUnsupportedMediaType)
+        return
+    }
+
+    // Parse the query body
+    var query BookQuery
+    if err := json.NewDecoder(r.Body).Decode(&query); err != nil {
+        http.Error(w, "invalid query format", http.StatusBadRequest)
+        return
+    }
+
+    // RFC 10008 §3: advertise accepted query formats
+    w.Header().Set("Accept-Query", `"application/json"`)
+
+    // Execute the query and return results
+    results := db.SearchBooks(query.Title, query.Author, query.Year)
+    muxmaster.JSON(w, http.StatusOK, results)
+})
+```
+
+### CORS and QUERY
+
+The QUERY method is not a CORS-safelisted method, meaning cross-origin QUERY requests require a preflight OPTIONS request. If your API uses CORS, ensure `AllowedMethods` includes `"QUERY"`:
+
+```go
+mux.Use(middleware.CORS(middleware.CORSOptions{
+    AllowedOrigins: []string{"https://app.example.com"},
+    AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "QUERY", "OPTIONS"},
+    AllowedHeaders: []string{"Content-Type"},
+    MaxAge:         86400,
+}))
+```
+
+---
+
 ## Graceful shutdown
 
 ```go
@@ -350,6 +409,8 @@ mux.GET("/ready", func(w http.ResponseWriter, r *http.Request) {
 
 ## Rate limiting per IP
 
+The built-in `middleware.ThrottlePerIP` limits the number of **concurrent** requests per client (see [Middleware](/docs/middleware#throttleperip-and-throttleperipcapped)). To limit the request **rate** instead, use a token bucket such as `golang.org/x/time/rate`:
+
 ```go
 import "golang.org/x/time/rate"
 
@@ -370,7 +431,7 @@ func ipRateLimiter(rps float64, burst int) func(http.Handler) http.Handler {
 
     return func(next http.Handler) http.Handler {
         return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-            ip := r.RemoteAddr // use middleware.RealIP if behind a proxy
+            ip, _, _ := net.SplitHostPort(r.RemoteAddr) // use middleware.RealIP if behind a proxy
             if !getLimiter(ip).Allow() {
                 muxmaster.JSON(w, http.StatusTooManyRequests, map[string]string{
                     "error": "too many requests",
@@ -384,6 +445,8 @@ func ipRateLimiter(rps float64, burst int) func(http.Handler) http.Handler {
 
 mux.Use(ipRateLimiter(10, 30)) // 10 req/s, burst of 30
 ```
+
+This sketch never removes entries from `limiters`; in production, evict idle clients or cap the map, or an attacker with many source addresses can grow it without bound.
 
 ---
 
@@ -403,36 +466,58 @@ mux.Use(middleware.CORS(middleware.CORSOptions{
 }))
 ```
 
-Put CORS middleware before authentication middleware so preflight OPTIONS requests (which do not carry credentials) are handled without authentication.
+Register CORS before authentication middleware. CORS answers preflight OPTIONS requests (which do not carry credentials) itself, with `204 No Content`, so they never reach the authentication middleware.
 
 ---
 
 ## Serving embedded frontend assets
 
+A catch-all such as `/*filepath` cannot share the root with other routes (registering both panics; see [Routing](/docs/routing#pattern-priority-and-conflicts)), so serve the single-page application from the `NotFound` handler:
+
 ```go
-import "embed"
+import (
+    "embed"
+    "io/fs"
+    "log"
+    "net/http"
+    "strings"
+
+    "github.com/FlavioCFOliveira/MuxMaster"
+)
 
 //go:embed frontend/dist
 var frontendFS embed.FS
 
 func main() {
+    dist, err := fs.Sub(frontendFS, "frontend/dist")
+    if err != nil {
+        log.Fatal(err)
+    }
+    files := http.FileServerFS(dist)
+
     mux := muxmaster.New()
 
     // API routes
     api := mux.Group("/api")
     api.GET("/users", listUsers)
 
-    // Frontend — serve index.html for all unmatched routes (SPA fallback)
-    mux.GET("/*filepath", func(w http.ResponseWriter, r *http.Request) {
-        path := muxmaster.PathParam(r, "filepath")
-        f, err := frontendFS.Open("frontend/dist" + path)
-        if err != nil {
-            // File not found — serve index.html for client-side routing
-            http.ServeFileFS(w, r, frontendFS, "frontend/dist/index.html")
+    // Frontend: existing files are served as-is; any other GET or HEAD
+    // outside /api/ receives index.html for client-side routing.
+    mux.NotFound = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        if (r.Method != http.MethodGet && r.Method != http.MethodHead) ||
+            strings.HasPrefix(r.URL.Path, "/api/") {
+            http.NotFound(w, r)
             return
         }
-        f.Close()
-        http.ServeFileFS(w, r, frontendFS, "frontend/dist"+path)
+        name := strings.TrimPrefix(r.URL.Path, "/")
+        if name == "" || !fs.ValidPath(name) {
+            name = "index.html"
+        }
+        if info, err := fs.Stat(dist, name); err != nil || info.IsDir() {
+            http.ServeFileFS(w, r, dist, "index.html")
+            return
+        }
+        files.ServeHTTP(w, r)
     })
 
     log.Fatal(http.ListenAndServe(":8080", mux))
@@ -455,7 +540,7 @@ func structuredLogger(next http.Handler) http.Handler {
             "status",    rec.status,
             "duration",  time.Since(start),
             "ip",        r.RemoteAddr,
-            "requestID", r.Header.Get("X-Request-Id"),
+            "requestID", middleware.GetRequestID(r.Context()),
         )
     })
 }
@@ -469,6 +554,7 @@ func (r *statusRecorder) WriteHeader(code int) {
     r.ResponseWriter.WriteHeader(code)
 }
 
+mux.Pre(middleware.RequestID()) // so GetRequestID returns the ID
 mux.Use(structuredLogger)
 ```
 
@@ -498,6 +584,8 @@ func TestGetUser(t *testing.T) {
     }
 }
 ```
+
+`httptest.NewRequest` sets the request context. A `*http.Request` built as a struct literal has a `nil` context; `ServeHTTP` still dispatches it, using `context.Background()` as the parent, so parameter routes work in such tests too.
 
 Testing with a custom error handler:
 
@@ -576,29 +664,35 @@ order.RegisterRoutes(api, orderService)
 
 ## See Also
 
-- [Getting Started](getting-started.md) — step-by-step introduction
-- [Middleware](middleware.md) — all built-in middleware
-- [Error Handling](error-handling.md) — centralized error patterns
-- [Groups](groups.md) — organizing routes
-
-## Upstream source
-
-Every recipe in this cookbook traces back to a runnable program in the upstream [`examples/`](https://github.com/FlavioCFOliveira/MuxMaster/tree/v1.1.0/examples) directory.
+- [Getting Started](/docs/getting-started) — step-by-step introduction
+- [Middleware](/docs/middleware) — all built-in middleware
+- [Error Handling](/docs/error-handling) — centralized error patterns
+- [Groups](/docs/groups) — organizing routes
 
 ## Common questions
 
 <section data-conversation="cookbook-patterns">
 
-### How do I structure a production-ready application with MuxMaster?
+### How do I serve a QUERY search endpoint with MuxMaster?
 
-Split the registration into a function (`func registerRoutes(m *mux.Mux, deps Deps)`) so tests can construct the same router without starting a server. Group middleware by concern (`auth`, `observability`, `body-limits`) and apply them with `Use` at the appropriate scope (root for global, group for scoped).
+Register the handler with `mux.QUERY("/books/search", h)` and validate the `Content-Type` and body inside the handler, as the "QUERY endpoint (RFC 10008)" recipe shows.
 
-### How do I share state across handlers?
+The router does not validate QUERY request content. List `"QUERY"` in `CORSOptions.AllowedMethods` when browsers call the endpoint cross-origin.
 
-Inject the dependency at construction time — for example `func newAPIHandler(db *sql.DB) http.HandlerFunc` returns a closure that captures the dependency. The router never owns the dependency; this keeps tests free of global state and avoids context-key gymnastics.
+### How do I test MuxMaster routes without starting a server?
 
-### How do I write a unit test that exercises my routes?
+Build the router in the test and call `mux.ServeHTTP(rec, req)` with an `httptest.NewRecorder()` and a request from `httptest.NewRequest`.
 
-Construct the router in the test (the same `registerRoutes` function the binary calls), use `httptest.NewRecorder` to capture the response, and call `m.ServeHTTP(rr, req)`. No external HTTP layer is needed; the router implements `http.Handler`, so the same test pattern works with any test fixture style.
+`*muxmaster.Mux` implements `http.Handler`, so the standard `net/http/httptest` tools work without an adapter.
+
+### How do I serve a single-page application next to API routes?
+
+Serve the application from the `NotFound` handler, because a root catch-all such as `/*filepath` cannot share the root with other routes.
+
+Registering a root catch-all next to other routes panics at registration; the "Serving embedded frontend assets" recipe shows the `NotFound` pattern.
 
 </section>
+
+## Upstream source
+
+This page mirrors [`docs/cookbook.md`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/docs/cookbook.md) at the v1.3.0 tag. Runnable programs for many of these recipes are in the [examples](/examples/). The behaviour it describes is implemented in [`mux.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/mux.go), [`middleware/cors.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/middleware/cors.go).

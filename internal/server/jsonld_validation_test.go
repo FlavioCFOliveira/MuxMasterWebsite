@@ -25,19 +25,19 @@ import (
 // Out of scope: rich-result eligibility per Google's Rich Results Test
 // API (deferred, see ci.md). What this test enforces:
 //
-//   1. JSON parses.
-//   2. Every block declares @context = "https://schema.org" and @type.
-//   3. The page emits the JSON-LD types required for its family by the
-//      master schema table.
-//   4. The four reified entities (SoftwareSourceCode / Organization /
-//      Person / WebSite) are emitted in full ONLY on /. Every other page
-//      references them by @id.
-//   5. Every internal @id reference resolves: any { "@id": "URL" } object
-//      points either at one of the four reified entities on / or at an
-//      @id emitted somewhere in the prerendered tree.
-//   6. No fabricated values: empty strings on string fields are treated
-//      as defects, and placeholder URLs (example.com, TODO, etc.) are
-//      rejected.
+//  1. JSON parses.
+//  2. Every block declares @context = "https://schema.org" and @type.
+//  3. The page emits the JSON-LD types required for its family by the
+//     master schema table.
+//  4. The four reified entities (SoftwareSourceCode / Organization /
+//     Person / WebSite) are emitted in full ONLY on /. Every other page
+//     references them by @id.
+//  5. Every internal @id reference resolves: any { "@id": "URL" } object
+//     points either at one of the four reified entities on / or at an
+//     @id emitted somewhere in the prerendered tree.
+//  6. No fabricated values: empty strings on string fields are treated
+//     as defects, and placeholder URLs (example.com, TODO, etc.) are
+//     rejected.
 func TestJSONLDValidationGate(t *testing.T) {
 	t.Parallel()
 	srv := newTestServer(t)
@@ -56,6 +56,10 @@ func TestJSONLDValidationGate(t *testing.T) {
 		{path: "/", mustContainTypes: []string{"WebSite", "SoftwareSourceCode", "Organization", "Person"}},
 		{path: "/docs/routing", mustContainTypes: []string{"TechArticle", "BreadcrumbList"}, mustNotContainInline: []string{"WebSite", "SoftwareSourceCode", "Organization", "Person"}},
 		{path: "/docs/getting-started", mustContainTypes: []string{"TechArticle", "BreadcrumbList", "HowTo"}, mustNotContainInline: []string{"WebSite", "SoftwareSourceCode", "Organization", "Person"}},
+		// SD-QUERY-1: all four types are mandatory on the QUERY page.
+		{path: "/docs/http-query-method", mustContainTypes: []string{"TechArticle", "BreadcrumbList", "FAQPage", "HowTo"}, mustNotContainInline: []string{"WebSite", "SoftwareSourceCode", "Organization", "Person"}},
+		{path: "/releases/v1.2.0", mustContainTypes: []string{"TechArticle", "BreadcrumbList"}, mustNotContainInline: []string{"WebSite", "SoftwareSourceCode", "Organization", "Person"}},
+		{path: "/releases/v1.3.0", mustContainTypes: []string{"TechArticle", "BreadcrumbList"}, mustNotContainInline: []string{"WebSite", "SoftwareSourceCode", "Organization", "Person"}},
 		{path: "/api", mustContainTypes: []string{"TechArticle", "BreadcrumbList", "APIReference"}, mustNotContainInline: []string{"WebSite", "SoftwareSourceCode", "Organization", "Person"}},
 		{path: "/docs/", mustContainTypes: []string{"CollectionPage", "BreadcrumbList"}, mustNotContainInline: []string{"WebSite", "SoftwareSourceCode", "Organization", "Person"}},
 		{path: "/examples/", mustContainTypes: []string{"CollectionPage", "BreadcrumbList"}, mustNotContainInline: []string{"WebSite", "SoftwareSourceCode", "Organization", "Person"}},
@@ -127,6 +131,11 @@ func TestJSONLDValidationGate(t *testing.T) {
 				}
 				typ, _ := doc["@type"].(string)
 				assertRichResultEligible(t, fmt.Sprintf("%s block %d", tc.path, i), typ, doc)
+				if typ == "Dataset" {
+					if _, hasLicense := doc["license"]; !hasLicense && !strings.Contains(string(body), "<!-- omitted: license on Dataset") {
+						t.Errorf("%s block %d (Dataset): license omitted without the audit-trail comment", tc.path, i)
+					}
+				}
 			}
 			// Reified-entity discipline: only / may emit these in full.
 			if tc.path != "/" {
@@ -245,7 +254,10 @@ func assertRichResultEligible(t *testing.T, where, typ string, doc map[string]an
 	case "TechArticle":
 		requireFields("headline", "inLanguage", "mainEntityOfPage", "isPartOf", "author", "publisher")
 	case "Dataset":
-		requireFields("name", "creator", "license")
+		// license is recommended, not required: when no licence is
+		// declared it is omitted with an audit-trail comment, which the
+		// gate checks separately (spec/structured-data.md § Dataset).
+		requireFields("name", "description", "creator", "temporalCoverage")
 		requireArrayMin("variableMeasured", 1)
 		requireArrayMin("distribution", 1)
 	case "SoftwareSourceCode":

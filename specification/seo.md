@@ -14,7 +14,7 @@ Every indexable HTML page MUST include the following inside `<head>`:
 
 - `<meta charset="utf-8">`.
 - `<meta name="viewport" content="width=device-width, initial-scale=1">`.
-- A unique `<title>`. Format: `<Page title> — MuxMaster`. Maximum 60 visible characters where practical.
+- A unique `<title>`. Format: `<Page title> — MuxMaster`, except on release-notes pages, whose format is defined in SEO-REL-1. Maximum 60 visible characters where practical.
 - A unique `<meta name="description" content="...">`. 110 to 160 characters. Plain, factual, no ellipsis-truncation.
 - `<link rel="canonical" href="<absolute URL on the canonical domain>">`. The canonical domain was ratified on 2026-05-11 as `https://muxmaster.net` (HTTPS, apex, no trailing slash — see `open-questions.md` item 1, RESOLVED, and `deployment.md` § Runtime environment variables). The `<link rel="canonical">` value MUST therefore be `https://muxmaster.net<path>` on every indexable page in production. In `development` and `staging` (where `SITE_BASE_URL` is not the canonical production domain), the page MUST NOT be marked indexable and the canonical link MUST mirror the value of `SITE_BASE_URL` so that staging and production never advertise the same canonical URL.
 - Open Graph: `og:type` (`website` for `/`, `article` everywhere else), `og:title`, `og:description`, `og:url` (absolute), `og:image` (absolute, pointing at the generated 1200×630 OG image — see `brand-and-visual.md`), `og:site_name` ("MuxMaster"), `og:locale` ("en_US").
@@ -23,6 +23,18 @@ Every indexable HTML page MUST include the following inside `<head>`:
 - Favicons (see `brand-and-visual.md`).
 
 Pages that MUST NOT be indexed (because the deployment is not the canonical production origin at `https://muxmaster.net`, or because they are operational): the page MUST emit `<meta name="robots" content="noindex,nofollow">` and the route MUST be excluded from `sitemap.xml`. `/healthz` is in this category permanently.
+
+## Page-specific requirements
+
+These rules add to the per-page head metadata above. Every description they govern is also subject to `overview.md` § Performance claims (INT-PERF-7: no performance numbers in space-limited surfaces).
+
+- **SEO-QUERY-1.** `/docs/http-query-method` MUST use the `<title>` "HTTP QUERY method (RFC 10008) in Go — MuxMaster". Its `<h1>` and sidebar label are defined in `information-architecture.md` IA-QUERY-2. Its `<meta name="description">` MUST name the HTTP QUERY method, RFC 10008, and MuxMaster, and MUST state that QUERY is a safe, idempotent method that carries a request body.
+- **SEO-QUERY-2.** Links to `/docs/http-query-method` MUST use anchor text that contains "HTTP QUERY method" (for example "HTTP QUERY method (RFC 10008)").
+- **SEO-QUERY-3.** On `/releases/v1.2.0` and on `/changelog`, the first mention of the HTTP QUERY method in the page body MUST link to `/docs/http-query-method`, with anchor text that complies with SEO-QUERY-2.
+- **SEO-LAND-1.** The `<meta name="description">` of `/` MUST mention MuxMaster's support for the HTTP QUERY method (RFC 10008) and MUST carry a performance-positioning statement that complies with INT-PERF-3, INT-PERF-4, and INT-PERF-7 (categories named in words, no numbers). The same applies to the `og:description` and `twitter:description` of `/`.
+- **SEO-REL-1.** Every release-notes page (`/releases/v<version>`) MUST carry a unique `<title>` of the form "MuxMaster v<version> release notes" (for example "MuxMaster v1.2.0 release notes"). `/releases/v1.2.0` and `/releases/v1.3.0` MUST each also carry a unique `<meta name="description">`. The description of `/releases/v1.2.0` MUST mention the HTTP QUERY method (RFC 10008); the description of `/releases/v1.3.0` MUST mention the Go 1.27.1 minimum.
+- **SEO-BENCH-1.** The `<meta name="description">` of `/benchmarks` MUST name MuxMaster v1.3.0 and state that the results come from a measurement campaign comparing v1.1.0 with v1.3.0 and with other Go routers; it MUST NOT contain numbers (INT-PERF-7).
+- **SEO-VER-1.** Every page that states the MuxMaster version or the minimum Go version MUST use the values in `url-and-versioning.md` URL-VER-1 (v1.3.0; Go 1.27.1).
 
 ## Semantic HTML5
 
@@ -40,7 +52,9 @@ The master schema-by-page-family table, the entity graph (the four reified nodes
 
 - The server MUST generate `/sitemap.xml` from the registered route list at startup.
 - Excluded from the sitemap: `/healthz`, `/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/llms-full.txt`, all `.md` companions, all `/static/...` paths.
-- Each entry includes `<loc>` (absolute URL on the canonical domain), `<lastmod>` (the mtime of the underlying file in `/content/` in W3C datetime format; for routes whose source is the registered route table rather than a single file — `/`, `/docs/`, `/examples/` — `<lastmod>` MUST be the process start time), `<changefreq>`, and `<priority>`. The `<priority>` value is `1.0` for `/`, `0.8` for `/docs/`, `/api`, `/examples/`, `0.6` for `/docs/<section>`, `/examples/<name>`, `/benchmarks`, and `0.4` for the rest.
+- Each entry includes `<loc>` (absolute URL on the canonical domain), `<lastmod>` (see SEO-MAP-1), `<changefreq>`, and `<priority>`.
+- **SEO-MAP-1.** `<lastmod>` MUST be the later of `dateModified` and `datePublished` in the front matter of the content file that backs the route, formatted `YYYY-MM-DD`. The index routes `/`, `/docs/`, and `/examples/` use the dates in their own front matter when present; otherwise they use the latest `<lastmod>` among their child routes (for `/docs/`, the doc pages; for `/examples/`, the example pages; for `/`, every other route in the sitemap). A route with no date from either source MUST omit `<lastmod>`; it MUST NOT substitute the process start time or any other value. The HTTP `Last-Modified` header is unaffected: it remains the process start time (`rendering-and-caching.md` § ETag and Last-Modified).
+- The `<priority>` value is `1.0` for `/`, `0.8` for `/docs/`, `/api`, `/examples/`, `0.6` for `/docs/<section>`, `/examples/<name>`, `/benchmarks`, and `0.4` for the rest.
 - The `<changefreq>` value is governed by the cadence at which the page's primary content is expected to change, not by the page's importance:
 
 | Page family | `<changefreq>` | Rationale |
