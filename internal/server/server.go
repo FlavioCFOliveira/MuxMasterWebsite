@@ -32,6 +32,7 @@ type Server struct {
 	loader     *content.Loader
 	version    string
 	staticDir  string
+	static     *staticAssets
 	buildTime  time.Time
 	httpServer *http.Server
 }
@@ -44,6 +45,11 @@ func New(cfg *config.Config, logger *slog.Logger, loader *content.Loader, versio
 		return nil, fmt.Errorf("server: %w", err)
 	}
 
+	static, err := loadStaticAssets(staticDir, r.CSSPath())
+	if err != nil {
+		return nil, err
+	}
+
 	s := &Server{
 		cfg:       cfg,
 		logger:    logger,
@@ -51,6 +57,7 @@ func New(cfg *config.Config, logger *slog.Logger, loader *content.Loader, versio
 		loader:    loader,
 		version:   version,
 		staticDir: staticDir,
+		static:    static,
 		buildTime: time.Now().UTC(),
 	}
 
@@ -59,12 +66,19 @@ func New(cfg *config.Config, logger *slog.Logger, loader *content.Loader, versio
 	// Case-insensitive matching is OFF: case is part of the canonical URL
 	// contract (specification/url-and-versioning.md).
 	m.CaseInsensitive = false
+	// Recycle the Params slice handed to FastHandler routes
+	// (/static/*filepath). Safe because no handler retains Params past
+	// return; see the lifetime contract in
+	// specification/rendering-and-caching.md "Router configuration".
+	m.PoolFastParams = true
 
 	// Pre-routing middleware. Order matters: Recoverer outermost, then
 	// RequestID so panics are logged with the request id, then RealIP
 	// (so subsequent layers including the access log observe the real
 	// client IP when a trusted proxy is in front), then the access
-	// logger, then security headers, then compression.
+	// logger, then security headers. There is no compression middleware:
+	// every response with a body is served from a gzip representation
+	// computed once at startup (render.Response).
 	m.Pre(mwm.RecovererWithLogger(logger))
 	m.Pre(mwm.RequestID())
 	if len(cfg.TrustedProxyCIDRs) > 0 {
@@ -79,7 +93,6 @@ func New(cfg *config.Config, logger *slog.Logger, loader *content.Loader, versio
 	}
 	m.Pre(slogAccessLog(logger))
 	m.Pre(securityHeaders)
-	m.Pre(mwm.Compress(5))
 	// URL normalisation redirects (specification/url-and-versioning.md).
 	// Runs after security headers so a 301 still carries the same
 	// hardening as a 200, and before route matching so the canonical path

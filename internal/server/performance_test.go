@@ -71,3 +71,76 @@ func TestPrerenderedGzipRepresentation(t *testing.T) {
 		}
 	}
 }
+
+// TestStaticAssetsFromMemory covers the in-memory /static/*filepath route:
+// headers per asset type, the gzip representation of the CSS bundle, 304
+// revalidation, HEAD, and the branded 404 for anything that is not a loaded
+// regular file.
+func TestStaticAssetsFromMemory(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.httpServer.Handler
+	css := srv.renderer.CSSPath()
+
+	plain := get(t, h, css, nil)
+	if plain.Code != http.StatusOK {
+		t.Fatalf("%s: status %d", css, plain.Code)
+	}
+	if got := plain.Header().Get("Content-Type"); got != "text/css; charset=utf-8" {
+		t.Errorf("CSS Content-Type = %q", got)
+	}
+	if got := plain.Header().Get("Cache-Control"); got != cacheControlHashedAsset {
+		t.Errorf("CSS Cache-Control = %q, want %q", got, cacheControlHashedAsset)
+	}
+	gz := get(t, h, css, map[string]string{"Accept-Encoding": "gzip"})
+	if gz.Header().Get("Content-Encoding") != "gzip" {
+		t.Fatalf("CSS with Accept-Encoding: gzip got Content-Encoding %q", gz.Header().Get("Content-Encoding"))
+	}
+	if !bytes.Equal(gunzip(t, gz.Body.Bytes()), plain.Body.Bytes()) {
+		t.Error("CSS gzip body does not decompress to the identity body")
+	}
+	if v := gz.Header().Values("Vary"); len(v) != 1 || v[0] != "Accept-Encoding" {
+		t.Errorf("CSS Vary = %q, want exactly [Accept-Encoding]", v)
+	}
+	nm := get(t, h, css, map[string]string{"Accept-Encoding": "gzip", "If-None-Match": gz.Header().Get("ETag")})
+	if nm.Code != http.StatusNotModified {
+		t.Errorf("CSS revalidation: status %d, want 304", nm.Code)
+	}
+
+	png := get(t, h, "/static/img/og-image.png", map[string]string{"Accept-Encoding": "gzip"})
+	if png.Code != http.StatusOK || png.Header().Get("Content-Type") != "image/png" {
+		t.Fatalf("PNG: status %d, Content-Type %q", png.Code, png.Header().Get("Content-Type"))
+	}
+	if png.Header().Get("Cache-Control") != cacheControlStatic {
+		t.Errorf("PNG Cache-Control = %q, want %q", png.Header().Get("Cache-Control"), cacheControlStatic)
+	}
+	if png.Header().Get("Content-Encoding") != "" || png.Header().Get("Vary") != "" {
+		t.Errorf("PNG has no gzip body, yet Content-Encoding %q / Vary %q",
+			png.Header().Get("Content-Encoding"), png.Header().Get("Vary"))
+	}
+
+	head := httptest.NewRequest(http.MethodHead, css, nil)
+	headRec := httptest.NewRecorder()
+	h.ServeHTTP(headRec, head)
+	if headRec.Code != http.StatusOK || headRec.Header().Get("Content-Length") != plain.Header().Get("Content-Length") {
+		t.Errorf("HEAD %s: status %d, Content-Length %q", css, headRec.Code, headRec.Header().Get("Content-Length"))
+	}
+
+	for _, p := range []string{"/static/", "/static/css/", "/static/img", "/static/../go.mod", "/static/css/missing.css"} {
+		if rec := get(t, h, p, nil); rec.Code != http.StatusNotFound {
+			t.Errorf("%s: status %d, want 404", p, rec.Code)
+		}
+	}
+}
+
+// TestStaticHandlerKeepsRequestPath guards against the old http.FileServer
+// wrapper, which rewrote r.URL.Path and made the access log record the path
+// without its /static prefix.
+func TestStaticHandlerKeepsRequestPath(t *testing.T) {
+	srv := newTestServer(t)
+	css := srv.renderer.CSSPath()
+	req := httptest.NewRequest(http.MethodGet, css, nil)
+	srv.httpServer.Handler.ServeHTTP(httptest.NewRecorder(), req)
+	if req.URL.Path != css {
+		t.Errorf("request path rewritten to %q, want %q", req.URL.Path, css)
+	}
+}
