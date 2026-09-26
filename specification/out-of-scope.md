@@ -2,7 +2,7 @@
 title: Out of scope (v1)
 purpose: Enumerate what v1 of the site explicitly does not do, so that future requests to add these features are recognised as expansions and trigger explicit ratification.
 owners: specification-manager.
-last-updated: 2026-05-10
+last-updated: 2026-09-26
 status: ratified
 ---
 
@@ -49,8 +49,9 @@ The website does **not** read `../MuxMaster/` at request time, at startup, or at
 
 ## Benchmark re-execution
 
-- The site does **not** re-run benchmarks.
+- The site does **not** re-run MuxMaster's upstream benchmarks.
 - The `/benchmarks` page quotes upstream numbers verbatim with citations to the source files.
+- The `/built-with-muxmaster` page quotes numbers from recorded runs of this repository's own `make bench` target, which measures the website's handler chain, not MuxMaster's upstream suite (see `content-sources.md` § Site-owned content). The runtime binary never executes a benchmark.
 
 ## Executable example playground
 

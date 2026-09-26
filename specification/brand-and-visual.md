@@ -2,7 +2,7 @@
 title: Brand and visual identity
 purpose: Define the visual identity — logo handling, palette, dark mode, typography, code-block style, and asset generation.
 owners: tailwind-specialist (primary); ux-specialist (experiential verification); seo-specialist (font loading, CLS).
-last-updated: 2026-05-11
+last-updated: 2026-09-26
 status: ratified
 ---
 
@@ -18,7 +18,7 @@ status: ratified
 
 - Canonical source: `assets/logo-muxmaster.png` in the upstream MuxMaster repository (1024 × 1024 PNG, RGBA, mascot Gopher). The PNG is committed into this repository at build-time-accessible location (path defined by the build pipeline), so the build does not require the upstream working tree at build time. The website does **not** read the logo from the upstream tree at runtime.
 - The header MUST display the logo to the left of the navigation, sized at 32 × 32 CSS px on small viewports and 40 × 40 CSS px on `md` and above.
-- The logo image MUST be served from `/assets/<hash>/logo.<size>.png` with long-cache headers (see `rendering-and-caching.md`).
+- The logo image MUST be served from under `/static/`, with the cache headers defined in `rendering-and-caching.md` § Static assets.
 - SVG variant and horizontal-lockup variant are out of scope for v1 (see `out-of-scope.md`).
 
 ## Colour palette
@@ -92,14 +92,14 @@ A build-time script MUST generate the following from the canonical logo PNG bund
 | `og-image-1200x630.png` | Open Graph and Twitter Card image. The image MUST include the logo and the wordmark "MuxMaster" with the tagline derived from the landing page (TBD). |
 | `logo-32.png`, `logo-40.png`, `logo-80.png` (and AVIF/WebP equivalents) | Header logo (responsive `srcset`). |
 
-Generated assets MUST be content-hashed (`logo.<hash>.png`) and served from `/assets/<hash>/...`.
+Generated assets MUST be content-hashed (`logo.<hash>.png`) and served from under `/static/` (see `rendering-and-caching.md` § Static assets).
 
 ## CSS toolchain
 
 - The CSS bundle is built with the **Tailwind CSS v4 standalone CLI binary**. No Node, no npm at runtime.
 - The CLI is invoked at build time. The `@source` directive(s) MUST cover all template files and any inline class strings used by handlers.
-- Output: a single content-hashed file at `/assets/<hash>/app.css`.
-- The bundle is served by MuxMaster via its file-serving primitive with `Cache-Control: public, max-age=31536000, immutable`.
+- Output: a single content-hashed file at `/static/css/app.<hash>.css`.
+- The bundle is served from memory by the site's static-asset route (`/static/*filepath`) with `Cache-Control: public, max-age=31536000, immutable` (see `rendering-and-caching.md` § Static assets).
 - No second-stage CSS framework or runtime CSS-in-JS.
 
 ## No JavaScript dependency for content

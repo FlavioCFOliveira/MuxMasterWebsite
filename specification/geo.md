@@ -2,7 +2,7 @@
 title: GEO contract
 purpose: Define the Generative Engine Optimization contract — llms.txt artefacts, Markdown companions, AI crawler allowlist, FAQPage and HowTo structured data, and content-shape rules.
 owners: geo-specialist (final review); review by seo-specialist (structured-data overlap), ux-specialist (content-shape and tone).
-last-updated: 2026-05-10
+last-updated: 2026-09-26
 status: ratified
 ---
 
@@ -22,7 +22,7 @@ The site MUST be ingestible by AI answer engines (ChatGPT, Claude, Perplexity, G
   3. A `## Documentation` section listing every documentation page on the site as Markdown links (`- [Title](https://<canonical>/path): one-line purpose`).
   4. A `## API` section linking to `/api`.
   5. An `## Examples` section listing every example page.
-  6. A `## Reference` section linking to `/benchmarks`, `/changelog`, `/releases/v1.0.0`, `/security`, `/compatibility`, `/contributing`.
+  6. A `## Reference` section linking to `/benchmarks`, `/changelog`, `/releases/v1.0.0`, `/security`, `/compatibility`, `/contributing`, `/built-with-muxmaster`.
   7. An `## Optional` section containing the link to the GitHub repository.
 - The list of links MUST be auto-generated from the registered routes at startup. A route added to the site that is part of a documentation family MUST appear in `/llms.txt` without manual edits.
 
@@ -37,12 +37,12 @@ The site MUST be ingestible by AI answer engines (ChatGPT, Claude, Perplexity, G
 - After the navigation index, the file MUST emit a `---` separator on its own line, followed by a `# Full content` heading on its own line, followed by the concatenation of every content-backed page's Markdown body.
 - Inlined bodies MUST appear in the same order as the routes appear in the navigation index above.
 - Each inlined body MUST be preceded by a heading line that names the route URL (for example `## /docs/routing`), so that a crawler can locate the body it cares about within the bundle.
-- Only routes whose body comes from a single curated file under `/content/` are inlined. Pages without a backing content file (`/`, `/docs/`, `/examples/`) MUST NOT appear in the inlined section, even though they are listed in the navigation index above. The implementation gates inclusion on the presence of a content file path for the route.
+- Only routes whose body comes from a single curated file under `/content/` are inlined. Pages without a backing content file (`/`, `/docs/`, `/examples/`) MUST NOT appear in the inlined section, even though they are listed in the navigation index above. The implementation gates inclusion on the presence of a content file path for the route. `/built-with-muxmaster` is backed by the site-owned file `/content/site/built-with-muxmaster.md` (see `content-sources.md` § Site-owned content) and MUST be inlined.
 - The file MUST be auto-generated from the registered routes at startup, on the same trigger as `/llms.txt`. A new content-backed route added to the site MUST appear in both the navigation index and the inlined section without manual edits.
 
 ## Markdown companions
 
-- Defined in `content-sources.md`. Every documentation route, the API page, every example page, the benchmarks page, the changelog, the release-notes pages, security, compatibility, and contributing pages MUST expose a `.md` companion.
+- Defined in `content-sources.md`. Every documentation route, the API page, every example page, the benchmarks page, the changelog, the release-notes pages, security, compatibility, contributing, and the built-with-MuxMaster page (`/built-with-muxmaster`) MUST expose a `.md` companion.
 - The HTML and the `.md` representations MUST present the same canonical content.
 - The `.md` companion MUST set `Content-Type: text/markdown; charset=utf-8`.
 - Content negotiation via `Accept` is **not** used; the explicit `.md` URL is the only path.

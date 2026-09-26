@@ -2,7 +2,7 @@
 title: Information architecture
 purpose: Define the sitemap, URL structure, navigation, page templates, and inter-page navigation rules.
 owners: ux-specialist (primary); seo-specialist (canonical/sitemap alignment); geo-specialist (Markdown companions and llms.txt linkage).
-last-updated: 2026-05-10
+last-updated: 2026-09-26
 status: ratified
 ---
 
@@ -42,6 +42,7 @@ Every public route is pre-rendered at startup (see `rendering-and-caching.md`). 
 ├── /security
 ├── /compatibility
 ├── /contributing
+├── /built-with-muxmaster
 ├── /llms.txt
 ├── /llms-full.txt
 ├── /robots.txt
@@ -105,13 +106,21 @@ Footer links, in order:
 3. Security → `/security`
 4. Compatibility → `/compatibility`
 5. Contributing → `/contributing`
-6. GitHub → `https://github.com/FlavioCFOliveira/MuxMaster`
+6. Built with MuxMaster → `/built-with-muxmaster`
+7. GitHub → `https://github.com/FlavioCFOliveira/MuxMaster`
 
 The footer also shows:
 
 - The current MuxMaster version label.
 - A copyright line ("MuxMaster is MIT-licensed.").
 - A link to `/llms.txt` for AI clients.
+
+## Built with MuxMaster page
+
+- `/built-with-muxmaster` is an HTML page with a Markdown companion at `/built-with-muxmaster.md`. It documents how this website itself uses MuxMaster. Its source is the site-owned file `/content/site/built-with-muxmaster.md` (see `content-sources.md` § Site-owned content).
+- It is reachable from the footer (see "Footer (secondary navigation)").
+- The `/benchmarks` page MUST link to `/built-with-muxmaster`.
+- The `/examples/max-performance` page MUST link to `/built-with-muxmaster`.
 
 ## Breadcrumbs
 

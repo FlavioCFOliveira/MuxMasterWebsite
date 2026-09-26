@@ -2,7 +2,7 @@
 title: Structured Data Doctrine
 purpose: Define the unified JSON-LD contract for the MuxMaster documentation website — schema-by-page-family table, entity graph, field-completeness rules, auxiliary schemas, and the blocking CI validation gate.
 owners: seo-specialist (rich-result eligibility); geo-specialist (AI-ingestion accuracy). Co-owned. Both must approve any change to this file.
-last-updated: 2026-05-11
+last-updated: 2026-09-26
 status: ratified
 ---
 
@@ -29,6 +29,7 @@ The following table maps each page family to the JSON-LD types it MUST emit. Whe
 | `/changelog` | `TechArticle`, `BreadcrumbList` | `TechArticle.about` references `SoftwareSourceCode@id` (the MuxMaster module). |
 | `/releases/<v>` | `TechArticle`, `BreadcrumbList` | `TechArticle.about` references `SoftwareSourceCode@id`; `TechArticle.version` is the release version. |
 | `/security`, `/compatibility`, `/contributing` | `TechArticle`, `BreadcrumbList` | Same entity references as `/docs/<section>`. |
+| `/built-with-muxmaster` | `TechArticle`, `BreadcrumbList` | Same entity references as `/docs/<section>`. |
 
 Cross-cutting rules:
 

@@ -217,3 +217,12 @@ The `${MUXMASTER_SOURCE_DIR}/reports/` directory is **not** mirrored on the site
 ## MuxMaster's own internal specification
 
 The `${MUXMASTER_SOURCE_DIR}/specification/` directory is **not** mirrored on the site. It is MuxMaster's internal specification, distinct from this website's specification.
+
+## Site-owned content
+
+Site-owned content is the class of files under `/content/site/` that are authored in this repository and are never synchronised from upstream. It is the site-original category described in "Strategy" above; this section states its rules normatively.
+
+- The `content-curator` agent MUST NOT create, overwrite, or delete any file under `/content/site/`.
+- `/content/site/built-with-muxmaster.md` is site-owned content. It is the source of `/built-with-muxmaster` and of its Markdown companion `/built-with-muxmaster.md` (see `information-architecture.md` § Built with MuxMaster page).
+- Every code excerpt on `/built-with-muxmaster` MUST be quoted verbatim from this repository's source code.
+- Every number on `/built-with-muxmaster` MUST come from a recorded run of this repository's `make bench` target (see `rendering-and-caching.md` § Performance budget), and MUST state the host CPU, the operating system, the Go version, and the date of that run.
