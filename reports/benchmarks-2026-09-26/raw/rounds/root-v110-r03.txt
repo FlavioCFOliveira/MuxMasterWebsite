@@ -1,0 +1,23 @@
+goos: linux
+goarch: amd64
+pkg: github.com/FlavioCFOliveira/MuxMaster
+cpu: AMD Ryzen 9 5900HX with Radeon Graphics        
+BenchmarkStaticRoute-16                 	46726149	        25.98 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParamRoute1-16                 	10924796	       111.4 ns/op	     384 B/op	       1 allocs/op
+BenchmarkParamRoute2-16                 	 9463926	       127.5 ns/op	     416 B/op	       1 allocs/op
+BenchmarkParamRoute3-16                 	 8118195	       145.8 ns/op	     480 B/op	       1 allocs/op
+BenchmarkWildcardRoute-16               	10648826	       111.3 ns/op	     384 B/op	       1 allocs/op
+BenchmarkNotFound-16                    	 5010913	       227.3 ns/op	     101 B/op	       3 allocs/op
+BenchmarkParallelStaticRoute-16         	323630904	         3.819 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParallelParamRoute-16          	11110531	       105.7 ns/op	     384 B/op	       1 allocs/op
+BenchmarkFastStaticRoute-16             	46983484	        25.93 ns/op	       0 B/op	       0 allocs/op
+BenchmarkFastParamRoute1-16             	25975856	        44.32 ns/op	      32 B/op	       1 allocs/op
+BenchmarkFastParamRoute2-16             	16851290	        68.78 ns/op	      64 B/op	       1 allocs/op
+BenchmarkFastParamRoute3-16             	13826857	        87.16 ns/op	      96 B/op	       1 allocs/op
+BenchmarkFastParallelParamRoute-16      	87196020	        15.10 ns/op	      32 B/op	       1 allocs/op
+BenchmarkPooledParamRoute1-16           	25603558	        44.51 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPooledParamRoute2-16           	22537182	        55.84 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPooledParamRoute3-16           	19724283	        60.32 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPooledWildcardRoute-16         	27343560	        45.04 ns/op	       0 B/op	       0 allocs/op
+BenchmarkPooledParallelParamRoute-16    	187793784	         6.531 ns/op	       0 B/op	       0 allocs/op
+PASS

@@ -1,0 +1,159 @@
+goos: linux
+goarch: amd64
+pkg: github.com/FlavioCFOliveira/MuxMaster/reports/perf-audit-2026-05-12
+cpu: AMD Ryzen 9 5900HX with Radeon Graphics        
+,pa-v110-clean.txt,,pa-v130-clean.txt,,,
+,sec/op,CI,sec/op,CI,vs base,P
+NotFoundClean-16,2.0965000000000003e-07,3%,2.0645e-07,1%,-1.53%,p=0.006 n=10
+NotFoundCustomHandler-16,1.6620000000000003e-08,2%,1.6410000000000003e-08,1%,-1.26%,p=0.027 n=10
+NotFoundWithMethodAllowedLookup-16,2.4375e-07,4%,2.2175e-07,1%,-9.03%,p=0.000 n=10
+MethodNotAllowed-16,1.5320000000000002e-07,3%,1.2415e-07,1%,-18.96%,p=0.000 n=10
+OPTIONSAuto-16,1.2045e-07,2%,6.8715e-08,1%,-42.95%,p=0.000 n=10
+GroupDispatch-16,9.6225e-08,12%,9.764000000000002e-08,2%,~,p=0.255 n=10
+NestedGroupDispatch-16,9.6295e-08,10%,9.798500000000001e-08,2%,~,p=0.210 n=10
+RedirectTSL-16,8.651500000000001e-07,2%,6.609e-07,0%,-23.61%,p=0.000 n=10
+PathParamLookup-16,1.131e-07,8%,1.1135000000000001e-07,2%,-1.55%,p=0.041 n=10
+PathParamFast-16,3.4540000000000004e-08,3%,3.6365e-08,1%,+5.28%,p=0.000 n=10
+ParamsFromContext-16,1.114e-07,10%,1.1755e-07,2%,~,p=0.101 n=10
+Middleware_APIKey_Hit-16,4.6280000000000004e-07,2%,4.3875000000000003e-07,0%,-5.20%,p=0.000 n=10
+Middleware_APIKey_Miss-16,4.0950000000000006e-07,1%,4.1555e-07,1%,+1.48%,p=0.003 n=10
+Middleware_BasicAuth_Hit-16,1.9985000000000003e-07,1%,3.2760000000000005e-07,0%,+63.92%,p=0.000 n=10
+Middleware_BasicAuth_Miss-16,5.2005e-07,1%,6.587000000000001e-07,1%,+26.66%,p=0.000 n=10
+Middleware_CleanPath_Clean-16,2.059e-08,1%,2.0825000000000003e-08,1%,+1.14%,p=0.007 n=10
+Middleware_CleanPath_Dirty-16,2.7820000000000004e-07,3%,1.9605e-07,5%,-29.53%,p=0.000 n=10
+Middleware_Compress_NoGzip-16,2.8660000000000003e-08,1%,2.8935e-08,1%,+0.96%,p=0.011 n=10
+Middleware_Compress_SmallBody-16,3.7135000000000005e-07,3%,2.7550000000000005e-07,4%,-25.81%,p=0.000 n=10
+Middleware_Compress_LargeBody-16,8.305999999999999e-07,3%,2.9965e-07,4%,-63.92%,p=0.000 n=10
+Middleware_CORS_NoOrigin-16,2.024e-08,2%,8.178500000000001e-08,6%,+304.08%,p=0.000 n=10
+Middleware_CORS_AllowedOrigin-16,2.0785000000000002e-07,7%,2.1810000000000003e-07,22%,+4.93%,p=0.029 n=10
+Middleware_CORS_Preflight-16,2.262e-07,9%,2.3700000000000002e-07,9%,+4.77%,p=0.037 n=10
+Middleware_JWTAuth_HS256_Hit-16,4.6625e-06,3%,4.1220000000000005e-06,4%,-11.59%,p=0.000 n=10
+Middleware_JWTAuth_HS256_Miss-16,1.2395000000000002e-06,2%,6.175500000000001e-07,5%,-50.18%,p=0.000 n=10
+Middleware_JWTAuth_ES256_Hit-16,6.42665e-05,0%,6.3901e-05,0%,-0.57%,p=0.004 n=10
+Middleware_Logger-16,7.2615e-06,0%,5.6655e-06,0%,-21.98%,p=0.000 n=10
+Middleware_NoCache-16,1.7135e-07,16%,1.932e-07,27%,+12.75%,p=0.029 n=10
+Middleware_RealIP_NoHeader-16,1.2085e-07,2%,1.2795e-07,3%,+5.88%,p=0.000 n=10
+Middleware_RealIP_XFF-16,4.886500000000001e-08,5%,4.9925000000000005e-08,9%,~,p=0.172 n=10
+Middleware_Recoverer_NoPanic-16,6.5025e-09,1%,1.7465e-08,1%,+168.59%,p=0.000 n=10
+Middleware_RequestID_Generate-16,1.1605000000000002e-06,5%,2.9395e-07,27%,-74.67%,p=0.000 n=10
+Middleware_RequestID_Propagate-16,4.329e-07,9%,2.5195e-07,36%,-41.80%,p=0.000 n=10
+Middleware_SetHeader-16,1.6065e-07,19%,1.3405e-07,35%,-16.56%,p=0.009 n=10
+Middleware_StripSlashes_Clean-16,3.989e-09,1%,4.1870000000000005e-09,1%,+4.96%,p=0.000 n=10
+Middleware_StripSlashes_Dirty-16,1.9210000000000003e-07,20%,1.255e-07,34%,-34.67%,p=0.000 n=10
+Middleware_ThrottleBacklog_NoWait-16,3.1715e-08,2%,1.07e-08,2%,-66.26%,p=0.000 n=10
+Middleware_ThrottlePerIP_Hit-16,4.4645e-06,1%,1.181e-07,1%,-97.35%,p=0.000 n=10
+Middleware_Timeout-16,6.049000000000001e-06,1%,6.0255e-06,2%,~,p=0.324 n=10
+Middleware_WithValue-16,1.071e-07,34%,1.0155e-07,45%,~,p=0.912 n=10
+Chain_Production-16,9.0685e-06,1%,6.537e-06,3%,-27.92%,p=0.000 n=10
+Chain_AuthBasic-16,2.023e-07,3%,3.3455e-07,2%,+65.37%,p=0.000 n=10
+Chain_AuthJWT-16,6.1740000000000005e-06,3%,4.6365e-06,7%,-24.90%,p=0.000 n=10
+Chain_Security-16,1.235e-06,6%,1.2735000000000002e-06,7%,~,p=0.118 n=10
+Chain_Heavy-16,9.9505e-06,2%,7.617e-06,5%,-23.45%,p=0.000 n=10
+Chain_Minimal-16,6.594000000000001e-09,2%,1.7285000000000002e-08,1%,+162.13%,p=0.000 n=10
+RedirectTSLWithMiddleware-16,,,8.055e-07,1%
+ParallelRedirectTrailingSlash-16,,,1.2220000000000002e-07,1%
+geomean,2.6781980293322844e-07,,2.328845524759842e-07,,-14.16%,
+
+,pa-v110-clean.txt,,pa-v130-clean.txt,,,
+,B/op,CI,B/op,CI,vs base,P
+NotFoundClean-16,98,1%,97,1%,-1.02%,p=0.001 n=10
+NotFoundCustomHandler-16,0,0%,0,0%,~,p=1.000 n=10
+NotFoundWithMethodAllowedLookup-16,103,1%,99,1%,-3.88%,p=0.000 n=10
+MethodNotAllowed-16,88,2%,102,1%,+15.91%,p=0.000 n=10
+OPTIONSAuto-16,40,0%,16,0%,-60.00%,p=0.000 n=10
+GroupDispatch-16,384,0%,384,0%,~,p=1.000 n=10
+NestedGroupDispatch-16,384,0%,384,0%,~,p=1.000 n=10
+RedirectTSL-16,1248,0%,1088,0%,-12.82%,p=0.000 n=10
+PathParamLookup-16,384,0%,384,0%,~,p=1.000 n=10
+PathParamFast-16,32,0%,32,0%,~,p=1.000 n=10
+ParamsFromContext-16,416,0%,416,0%,~,p=1.000 n=10
+Middleware_APIKey_Hit-16,448,0%,416,0%,-7.14%,p=0.000 n=10
+Middleware_APIKey_Miss-16,96,0%,96,0%,~,p=1.000 n=10
+Middleware_BasicAuth_Hit-16,48,0%,48,0%,~,p=1.000 n=10
+Middleware_BasicAuth_Miss-16,152,0%,152,0%,~,p=1.000 n=10
+Middleware_CleanPath_Clean-16,0,0%,0,0%,~,p=1.000 n=10
+Middleware_CleanPath_Dirty-16,552,0%,504,0%,-8.70%,p=0.000 n=10
+Middleware_Compress_NoGzip-16,0,0%,0,0%,~,p=1.000 n=10
+Middleware_Compress_SmallBody-16,677,0%,98,19%,-85.52%,p=0.000 n=10
+Middleware_Compress_LargeBody-16,2862,0%,85.5,13%,-97.01%,p=0.000 n=10
+Middleware_CORS_NoOrigin-16,0,0%,112,0%,?,p=0.000 n=10
+Middleware_CORS_AllowedOrigin-16,416,0%,512,0%,+23.08%,p=0.000 n=10
+Middleware_CORS_Preflight-16,416,0%,512,0%,+23.08%,p=0.000 n=10
+Middleware_JWTAuth_HS256_Hit-16,866,0%,706,0%,-18.48%,p=0.000 n=10
+Middleware_JWTAuth_HS256_Miss-16,305,0%,144,0%,-52.79%,p=0.000 n=10
+Middleware_JWTAuth_ES256_Hit-16,2052,0%,1892.5,0%,-7.77%,p=0.000 n=10
+Middleware_Logger-16,40,0%,0,0%,-100.00%,p=0.000 n=10
+Middleware_NoCache-16,400,0%,480,0%,+20.00%,p=0.000 n=10
+Middleware_RealIP_NoHeader-16,16,0%,16,0%,~,p=1.000 n=10
+Middleware_RealIP_XFF-16,80,0%,80,0%,~,p=1.000 n=10
+Middleware_Recoverer_NoPanic-16,0,0%,0,0%,~,p=1.000 n=10
+Middleware_RequestID_Generate-16,864,0%,801,0%,-7.29%,p=0.000 n=10
+Middleware_RequestID_Propagate-16,832,0%,800,0%,-3.85%,p=0.000 n=10
+Middleware_SetHeader-16,416,0%,416,0%,~,p=1.000 n=10
+Middleware_StripSlashes_Clean-16,0,0%,0,0%,~,p=1.000 n=10
+Middleware_StripSlashes_Dirty-16,512,0%,464,0%,-9.38%,p=0.000 n=10
+Middleware_ThrottleBacklog_NoWait-16,0,0%,0,0%,~,p=1.000 n=10
+Middleware_ThrottlePerIP_Hit-16,376,0%,0,0%,-100.00%,p=0.000 n=10
+Middleware_Timeout-16,592,0%,592,0%,~,p=1.000 n=10
+Middleware_WithValue-16,368,0%,368,0%,~,p=1.000 n=10
+Chain_Production-16,1001,0%,996,0%,-0.50%,p=0.000 n=10
+Chain_AuthBasic-16,32,0%,32,0%,~,p=1.000 n=10
+Chain_AuthJWT-16,1733,0%,1513,0%,-12.69%,p=0.000 n=10
+Chain_Security-16,1624,0%,1769,0%,+8.93%,p=0.000 n=10
+Chain_Heavy-16,1786,0%,1872,0%,+4.82%,p=0.000 n=10
+Chain_Minimal-16,0,0%,0,0%,~,p=1.000 n=10
+RedirectTSLWithMiddleware-16,,,1440,0%
+ParallelRedirectTrailingSlash-16,,,368,0%
+geomean,,,,,?,
+
+,pa-v110-clean.txt,,pa-v130-clean.txt,,,
+,allocs/op,CI,allocs/op,CI,vs base,P
+NotFoundClean-16,3,0%,3,0%,~,p=1.000 n=10
+NotFoundCustomHandler-16,0,0%,0,0%,~,p=1.000 n=10
+NotFoundWithMethodAllowedLookup-16,3,0%,3,0%,~,p=1.000 n=10
+MethodNotAllowed-16,2,0%,1,0%,-50.00%,p=0.000 n=10
+OPTIONSAuto-16,3,0%,1,0%,-66.67%,p=0.000 n=10
+GroupDispatch-16,1,0%,1,0%,~,p=1.000 n=10
+NestedGroupDispatch-16,1,0%,1,0%,~,p=1.000 n=10
+RedirectTSL-16,13,0%,10,0%,-23.08%,p=0.000 n=10
+PathParamLookup-16,1,0%,1,0%,~,p=1.000 n=10
+PathParamFast-16,1,0%,1,0%,~,p=1.000 n=10
+ParamsFromContext-16,1,0%,1,0%,~,p=1.000 n=10
+Middleware_APIKey_Hit-16,7,0%,6,0%,-14.29%,p=0.000 n=10
+Middleware_APIKey_Miss-16,6,0%,6,0%,~,p=1.000 n=10
+Middleware_BasicAuth_Hit-16,2,0%,2,0%,~,p=1.000 n=10
+Middleware_BasicAuth_Miss-16,8,0%,8,0%,~,p=1.000 n=10
+Middleware_CleanPath_Clean-16,0,0%,0,0%,~,p=1.000 n=10
+Middleware_CleanPath_Dirty-16,5,0%,4,0%,-20.00%,p=0.000 n=10
+Middleware_Compress_NoGzip-16,0,0%,0,0%,~,p=1.000 n=10
+Middleware_Compress_SmallBody-16,2,0%,0,0%,-100.00%,p=0.000 n=10
+Middleware_Compress_LargeBody-16,2,0%,0,0%,-100.00%,p=0.000 n=10
+Middleware_CORS_NoOrigin-16,0,0%,1,0%,?,p=0.000 n=10
+Middleware_CORS_AllowedOrigin-16,3,0%,3,0%,~,p=1.000 n=10
+Middleware_CORS_Preflight-16,3,0%,3,0%,~,p=1.000 n=10
+Middleware_JWTAuth_HS256_Hit-16,10,0%,7,0%,-30.00%,p=0.000 n=10
+Middleware_JWTAuth_HS256_Miss-16,10,0%,7,0%,-30.00%,p=0.000 n=10
+Middleware_JWTAuth_ES256_Hit-16,29,0%,26,0%,-10.34%,p=0.000 n=10
+Middleware_Logger-16,4,0%,0,0%,-100.00%,p=0.000 n=10
+Middleware_NoCache-16,2,0%,3,0%,+50.00%,p=0.000 n=10
+Middleware_RealIP_NoHeader-16,1,0%,1,0%,~,p=1.000 n=10
+Middleware_RealIP_XFF-16,2,0%,2,0%,~,p=1.000 n=10
+Middleware_Recoverer_NoPanic-16,0,0%,0,0%,~,p=1.000 n=10
+Middleware_RequestID_Generate-16,9,0%,4,0%,-55.56%,p=0.000 n=10
+Middleware_RequestID_Propagate-16,8,0%,4,0%,-50.00%,p=0.000 n=10
+Middleware_SetHeader-16,3,0%,3,0%,~,p=1.000 n=10
+Middleware_StripSlashes_Clean-16,0,0%,0,0%,~,p=1.000 n=10
+Middleware_StripSlashes_Dirty-16,3,0%,2,0%,-33.33%,p=0.000 n=10
+Middleware_ThrottleBacklog_NoWait-16,0,0%,0,0%,~,p=1.000 n=10
+Middleware_ThrottlePerIP_Hit-16,5,0%,0,0%,-100.00%,p=0.000 n=10
+Middleware_Timeout-16,5,0%,5,0%,~,p=1.000 n=10
+Middleware_WithValue-16,2,0%,2,0%,~,p=1.000 n=10
+Chain_Production-16,16,0%,7,0%,-56.25%,p=0.000 n=10
+Chain_AuthBasic-16,2,0%,2,0%,~,p=1.000 n=10
+Chain_AuthJWT-16,19,0%,11,0%,-42.11%,p=0.000 n=10
+Chain_Security-16,14,0%,14,0%,~,p=1.000 n=10
+Chain_Heavy-16,22,0%,14,0%,-36.36%,p=0.000 n=10
+Chain_Minimal-16,0,0%,0,0%,~,p=1.000 n=10
+RedirectTSLWithMiddleware-16,,,11,0%
+ParallelRedirectTrailingSlash-16,,,2,0%
+geomean,,,,,?,
