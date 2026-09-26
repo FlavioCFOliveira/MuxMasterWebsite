@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 - **Duplicate `Vary` header.** Compressed responses carried `Vary: Accept-Encoding` twice. Commit `2128202` (#107).
 - **Static paths in the access log.** Requests for static assets were logged without their `/static` prefix, because the old handler rewrote `r.URL.Path`. Commit `2128202` (#107).
+- **The 404 page answered `304 Not Modified`** to `If-None-Match: *` or a future `If-Modified-Since`. Preconditions now apply only to `2xx` responses, and error responses carry no `ETag` or `Last-Modified` (RFC 9110 § 13.2.1). Commit `05732ac` (#111).
 - **Empty `route_id` in the access log.** The field now holds the matched route pattern, and stays empty for 404s. Commit `89ebe37` (#108).
 
 - **Dependencies updated to their latest releases.** MuxMaster v1.1.0 → v1.3.0, `github.com/yuin/goldmark` v1.7.13 → v1.8.6, `golang.org/x/image` v0.40.0 → v0.46.0 (indirect `golang.org/x/text` → v0.42.0), and the Tailwind CSS standalone CLI v4.0.6 → v4.3.3. The compiled CSS bundle keeps the same set of utility classes; Tailwind v4.3.3 no longer emits unused theme variables, so the bundle shrinks from 44,337 to 35,291 bytes.
