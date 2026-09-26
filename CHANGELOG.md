@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 ## [Unreleased]
 
+## [v1.3.0] — 2026-09-26
+
+MINOR release. Documents MuxMaster v1.3.0 (and v1.2.0): the HTTP QUERY method (RFC 10008), Go 1.27.1, and performance figures measured by the website's own benchmark campaign. The site server adopts MuxMaster's request pooling and pre-computed responses, and its content is re-synced to v1.3.0 with honest, per-category performance claims.
+
 ### Added
 
 - **MuxMaster v1.3.0 content pages.** `/docs/http-query-method` (the HTTP QUERY method, RFC 10008, with a `HowTo` in three steps), `/releases/v1.2.0`, and `/releases/v1.3.0`, each with a `.md` companion and listed in `sitemap.xml`, `llms.txt`, and `llms-full.txt`.
@@ -406,6 +410,8 @@ First public release of the MuxMaster documentation website. The site documents 
 
 - **Release workflow.** A new GitHub Actions workflow at `.github/workflows/release.yml` is triggered by tags matching `v*.*.*`. The workflow re-runs the test suite, builds the Docker image with Buildx, publishes it to `ghcr.io/flaviocfoliveira/muxmaster-website` under the immutable `:v1.0.1` tag and the moving `:latest` tag, smoke-tests the resulting image's `--healthcheck`, and creates the corresponding GitHub Release with this changelog entry as the body.
 
+[Unreleased]: https://github.com/FlavioCFOliveira/MuxMasterWebsite/compare/v1.3.0...HEAD
+[v1.3.0]: https://github.com/FlavioCFOliveira/MuxMasterWebsite/compare/v1.1.0...v1.3.0
 [v1.1.0]: https://github.com/FlavioCFOliveira/MuxMasterWebsite/compare/v1.0.11...v1.1.0
 [v1.0.11]: https://github.com/FlavioCFOliveira/MuxMasterWebsite/compare/v1.0.10...v1.0.11
 [v1.0.10]: https://github.com/FlavioCFOliveira/MuxMasterWebsite/compare/v1.0.9...v1.0.10
