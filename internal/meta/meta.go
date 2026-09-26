@@ -82,6 +82,8 @@ func (p Page) SectionLabel() string {
 		return "Examples"
 	case "benchmarks":
 		return "Benchmarks"
+	case "built-with-muxmaster":
+		return "Built with MuxMaster"
 	case "changelog":
 		return "Changelog"
 	case "releases":

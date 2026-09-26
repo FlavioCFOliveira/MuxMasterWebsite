@@ -46,7 +46,7 @@ type RouteInfo struct {
 	Path        string
 	Title       string
 	Description string
-	Section     string // "landing", "docs", "api", "examples", "benchmarks", "changelog", "releases", "security", "compatibility", "contributing"
+	Section     string // "landing", "docs", "api", "examples", "benchmarks", "built-with-muxmaster", "changelog", "releases", "security", "compatibility", "contributing"
 	HasMarkdown bool
 	Order       int
 }

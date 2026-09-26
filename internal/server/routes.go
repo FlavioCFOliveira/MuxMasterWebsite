@@ -110,6 +110,8 @@ func sectionForPath(p string) string {
 		return "examples"
 	case strings.HasPrefix(p, "/benchmarks"):
 		return "benchmarks"
+	case strings.HasPrefix(p, "/built-with-muxmaster"):
+		return "built-with-muxmaster"
 	case strings.HasPrefix(p, "/changelog"):
 		return "changelog"
 	case strings.HasPrefix(p, "/releases"):
@@ -167,6 +169,7 @@ func docRoutes() []route {
 		{path: "/examples/static-site", title: "Static site example", description: "Conditional GET (304 via ETag and Last-Modified) and range requests (206) on top of MuxMaster's ServeFiles primitive. Production static-asset semantics.", upstreamURL: "https://github.com/FlavioCFOliveira/MuxMaster/tree/main/examples/static-site", hasMarkdown: true, contentPath: "examples/static-site.md", cache: cacheControlDocs, section: "examples", ogType: "article", order: 13},
 
 		{path: "/benchmarks", title: "Benchmarks", description: "MuxMaster v1.1.0 benchmarks: 25 ns static, 45 ns / 0 alloc one-parameter Pooled, with a competitor table vs httprouter, Fiber v3, bunrouter, chi v5, gorilla/mux.", upstreamURL: ghRoot + "bench_test.go", hasMarkdown: true, contentPath: "benchmarks.md", cache: cacheControlDocs, section: "benchmarks", ogType: "article"},
+		{path: "/built-with-muxmaster", title: "Built with MuxMaster", description: "How this website runs on MuxMaster: pooling opt-ins, Pre middleware, a GETFast static route, and pre-computed gzip responses, with measured per-request costs.", upstreamURL: "https://github.com/FlavioCFOliveira/MuxMasterWebsite", hasMarkdown: true, contentPath: "site/built-with-muxmaster.md", cache: cacheControlDocs, section: "built-with-muxmaster", ogType: "article"},
 		{path: "/changelog", title: "Changelog", description: "The full upstream changelog: every released version of MuxMaster with one section per release, ordered newest-first. Mirrors CHANGELOG.md.", upstreamURL: ghRoot + "CHANGELOG.md", hasMarkdown: true, contentPath: "changelog.md", cache: cacheControlChangelog, section: "changelog", ogType: "article"},
 		{path: "/releases/v1.1.0", title: "Release notes — v1.1.0", description: "MuxMaster v1.1.0 release notes: 45 ns / 0 B / 0 allocs Pooled hot path, five new examples, /docs/max-performance guide. Backward-compatible with v1.0.x.", upstreamURL: "https://github.com/FlavioCFOliveira/MuxMaster/releases/tag/v1.1.0", hasMarkdown: true, contentPath: "release-notes/v1.1.0.md", cache: cacheControlRelease, section: "releases", ogType: "article"},
 		{path: "/releases/v1.0.0", title: "Release notes — v1.0.0", description: "Release notes for MuxMaster v1.0.0, the first general-availability release. Public API frozen, security guarantees stated, performance baseline established.", upstreamURL: ghRoot + "release-notes/v1.0.0-20260508.md", hasMarkdown: true, contentPath: "release-notes/v1.0.0.md", cache: cacheControlRelease, section: "releases", ogType: "article"},

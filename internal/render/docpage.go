@@ -23,6 +23,32 @@ type docPageBody struct {
 	Prev         navLink
 	Next         navLink
 	LastModified time.Time // mtime of the underlying content file; falls back to BuildTime when zero.
+	// SeeAlso is a site-owned cross-link rendered after the article. It
+	// lives in code, not in the curated Markdown, so a content sync from
+	// upstream cannot remove it.
+	SeeAlso *seeAlso
+}
+
+// seeAlso is one "See also" cross-link: Lead is the sentence before the link.
+type seeAlso struct {
+	Lead  string
+	Path  string
+	Title string
+}
+
+// seeAlsoLinks maps a curated page to its site-owned cross-link
+// (specification/information-architecture.md "Built with MuxMaster page").
+var seeAlsoLinks = map[string]*seeAlso{
+	"/benchmarks": {
+		Lead:  "To see these settings measured on a production site, read",
+		Path:  "/built-with-muxmaster",
+		Title: "Built with MuxMaster",
+	},
+	"/examples/max-performance": {
+		Lead:  "To see these opt-ins running in production on this website, read",
+		Path:  "/built-with-muxmaster",
+		Title: "Built with MuxMaster",
+	},
 }
 
 type sidebarItem struct {
@@ -64,6 +90,7 @@ var referenceSidebar = []sidebarItem{
 	{Path: "/api", Title: "API reference"},
 	{Path: "/examples/", Title: "Examples"},
 	{Path: "/benchmarks", Title: "Benchmarks"},
+	{Path: "/built-with-muxmaster", Title: "Built with MuxMaster"},
 	{Path: "/changelog", Title: "Changelog"},
 	{Path: "/releases/v1.1.0", Title: "Release notes — v1.1.0"},
 	{Path: "/releases/v1.0.0", Title: "Release notes — v1.0.0"},
@@ -177,6 +204,7 @@ func DocPageRecipe(spec DocPageSpec, loader *content.Loader, ogImagePath string,
 				// from the body's id="…". They come from the same string.
 				TOC:          ExtractHeadingsFromHTML(htmlBody),
 				LastModified: lastMod,
+				SeeAlso:      seeAlsoLinks[spec.Path],
 			}
 
 			switch spec.Section {
@@ -192,7 +220,7 @@ func DocPageRecipe(spec DocPageSpec, loader *content.Loader, ogImagePath string,
 				body.SidebarItems = examplesSidebar
 				body.HasPrevNext = true
 				body.Prev, body.Next = prevNextIn(examplesSidebar, spec.Path)
-			case "api", "benchmarks", "changelog", "releases", "security", "compatibility", "contributing":
+			case "api", "benchmarks", "built-with-muxmaster", "changelog", "releases", "security", "compatibility", "contributing":
 				// Reference pages are independent siblings, not a sequence —
 				// the sidebar provides the lateral navigation but prev/next
 				// is intentionally suppressed to avoid implying a reading
@@ -390,7 +418,7 @@ func breadcrumbsForDoc(spec DocPageSpec) []meta.Breadcrumb {
 			{Label: "Releases"},
 			{Label: spec.Title},
 		}
-	case "api", "benchmarks", "changelog", "security", "compatibility", "contributing":
+	case "api", "benchmarks", "built-with-muxmaster", "changelog", "security", "compatibility", "contributing":
 		// Top-level leaf pages: Home / Page.
 		return []meta.Breadcrumb{
 			{Label: "Home", Href: "/"},

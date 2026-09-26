@@ -108,7 +108,7 @@ A conversational chain is a sequence of the form `Q → A → follow-up Q → A 
 
 The following minimums apply to content pages:
 
-- **Docs and guides** (`/docs/*`) and **examples** (`/examples/*`): MUST contain at least **one conversational chain** with **at least three Q→A pairs** in total (one lead plus at least two follow-ups).
+- **Docs and guides** (`/docs/*`), **examples** (`/examples/*`), and **`/built-with-muxmaster`**: MUST contain at least **one conversational chain** with **at least three Q→A pairs** in total (one lead plus at least two follow-ups).
 - **API and reference** (`/api`): MUST contain **at least one Q→A pair per documented endpoint, type, or topic**. Follow-ups are not mandatory on this page family, but the lead-question rules above still apply.
 - **Exempt pages** (no minimum enforced): `/` (landing), `/changelog`, `/releases/*`, `/security`, `/compatibility`, `/contributing`. These pages MAY use Q→A where it fits naturally, but no count is required.
 

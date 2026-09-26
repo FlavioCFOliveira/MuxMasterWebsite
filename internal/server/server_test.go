@@ -810,6 +810,7 @@ func buildFixtureLoader(t testing.TB) *content.Loader {
 		"examples/graceful-shutdown.md":  "# Graceful shutdown\n",
 		"examples/server-side-render.md": "# Server-side render\n",
 		"examples/static-site.md":        "# Static site\n",
+		"site/built-with-muxmaster.md":   "# Built with MuxMaster\n\n## Common questions\n\nText.\n",
 		"examples/versioning.md":         "# Versioning\n",
 		"examples/reverse-proxy.md":      "# Reverse proxy\n",
 		"examples/server-sent-events.md": "# Server-sent events\n",

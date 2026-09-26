@@ -121,6 +121,8 @@ The footer also shows:
 - It is reachable from the footer (see "Footer (secondary navigation)").
 - The `/benchmarks` page MUST link to `/built-with-muxmaster`.
 - The `/examples/max-performance` page MUST link to `/built-with-muxmaster`.
+- It uses the documentation page template (the same template as `/benchmarks`), without the docs sidebar.
+- Its breadcrumb is `Home › Built with MuxMaster`.
 
 ## Breadcrumbs
 

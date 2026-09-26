@@ -679,10 +679,11 @@ func buildLLMs(deps Deps) []byte {
 	writeSection(&b, "API", groups["api"], deps.BaseURL)
 	writeSection(&b, "Examples", groups["examples"], deps.BaseURL)
 
-	// "Reference" covers benchmarks, changelog, releases, security,
-	// compatibility, contributing — per specification/geo.md.
+	// "Reference" covers benchmarks, built-with-muxmaster, changelog,
+	// releases, security, compatibility, contributing — per
+	// specification/geo.md.
 	var reference []RouteInfo
-	for _, key := range []string{"benchmarks", "changelog", "releases", "security", "compatibility", "contributing"} {
+	for _, key := range []string{"benchmarks", "built-with-muxmaster", "changelog", "releases", "security", "compatibility", "contributing"} {
 		reference = append(reference, groups[key]...)
 	}
 	writeSection(&b, "Reference", reference, deps.BaseURL)
@@ -703,7 +704,7 @@ func buildLLMs(deps Deps) []byte {
 func navIndexOrder(routes []RouteInfo) []RouteInfo {
 	groups := groupRoutes(routes)
 	var ordered []RouteInfo
-	for _, key := range []string{"docs", "api", "examples", "benchmarks", "changelog", "releases", "security", "compatibility", "contributing"} {
+	for _, key := range []string{"docs", "api", "examples", "benchmarks", "built-with-muxmaster", "changelog", "releases", "security", "compatibility", "contributing"} {
 		ordered = append(ordered, groups[key]...)
 	}
 	return ordered

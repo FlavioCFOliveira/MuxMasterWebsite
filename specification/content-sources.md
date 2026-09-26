@@ -93,6 +93,7 @@ The server MUST refuse to start if any of the following paths are missing under 
 | `/content/examples/graceful-shutdown.md` | `/examples/graceful-shutdown`. |
 | `/content/examples/server-side-render.md` | `/examples/server-side-render`. |
 | `/content/examples/static-site.md` | `/examples/static-site`. |
+| `/content/site/built-with-muxmaster.md` | `/built-with-muxmaster` (site-owned; see "Site-owned content"). |
 | `/content/release-notes/v1.0.0.md` | `/releases/v1.0.0`. |
 
 The server MUST log the missing path and exit with a non-zero status if any of these files are absent at startup.
