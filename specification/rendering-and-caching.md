@@ -125,7 +125,7 @@ For every pre-rendered route, materialisation MUST produce two representations o
 - For every HTML and Markdown response, the server MUST set:
   - `ETag: "<sha256 of body, base64-url, first 16 chars>"` (strong validator). Each representation (identity and gzip) has its own ETag, computed with this formula over that representation's own bytes. The body bytes are stable for the process lifetime.
   - `Last-Modified: <RFC 7231 date>`. The value MUST be the **process start time**, since pre-rendered bytes are recomputed only on restart.
-- The server MUST honour `If-None-Match` and `If-Modified-Since` and respond `304 Not Modified` when validation succeeds.
+- The server MUST honour `If-None-Match` and `If-Modified-Since` and respond `304 Not Modified` when validation succeeds and the response would otherwise be `2xx`. Preconditions are ignored for error responses such as the branded `404`, which also carry no `ETag` or `Last-Modified` (RFC 9110 § 13.2.1).
 - Every static asset response MUST carry a strong `ETag` computed over the bytes of the representation served (see "Static assets" below). `Last-Modified` MAY be omitted on static assets.
 
 ## Compression

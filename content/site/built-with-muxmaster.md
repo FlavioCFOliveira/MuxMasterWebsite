@@ -4,7 +4,7 @@ datePublished: 2026-09-26
 
 # Built with MuxMaster
 
-This website is a Go program that uses **MuxMaster as its only HTTP router**. Every page, Markdown companion, text file, and static asset you request here is matched by a `*muxmaster.Mux` and served by a MuxMaster handler. This page shows the configuration the site uses, explains why each setting is safe here, and reports what the configuration costs per request, measured with the benchmarks in this website's repository.
+This website is a Go program that uses **MuxMaster as its only HTTP router**. Every request — for a page, a Markdown companion, a text file, or a static asset — passes through a `*muxmaster.Mux`, which runs the `Pre` middleware and dispatches the request to the site's handler. This page shows the configuration the site uses, explains why each setting is safe here, and reports what the configuration costs per request, measured with the benchmarks in this website's repository.
 
 The source code is public at [github.com/FlavioCFOliveira/MuxMasterWebsite](https://github.com/FlavioCFOliveira/MuxMasterWebsite). Every code excerpt below is copied verbatim from it.
 
@@ -59,7 +59,7 @@ The server registers all of its middleware with `Pre`:
 
 `Recoverer`, `RequestID`, and `RealIP` come from MuxMaster's `middleware` package. The site never calls `Use`: MuxMaster panics when a `HandleFast` route is registered after a `Use` middleware, because `Use` middleware does not run on the fast path and a route would silently skip its policy. With `Pre` only, the same chain protects every route.
 
-There is **no compression middleware**. Every response body is compressed once, at startup, so compressing it again per request would only repeat work.
+There is **no compression middleware**. Every compressible response body is compressed once, at startup, and the gzip version is kept only when it is smaller; compressing it again per request would only repeat work.
 
 ## Step 3 — Serve pre-computed responses
 
@@ -80,7 +80,7 @@ func (p *Response) Serve(w http.ResponseWriter, r *http.Request) {
 	}
 ```
 
-Assigning a stored slice under the canonical header key avoids the allocation that `Header().Set` makes on every call. `Serve` allocates nothing; a unit test in the repository checks this.
+The excerpt shows the start of `Serve`. Assigning a stored slice under the canonical header key avoids the allocation that `Header().Set` makes on every call. `Serve` allocates nothing; a unit test in the repository checks this.
 
 ## Step 4 — Serve static assets with `GETFast`
 
@@ -112,24 +112,24 @@ With `PoolFastParams` on, MuxMaster returns the `Params` slice to its pool when 
 
 ## What a request costs
 
-The table compares the site **before** and **after** this configuration. Both columns use the same benchmark: `make bench` drives a request through the site's complete handler (the `Pre` chain, the router, and the handler) inside one process, with the production logger configuration (JSON at level `Info`, written to `io.Discard`). Values are the median of six runs.
+The table compares the site **before** and **after** it adopted the pools, the pre-computed responses, and the `GETFast` static route. Both columns use the same benchmark: `make bench` drives a request through the site's complete handler (the `Pre` chain, the router, and the handler) inside one process, with the production logger configuration (JSON at level `Info`, written to `io.Discard`). Values are the median of six runs.
 
 | Request | Time before | Time after | Memory before | Memory after | Allocations before | Allocations after |
 |---|---:|---:|---:|---:|---:|---:|
-| `/healthz` | 10.0 µs | 9.6 µs | 798 B | 626 B | 15 | 4 |
-| Documentation page, no compression | 10.5 µs | 9.7 µs | 855 B | 627 B | 17 | 5 |
-| Documentation page, gzip | 82.2 µs | 9.9 µs | 1,054 B | 626 B | 19 | 4 |
-| Documentation page, `304 Not Modified` | 10.9 µs | 9.8 µs | 892 B | 627 B | 18 | 4 |
-| Home page, gzip | 188.1 µs | 9.8 µs | 1,090 B | 626 B | 19 | 5 |
-| Markdown companion, gzip | 11.0 µs | 9.8 µs | 893 B | 626 B | 18 | 5 |
-| CSS bundle, gzip | 214.4 µs | 9.9 µs | 39,442 B | 627 B | 40 | 5 |
-| 404 page, gzip | 48.9 µs | 9.9 µs | 1,034 B | 627 B | 17 | 5 |
+| `/healthz` | 10.0 µs | 9.6 µs | 798 B | 626 B | 15 | 4 |
+| Documentation page, no compression | 10.5 µs | 9.7 µs | 855 B | 627 B | 17 | 5 |
+| Documentation page, gzip | 82.2 µs | 9.9 µs | 1,054 B | 626 B | 19 | 4 |
+| Documentation page, `304 Not Modified` | 10.9 µs | 9.8 µs | 892 B | 627 B | 18 | 4 |
+| Home page, gzip | 188.1 µs | 9.8 µs | 1,090 B | 626 B | 19 | 5 |
+| Markdown companion, gzip | 11.0 µs | 9.8 µs | 893 B | 626 B | 18 | 5 |
+| CSS bundle, gzip | 214.4 µs | 9.9 µs | 39,442 B | 627 B | 40 | 5 |
+| 404 page, gzip | 48.9 µs | 9.9 µs | 1,034 B | 627 B | 17 | 5 |
 
 Measured on 26 September 2026 on an AMD Ryzen 9 5900HX, Linux 6.8.0-139-generic, Go 1.27.1.
 
-**Allocations** are the most reliable column: they do not depend on the machine. After the change, every request costs **4 or 5 allocations**, and none of them comes from the site's own code: `middleware.RequestID` makes two (its context value and the request copy that carries it), and the `log/slog` access-log line makes the rest.
+**Allocations** are the most reliable column: they do not depend on the CPU or its clock source. After the change, every request costs **4 or 5 allocations**, and none of them comes from the site's own code: `middleware.RequestID` makes two (its context value and the request copy that carries it), and the `log/slog` access-log line makes the rest.
 
-**Times** on this machine are dominated by its clock. The kernel uses the `hpet` clock source, on which one `time.Now()` call costs about 2.8 µs, and each request reads the clock three times (the access log's start time, its duration, and the log record's timestamp). About 8.5 µs of the roughly 10 µs per request is therefore clock cost.
+**Times** depend on the machine. This host uses the kernel's `hpet` clock source, and each request reads the clock three times: the access log's start time, its duration, and the log record's timestamp. Compare the time columns only with runs on the same machine; the allocation columns carry across machines.
 
 The largest gains come from computing the gzip bodies at startup. Before the change, the home page was compressed on every request (188.1 µs); the CSS bundle was read from disk and compressed on every request (214.4 µs, 39,442 B, 40 allocations).
 
@@ -149,15 +149,15 @@ The target runs `go test ./internal/server -run '^$' -bench . -benchmem -count=6
 
 ### Does this website run on MuxMaster?
 
-Yes. Every route of this website is registered on a `*muxmaster.Mux`, which is the server's only `http.Handler`.
+Yes: every route of this website is registered on a `*muxmaster.Mux`, which is the server's only `http.Handler`.
 
 ### Which MuxMaster performance features does the site use?
 
-It uses `PoolRequestBundle`, `PoolFastParams`, `Pre` middleware, and a `HandleFast` route (`GETFast` and `HEADFast` on `/static/*filepath`). It does not use `Use` middleware, so `HandleFast` routes can be registered.
+The site uses `PoolRequestBundle`, `PoolFastParams`, `Pre` middleware, and a `HandleFast` route (`GETFast` and `HEADFast` on `/static/*filepath`). It does not use `Use` middleware, so `HandleFast` routes can be registered.
 
 ### How many allocations does a request to this website cost?
 
-Four or five, with production logging on, for every type of request the benchmarks cover. Two come from `middleware.RequestID` and the rest from the `log/slog` access log; the router, the handlers, and the site's own middleware allocate nothing per request.
+A request to this website costs four or five heap allocations, with production logging on, for every request type the benchmarks cover. Two come from `middleware.RequestID` and the rest from the `log/slog` access log; the router, the handlers, and the site's own middleware allocate nothing per request.
 
 ### Is pooling safe for this website?
 

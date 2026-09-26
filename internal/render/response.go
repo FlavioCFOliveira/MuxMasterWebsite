@@ -167,10 +167,13 @@ func (p *Response) Serve(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h := w.Header()
-	h["Etag"] = rep.etagHdr
 	h["Cache-Control"] = p.cacheControl
-	if p.lastModified != nil {
-		h["Last-Modified"] = p.lastModified
+	// Validators only make sense on a response a client can revalidate.
+	if p.success() {
+		h["Etag"] = rep.etagHdr
+		if p.lastModified != nil {
+			h["Last-Modified"] = p.lastModified
+		}
 	}
 	// Vary is set on the 304 as well, so a cache keys the empty-body
 	// response by the same dimension as the 200 it revalidates.
@@ -178,7 +181,10 @@ func (p *Response) Serve(w http.ResponseWriter, r *http.Request) {
 		h["Vary"] = p.vary
 	}
 
-	if p.notModified(r, rep.etag) {
+	// Preconditions apply only to a response that would otherwise be 2xx
+	// (RFC 9110 § 13.2.1): the branded 404 must stay a 404, or a crawler
+	// revalidating a removed URL would keep its stale copy.
+	if p.success() && p.notModified(r, rep.etag) {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
@@ -191,6 +197,9 @@ func (p *Response) Serve(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(p.status)
 	_, _ = w.Write(rep.body)
 }
+
+// success reports whether the stored status is 2xx.
+func (p *Response) success() bool { return p.status >= 200 && p.status < 300 }
 
 // notModified evaluates the preconditions of RFC 9110 § 13.2.2 that apply to
 // GET and HEAD: If-None-Match when present, otherwise If-Modified-Since.

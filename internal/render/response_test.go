@@ -234,3 +234,35 @@ func TestPrerenderRejectsUnboundPath(t *testing.T) {
 		t.Fatal("Prerender accepted a served path that has no recipe")
 	}
 }
+
+// TestErrorResponseIgnoresPreconditions: a 404 never becomes a 304, whatever
+// validators the client sends (RFC 9110 § 13.2.1), and carries none itself.
+func TestErrorResponseIgnoresPreconditions(t *testing.T) {
+	t.Parallel()
+	resp, err := NewResponse(ResponseOptions{
+		Body:         []byte(strings.Repeat("<p>Not found.</p>\n", 100)),
+		ContentType:  "text/html; charset=utf-8",
+		CacheControl: "no-store",
+		Status:       http.StatusNotFound,
+		LastModified: time.Date(2026, 9, 26, 12, 0, 0, 0, time.UTC),
+		Gzip:         true,
+		Vary:         true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	future := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC).Format(http.TimeFormat)
+	for _, hdr := range []map[string]string{
+		{"If-None-Match": "*"},
+		{"If-Modified-Since": future},
+		{"Accept-Encoding": "gzip", "If-None-Match": "*"},
+	} {
+		rec := serve(resp, hdr)
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("%v: status %d, want 404", hdr, rec.Code)
+		}
+		if rec.Header().Get("ETag") != "" || rec.Header().Get("Last-Modified") != "" {
+			t.Errorf("%v: 404 carries validators ETag %q, Last-Modified %q", hdr, rec.Header().Get("ETag"), rec.Header().Get("Last-Modified"))
+		}
+	}
+}

@@ -78,10 +78,10 @@ html:has(#dark-toggle:checked) {
 .markdown ul { list-style: disc; }
 .markdown ol { list-style: decimal; }
 .markdown li + li { margin-block-start: 0.4em; }
-.markdown a { color: var(--color-accent-cyan-strong); text-decoration: underline; text-underline-offset: 0.2em; text-decoration-thickness: 1px; }
+.markdown a { color: var(--color-accent-cyan-strong); text-decoration: underline; text-underline-offset: 0.2em; text-decoration-thickness: 1px; overflow-wrap: anywhere; }
 .markdown a:hover { text-decoration-thickness: 2px; }
 .markdown :where(code):not(pre code) { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 0.9em; padding: 0.125rem 0.35rem; border-radius: 0.25rem; background: var(--color-zinc-100); }
-.markdown pre { overflow-x: auto; padding: 1rem; border-radius: 0.5rem; background: var(--color-zinc-100); font-size: 0.875rem; line-height: 1.55; }
+.markdown pre { overflow-x: auto; padding: 1rem; border-radius: 0.5rem; background: var(--color-zinc-100); font-size: 0.875rem; line-height: 1.55; tab-size: 4; }
 .markdown pre code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
 .markdown blockquote { padding-inline-start: 1rem; border-inline-start: 3px solid var(--color-zinc-300); color: var(--color-zinc-600); font-style: italic; }
 .markdown :where(table) { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; font-size: 0.95em; }

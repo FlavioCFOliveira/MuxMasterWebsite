@@ -40,12 +40,12 @@ type seeAlso struct {
 // (specification/information-architecture.md "Built with MuxMaster page").
 var seeAlsoLinks = map[string]*seeAlso{
 	"/benchmarks": {
-		Lead:  "To see these settings measured on a production site, read",
+		Lead:  "To see how this website configures MuxMaster, and what each of its requests costs in time, memory, and allocations, read",
 		Path:  "/built-with-muxmaster",
 		Title: "Built with MuxMaster",
 	},
 	"/examples/max-performance": {
-		Lead:  "To see these opt-ins running in production on this website, read",
+		Lead:  "To see PoolRequestBundle, PoolFastParams, Pre middleware, and a HandleFast route configured on this website, read",
 		Path:  "/built-with-muxmaster",
 		Title: "Built with MuxMaster",
 	},
