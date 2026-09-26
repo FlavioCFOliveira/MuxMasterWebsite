@@ -91,6 +91,7 @@ var requiredFiles = []string{
 	"benchmarks.md",
 	"docs/getting-started.md",
 	"docs/routing.md",
+	"docs/http-query-method.md",
 	"docs/groups.md",
 	"docs/middleware.md",
 	"docs/error-handling.md",
@@ -114,8 +115,11 @@ var requiredFiles = []string{
 	"examples/server-sent-events.md",
 	"examples/upload-file.md",
 	"examples/max-performance.md",
+	"site/built-with-muxmaster.md",
 	"release-notes/v1.0.0.md",
 	"release-notes/v1.1.0.md",
+	"release-notes/v1.2.0.md",
+	"release-notes/v1.3.0.md",
 }
 
 // Verify checks every required file is present and readable. Returns a
@@ -140,7 +144,7 @@ var versionRE = regexp.MustCompile(`^##\s+\[?v?(\d+\.\d+\.\d+)\]?(\s|$)`)
 
 // Version reads /content/changelog.md and returns the latest stable semver
 // label (the first matching heading at the top of the file). The label is
-// returned with the leading `v`, e.g. `v1.0.1`.
+// returned with the leading `v`, e.g. `v1.3.0`.
 func (l *Loader) Version() (string, error) {
 	b, err := l.Load("changelog.md")
 	if err != nil {

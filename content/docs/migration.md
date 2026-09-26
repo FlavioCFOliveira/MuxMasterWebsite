@@ -1,5 +1,6 @@
 ---
 datePublished: 2026-05-12
+dateModified: 2026-09-26
 ---
 
 # Migration Guide
@@ -13,14 +14,14 @@ MuxMaster implements `http.Handler` and uses the same `http.HandlerFunc` signatu
 - [From gorilla/mux](#from-gorillamux)
 - [From chi](#from-chi)
 - [From httprouter](#from-httprouter)
-- [From net/http ServeMux](#from-nethttpservemux)
+- [From net/http ServeMux](#from-nethttp-servemux)
 - [Common Adjustments](#common-adjustments)
 
 ---
 
 ## From gorilla/mux
 
-gorilla/mux is archived and no longer maintained. MuxMaster provides a compatible API with dramatically better performance.
+gorilla/mux was archived in 2022. MuxMaster offers equivalent routing primitives with a different parameter syntax (`:id` instead of `{id}`); in this website's benchmark campaign (MuxMaster v1.3.0, gorilla/mux v1.8.1, AMD Ryzen 9 5900HX, go1.27.1, 2026-09-26, `-count=10`), gorilla/mux took 8.3 to 13.9 times as long as MuxMaster's default mode on the parameterised and catch-all routes measured, with p < 0.001 for each comparison ([Benchmarks](/benchmarks)).
 
 ### Route registration
 
@@ -127,7 +128,7 @@ r.Delete("/users/{id}", deleteUser)
 ```
 
 ```go
-// MuxMaster — lowercase → uppercase method names
+// MuxMaster — uppercase method names
 mux := muxmaster.New()
 mux.GET("/users", listUsers)
 mux.POST("/users", createUser)
@@ -190,9 +191,11 @@ r.Mount("/admin", adminRouter())
 ```
 
 ```go
-// MuxMaster — identical
+// MuxMaster
 mux.Mount("/admin", adminRouter())
 ```
+
+One difference matters for handlers: MuxMaster's `Mount` strips the prefix from `r.URL.Path` before calling the mounted handler (a request for `/admin/users` arrives as `/users`), whereas chi leaves `r.URL.Path` unchanged and routes on its own context. Handlers of a mounted router that read `r.URL.Path` see the shorter path.
 
 ### chi Middleware
 
@@ -294,13 +297,13 @@ mux.PanicHandler     = myPanicHandler
 
 ## From net/http ServeMux
 
-`net/http.ServeMux` does not support path parameters or middleware. Migration to MuxMaster adds these capabilities without changing handler code.
+Since Go 1.22, `net/http.ServeMux` supports method-qualified patterns and `{name}` wildcards read with `r.PathValue`, but it has no middleware, route groups or radix-tree lookup. Handler signatures stay the same when you migrate to MuxMaster.
 
 ```go
 // net/http
 mux := http.NewServeMux()
-mux.HandleFunc("/users", listUsers)
-mux.HandleFunc("/users/", userDetail) // catches /users/anything
+mux.HandleFunc("GET /users", listUsers)
+mux.HandleFunc("GET /users/{id}", userDetail)
 ```
 
 ```go
@@ -310,16 +313,16 @@ mux.GET("/users", listUsers)
 mux.GET("/users/:id", userDetail)
 ```
 
-Handler code that uses `r.URL.Path` to extract the "parameter" can be simplified:
+Replace `r.PathValue` (or manual extraction from `r.URL.Path`) with `muxmaster.PathParam`:
 
 ```go
-// net/http — manual extraction
+// net/http
 func userDetail(w http.ResponseWriter, r *http.Request) {
-    id := strings.TrimPrefix(r.URL.Path, "/users/")
+    id := r.PathValue("id")
     // ...
 }
 
-// MuxMaster — automatic extraction
+// MuxMaster
 func userDetail(w http.ResponseWriter, r *http.Request) {
     id := muxmaster.PathParam(r, "id")
     // ...
@@ -329,6 +332,33 @@ func userDetail(w http.ResponseWriter, r *http.Request) {
 ---
 
 ## Common Adjustments
+
+### GET and HEAD Method Handling
+
+Registering a GET handler in MuxMaster does **not** make it answer HEAD requests: HEAD on a GET-only route returns 405 Method Not Allowed with `Allow: GET, OPTIONS` (`specification/routing.md` section 15). Only `net/http.ServeMux` falls back from HEAD to GET; httprouter and chi behave like MuxMaster (verified in their source: httprouter v1.3.0 has no fallback, and chi v5 provides `middleware.GetHead` to add one).
+
+| Router | HEAD on a GET-only route |
+|--------|----------|
+| `net/http.ServeMux` | served by the GET handler |
+| chi | 405, unless `middleware.GetHead` is used |
+| httprouter | 405 (register a HEAD handler) |
+| **MuxMaster** | **405** (register a HEAD handler) |
+
+When migrating from `net/http.ServeMux`, or from chi with `middleware.GetHead`, register HEAD explicitly:
+
+```go
+// Before (net/http.ServeMux)
+http.HandleFunc("GET /users/{id}", getUser) // also answers HEAD
+
+// After (MuxMaster)
+mux.GET("/users/:id", getUser)
+mux.HEAD("/users/:id", getUser)  // explicit HEAD handler required
+
+// Or use Match to register both at once:
+mux.Match([]string{"GET", "HEAD"}, "/users/:id", getUser)
+```
+
+See [Routing Reference](/docs/routing#get-and-head-methods) for full details.
 
 ### Parameter syntax
 
@@ -349,39 +379,55 @@ Any middleware with the signature `func(http.Handler) http.Handler` is compatibl
 
 ### Trailing slash behaviour
 
-MuxMaster redirects trailing slashes by default (`RedirectTrailingSlash = true`). If your application registers both `/users` and `/users/` as separate routes, disable this:
+MuxMaster redirects trailing slashes by default (`RedirectTrailingSlash = true`): a request for `/users/` is redirected to `/users` when only `/users` is registered, and vice versa. A path that has its own route is always served directly, so registering both `/users` and `/users/` needs no change. To return 404 instead of redirecting:
 
 ```go
 mux.RedirectTrailingSlash = false
 ```
 
+### HTTP methods
+
+MuxMaster accepts only the ten methods GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, CONNECT, TRACE and QUERY; registering any other method (for example `PURGE`) panics. To serve extension methods, attach a handler with `Mount` and switch on `r.Method` — see [Routing](/docs/routing#handling-custom-methods).
+
 ---
 
 ## See Also
 
-- [Routing](routing.md) — complete pattern syntax reference
-- [Middleware](middleware.md) — built-in and custom middleware
-- [Groups](groups.md) — organizing routes with groups and sub-routers
-- [Configuration](configuration.md) — all router options
-
-## Upstream source
-
-The authoritative list of MuxMaster releases, breaking changes, and deprecations referenced above lives in [`CHANGELOG.md`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/CHANGELOG.md) in the upstream repository.
+- [Routing](/docs/routing) — complete pattern syntax reference
+- [Middleware](/docs/middleware) — built-in and custom middleware
+- [Groups](/docs/groups) — organizing routes with groups and sub-routers
+- [Configuration](/docs/configuration) — all router options
 
 ## Common questions
 
 <section data-conversation="migration-patterns">
 
-### How do I migrate a chi router to MuxMaster?
+### How do I migrate routes from gorilla/mux to MuxMaster?
 
-Replace `chi.NewRouter()` with `mux.New()`, the route helpers (`Get`, `Post`, etc.) keep their names, and `chi.URLParam(r, "id")` becomes `mux.Param(r, "id")`. Most chi middlewares run unchanged because both routers expose the same `func(http.Handler) http.Handler` shape.
+Replace `r.HandleFunc("/users/{id}", h).Methods("GET")` with `mux.GET("/users/:id", h)`, and replace `mux.Vars(r)["id"]` with `muxmaster.PathParam(r, "id")`.
 
-### How do I migrate a gorilla/mux router?
+Regex parameters keep the same `{id:[0-9]+}` syntax. Subrouters become groups or `Mount`, and existing `func(http.Handler) http.Handler` middleware works unchanged.
 
-Replace `mux.NewRouter()` with `muxmaster.New()` (alias the import to keep call sites short) and rename `r.HandleFunc("/path", h).Methods("GET")` to `m.GET("/path", h)`. Path parameters use the same colon-prefix syntax in both libraries; named regex constraints have no equivalent and must be moved into handler-level validation.
+### How do I migrate from chi?
 
-### Which gorilla/mux features have no MuxMaster equivalent?
+Replace chi's route methods with MuxMaster's method helpers and `chi.URLParam(r, "id")` with `muxmaster.PathParam(r, "id")`.
 
-Schemes/host matchers, named regex constraints, and the `Middleware` trie are intentionally omitted to keep the router small and zero-allocation. Schemes and hosts belong in the reverse proxy or a `Pre` middleware; regex constraints belong in handler-level validation; middleware trie behaviour is achieved via groups and `Use`.
+chi's `Route`, `With`, and `Mount` map to MuxMaster's `Route`, `With`, and `Mount`, and chi middleware uses the same `func(http.Handler) http.Handler` signature. One difference: MuxMaster's `Mount` strips the prefix from `r.URL.Path` before calling the mounted handler, whereas chi leaves the path unchanged.
+
+### Do my handlers have to change when I migrate from httprouter?
+
+Yes: httprouter handlers take a third `httprouter.Params` argument, so they must become `http.HandlerFunc` values that read parameters with `muxmaster.PathParam`, or you can wrap them with a small adapter.
+
+MuxMaster's `HandleFast` routes also receive parameters as a third argument, of type `muxmaster.Params`.
+
+### Does registering GET also handle HEAD requests in MuxMaster?
+
+No: unlike `net/http.ServeMux`, MuxMaster does not route HEAD requests to a GET handler, so register HEAD explicitly or use `Match([]string{"GET", "HEAD"}, …)`.
+
+A HEAD request to a GET-only route receives `405 Method Not Allowed` with `Allow: GET, OPTIONS` by default.
 
 </section>
+
+## Upstream source
+
+This page mirrors [`docs/migration.md`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/docs/migration.md) at the v1.3.0 tag. The behaviour it describes is implemented in [`mux.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/mux.go), [`group.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/group.go).

@@ -1,5 +1,6 @@
 ---
 datePublished: 2026-05-12
+dateModified: 2026-09-26
 ---
 
 # Cache example
@@ -12,19 +13,21 @@ A small concurrent map with per-entry expiry and a background eviction goroutine
 
 ```go
 type entry struct {
-    val       any
-    expiresAt time.Time
+	val       any
+	expiresAt time.Time
 }
 
+// Cache is a thread-safe key-value store with per-entry TTL.
+// A background goroutine evicts expired entries every minute.
 type Cache struct {
-    mu   sync.RWMutex
-    data map[string]entry
+	mu   sync.RWMutex
+	data map[string]entry
 }
 
 func newCache() *Cache {
-    c := &Cache{data: make(map[string]entry)}
-    go c.evict()
-    return c
+	c := &Cache{data: make(map[string]entry)}
+	go c.evict()
+	return c
 }
 ```
 
@@ -36,29 +39,31 @@ The eviction goroutine walks the map every minute and deletes expired entries; w
 
 ```go
 func (c *Cache) Set(key string, val any, ttl time.Duration) {
-    c.mu.Lock()
-    c.data[key] = entry{val: val, expiresAt: time.Now().Add(ttl)}
-    c.mu.Unlock()
+	c.mu.Lock()
+	c.data[key] = entry{val: val, expiresAt: time.Now().Add(ttl)}
+	c.mu.Unlock()
 }
 
+// Get returns the value for key and true when the entry exists and has not expired.
 func (c *Cache) Get(key string) (any, bool) {
-    c.mu.RLock()
-    e, ok := c.data[key]
-    c.mu.RUnlock()
-    if !ok || time.Now().After(e.expiresAt) {
-        return nil, false
-    }
-    return e.val, true
+	c.mu.RLock()
+	e, ok := c.data[key]
+	c.mu.RUnlock()
+	if !ok || time.Now().After(e.expiresAt) {
+		return nil, false
+	}
+	return e.val, true
 }
 
+// Invalidate removes all keys that share the given prefix.
 func (c *Cache) Invalidate(prefix string) {
-    c.mu.Lock()
-    for k := range c.data {
-        if strings.HasPrefix(k, prefix) {
-            delete(c.data, k)
-        }
-    }
-    c.mu.Unlock()
+	c.mu.Lock()
+	for k := range c.data {
+		if strings.HasPrefix(k, prefix) {
+			delete(c.data, k)
+		}
+	}
+	c.mu.Unlock()
 }
 ```
 
@@ -70,16 +75,18 @@ A weak ETag (the `W/` prefix) declares that two ETag values represent semantical
 
 ```go
 func etagFor(parts ...string) string {
-    return fmt.Sprintf(`W/%q`, strings.Join(parts, ":"))
+	return "W/" + strconv.Quote(strings.Join(parts, ":"))
 }
 
+// checkNotModified writes 304 and returns true when the client's If-None-Match
+// header matches the current ETag. The handler should return immediately after.
 func checkNotModified(w http.ResponseWriter, r *http.Request, etag string) bool {
-    if r.Header.Get("If-None-Match") == etag {
-        w.Header().Set("ETag", etag)
-        w.WriteHeader(http.StatusNotModified)
-        return true
-    }
-    return false
+	if r.Header.Get("If-None-Match") == etag {
+		w.Header().Set("ETag", etag)
+		w.WriteHeader(http.StatusNotModified)
+		return true
+	}
+	return false
 }
 ```
 
@@ -87,27 +94,28 @@ func checkNotModified(w http.ResponseWriter, r *http.Request, etag string) bool 
 
 ## Step 4 — Construct the router with global middleware and JSON error handlers
 
-Same shape as the other examples — `RequestID` + `Logger` + `Recoverer` on every request, JSON-shaped `NotFound` and `ErrorHandler` so error responses match the API's content type.
+Same shape as the other examples — `RequestID` + `Logger` + `Recoverer` on every request, JSON-shaped `NotFound` and `ErrorHandler` so error responses match the API's content type. The elided lines register the public `/health` route with `GETFast`. The example registers that fast route before `Use`, because MuxMaster panics when a `HandleFast` route is registered after `Use` middleware: `Use` middleware never wraps fast routes, and the panic prevents a fast route from silently bypassing it.
 
 ```go
 r := mm.New()
-
+// …
 r.Use(
-    mw.RequestID(),
-    mw.Logger(os.Stdout),
-    mw.RecovererWithLogger(log),
+	mw.RequestID(),
+	mw.Logger(os.Stdout),
+	mw.RecovererWithLogger(log),
 )
 
+// ── Custom error handlers ─────────────────────────────────────────────────
 r.NotFound = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-    _ = mm.JSON(w, http.StatusNotFound, errMsg("not found"))
+	_ = mm.JSON(w, http.StatusNotFound, errMsg("not found"))
 })
 r.ErrorHandler = func(w http.ResponseWriter, _ *http.Request, err error) {
-    code := http.StatusInternalServerError
-    var he mm.HTTPError
-    if errors.As(err, &he) {
-        code = he.StatusCode()
-    }
-    _ = mm.JSON(w, code, errMsg(err.Error()))
+	code := http.StatusInternalServerError
+	var he mm.HTTPError
+	if errors.As(err, &he) {
+		code = he.StatusCode()
+	}
+	_ = mm.JSON(w, code, errMsg(err.Error()))
 }
 ```
 
@@ -119,22 +127,22 @@ The list endpoint is the canonical "expensive read, cheap write" target. The fir
 
 ```go
 r.GET("/articles", func(w http.ResponseWriter, r *http.Request) {
-    const (
-        ttl = 30 * time.Second
-        key = "articles:list"
-    )
-    w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", int(ttl.Seconds())))
+	const (
+		ttl = 30 * time.Second
+		key = "articles:list"
+	)
+	w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", int(ttl.Seconds())))
 
-    if cached, ok := cache.Get(key); ok {
-        w.Header().Set("X-Cache", "HIT")
-        _ = mm.JSON(w, http.StatusOK, cached)
-        return
-    }
+	if cached, ok := cache.Get(key); ok {
+		w.Header().Set("X-Cache", "HIT")
+		_ = mm.JSON(w, http.StatusOK, cached)
+		return
+	}
 
-    list := store.list()
-    cache.Set(key, list, ttl)
-    w.Header().Set("X-Cache", "MISS")
-    _ = mm.JSON(w, http.StatusOK, list)
+	list := store.list()
+	cache.Set(key, list, ttl)
+	w.Header().Set("X-Cache", "MISS")
+	_ = mm.JSON(w, http.StatusOK, list)
 })
 ```
 
@@ -146,23 +154,23 @@ A successful `POST /articles` creates a new article, which means the cached list
 
 ```go
 r.POSTE("/articles", func(w http.ResponseWriter, r *http.Request) error {
-    var body struct {
-        Title string `json:"title"`
-    }
-    if err := decodeJSON(r, &body); err != nil {
-        return mm.Error(http.StatusBadRequest, errors.New("invalid JSON"))
-    }
-    if strings.TrimSpace(body.Title) == "" {
-        return mm.Error(http.StatusUnprocessableEntity, errors.New("title is required"))
-    }
+	var body struct {
+		Title string `json:"title"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		return mm.Error(http.StatusBadRequest, errors.New("invalid JSON"))
+	}
+	if strings.TrimSpace(body.Title) == "" {
+		return mm.Error(http.StatusUnprocessableEntity, errors.New("title is required"))
+	}
 
-    article := store.create(body.Title)
+	article := store.create(body.Title)
 
-    // A new article was added — the cached list is stale.
-    cache.Invalidate("articles:")
+	// A new article was added — the cached list is stale.
+	cache.Invalidate("articles:")
 
-    w.Header().Set("Location", fmt.Sprintf("/articles/%d", article.ID))
-    return mm.JSON(w, http.StatusCreated, article)
+	w.Header().Set("Location", fmt.Sprintf("/articles/%d", article.ID))
+	return mm.JSON(w, http.StatusCreated, article)
 })
 ```
 
@@ -174,21 +182,21 @@ The single-item endpoint computes a weak ETag from the article's mutable state (
 
 ```go
 r.GETE("/articles/:id", func(w http.ResponseWriter, r *http.Request) error {
-    id := mm.PathParam(r, "id")
-    article, ok := store.get(id)
-    if !ok {
-        return mm.Error(http.StatusNotFound, fmt.Errorf("article %q not found", id))
-    }
+	id := mm.PathParam(r, "id")
+	article, ok := store.get(id)
+	if !ok {
+		return mm.Error(http.StatusNotFound, fmt.Errorf("article %q not found", id))
+	}
 
-    etag := etagFor(fmt.Sprint(article.ID), article.Title, fmt.Sprint(article.Done))
-    w.Header().Set("Cache-Control", "public, max-age=60")
+	etag := etagFor(strconv.Itoa(article.ID), article.Title, strconv.FormatBool(article.Done))
+	w.Header().Set("Cache-Control", "public, max-age=60")
 
-    if checkNotModified(w, r, etag) {
-        return nil // 304 already written — return early
-    }
+	if checkNotModified(w, r, etag) {
+		return nil // 304 already written — return early
+	}
 
-    w.Header().Set("ETag", etag)
-    return mm.JSON(w, http.StatusOK, article)
+	w.Header().Set("ETag", etag)
+	return mm.JSON(w, http.StatusOK, article)
 })
 ```
 
@@ -200,16 +208,16 @@ Toggling the `done` flag changes the ETag, which means previously-cached client 
 
 ```go
 r.PUTE("/articles/:id/done", func(w http.ResponseWriter, r *http.Request) error {
-    id := mm.PathParam(r, "id")
-    article, ok := store.toggleDone(id)
-    if !ok {
-        return mm.Error(http.StatusNotFound, fmt.Errorf("article %q not found", id))
-    }
+	id := mm.PathParam(r, "id")
+	article, ok := store.toggleDone(id)
+	if !ok {
+		return mm.Error(http.StatusNotFound, fmt.Errorf("article %q not found", id))
+	}
 
-    // Both the list and the item are now stale.
-    cache.Invalidate("articles:")
+	// Both the list and the item are now stale.
+	cache.Invalidate("articles:")
 
-    return mm.JSON(w, http.StatusOK, article)
+	return mm.JSON(w, http.StatusOK, article)
 })
 ```
 
@@ -221,13 +229,13 @@ The same timeout set as the other examples — closes the slowloris vector. Prod
 
 ```go
 srv := &http.Server{
-    Addr:              ":8080",
-    Handler:           r,
-    ReadHeaderTimeout: 30 * time.Second,
-    ReadTimeout:       60 * time.Second,
-    WriteTimeout:      60 * time.Second,
-    IdleTimeout:       120 * time.Second,
-    MaxHeaderBytes:    1 << 20,
+	Addr:              ":8080",
+	Handler:           r,
+	ReadHeaderTimeout: 30 * time.Second,
+	ReadTimeout:       60 * time.Second,
+	WriteTimeout:      60 * time.Second,
+	IdleTimeout:       120 * time.Second,
+	MaxHeaderBytes:    1 << 20,
 }
 ```
 
@@ -253,4 +261,6 @@ The single-item handler computes a weak ETag from the article's mutable fields (
 
 ## Upstream source
 
-Every code excerpt above is lifted verbatim from [`examples/cache/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/examples/cache/main.go) at the v1.1.0 tag. The upstream file also includes the in-process article store, the `decodeJSON` body-limit helper, and the smoke-test commands in the package comment — follow the link for the full program.
+Every code excerpt above is lifted verbatim from [`examples/cache/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/examples/cache/main.go) at the v1.3.0 tag. The upstream file also includes the in-process article store, the `decodeJSON` body-limit helper, and the smoke-test commands in the package comment — follow the link for the full program.
+
+Source: <https://github.com/FlavioCFOliveira/MuxMaster/tree/v1.3.0/examples/cache>

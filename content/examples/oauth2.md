@@ -1,25 +1,26 @@
 ---
 datePublished: 2026-05-12
+dateModified: 2026-09-26
 ---
 
 # OAuth2 example
 
-OAuth 2.0 token introspection via the `OAuth2Introspect` middleware (RFC 7662). Reach for it when bearer tokens must be validated against an authorisation server rather than verified locally. The example also demonstrates the four invariants of the hardened token-handling stack required by `SECURITY.md` CDX-S8-001.
+OAuth 2.0 token introspection via the `OAuth2Introspect` middleware (RFC 7662). Reach for it when bearer tokens must be validated against an authorisation server rather than verified locally. The example also demonstrates the invariants of the recommended token-handling stack described in [Composite token-handling stack](/security#composite-token-handling-stack) on the Security page.
 
 ## Step 1 — Stand up a TLS introspection endpoint for the demo
 
-The introspection middleware refuses plaintext endpoints — it returns an error at construction time when the URL scheme is `http://` (CDX-S8-001 invariant 1). To keep the example self-contained, the program starts an in-process TLS test server that mimics the authorisation server's introspection response.
+The introspection middleware refuses plaintext endpoints — it panics at construction time when the URL scheme is `http://`. To keep the example self-contained, the program starts an in-process TLS test server that mimics the authorisation server's introspection response.
 
 ```go
 idp := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-    _ = r.ParseForm()
-    token := r.FormValue("token")
-    w.Header().Set("Content-Type", "application/json")
-    _ = json.NewEncoder(w).Encode(map[string]any{
-        "active": token == "good-token",
-        "sub":    "user-1",
-        "exp":    time.Now().Add(60 * time.Second).Unix(),
-    })
+	_ = r.ParseForm()
+	token := r.FormValue("token")
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"active": token == "good-token",
+		"sub":    "user-1",
+		"exp":    time.Now().Add(60 * time.Second).Unix(),
+	})
 }))
 defer idp.Close()
 ```
@@ -28,13 +29,13 @@ In production the `idp.URL` is the real authorisation server's introspection end
 
 ## Step 2 — Declare the trusted reverse-proxy CIDR for RealIP
 
-`RealIP` walks `X-Forwarded-For` from the rightmost entry and stops at the first non-trusted hop, which defeats attacker-injected leftmost values (MSR-2026-0065). The trusted-proxy list MUST be the actual edge proxy network — never `0.0.0.0/0`.
+`RealIP` walks `X-Forwarded-For` from the rightmost entry and stops at the first non-trusted hop, which defeats attacker-injected leftmost values. The trusted-proxy list MUST be the actual edge proxy network — never `0.0.0.0/0`.
 
 ```go
 trustedProxy, err := netip.ParsePrefix("127.0.0.0/8")
 if err != nil {
-    log.Error("invalid CIDR", "err", err)
-    os.Exit(1)
+	log.Error("invalid CIDR", "err", err)
+	os.Exit(1)
 }
 ```
 
@@ -46,6 +47,8 @@ The example uses `127.0.0.0/8` because the demo runs entirely on localhost; subs
 
 ```go
 r := mm.New()
+
+// ── Invariant 3: rightmost-walk XFF (RealIP). Pre wraps every route. ─
 r.Pre(mw.RealIP(&trustedProxy))
 ```
 
@@ -53,7 +56,7 @@ The pointer-to-prefix argument is the trusted-proxy list; the middleware accepts
 
 ## Step 4 — Bound memory with a per-IP throttle
 
-`ThrottlePerIP` enforces a maximum request rate per client IP and stores its counters in a bounded table (default `DefaultThrottlePerIPMaxTableSize`). The bound is what makes the throttle safe under attack — an adversary churning unique IPs cannot exhaust process memory (CDX-S8-001 invariant 2).
+`ThrottlePerIP` enforces a maximum request rate per client IP and stores its counters in a bounded table (default `DefaultThrottlePerIPMaxTableSize`). The bound is what makes the throttle safe under attack — an adversary churning unique IPs cannot exhaust process memory.
 
 ```go
 r.Use(mw.ThrottlePerIP(50, 2*time.Second, nil))
@@ -63,13 +66,13 @@ The arguments are: 50 requests per 2-second window per IP, no custom rejection h
 
 ## Step 5 — Validate bearer tokens with `OAuth2Introspect`
 
-`OAuth2Introspect` is the hardened stack's centrepiece (CDX-S8-001 invariant 1). It extracts the bearer token from the `Authorization` header, calls the introspection endpoint, caches the response for `CacheTTL`, and rejects requests whose tokens come back inactive. Cached active responses save the round-trip until the cache expires.
+`OAuth2Introspect` is the centrepiece of the stack. It extracts the bearer token from the `Authorization` header, calls the introspection endpoint, caches the response for `CacheTTL`, and rejects requests whose tokens come back inactive. Cached active responses save the round-trip until the cache expires.
 
 ```go
 r.Use(mw.OAuth2Introspect(mw.OAuth2Options{
-    Endpoint:   idp.URL, // https:// from httptest.NewTLSServer
-    HTTPClient: &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
-    CacheTTL:   30 * time.Second,
+	Endpoint:   idp.URL, // https:// from httptest.NewTLSServer
+	HTTPClient: &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
+	CacheTTL:   30 * time.Second,
 }))
 ```
 
@@ -81,35 +84,33 @@ After the middleware accepts a token, the parsed claims live on the request cont
 
 ```go
 r.GET("/api/me", func(w http.ResponseWriter, req *http.Request) {
-    claims, ok := mw.GetOAuth2Claims(req.Context())
-    if !ok {
-        http.Error(w, "missing claims", http.StatusInternalServerError)
-        return
-    }
-    _ = mm.JSON(w, http.StatusOK, map[string]any{
-        "subject": claims.Subject,
-        "active":  claims.Active,
-    })
+	claims, ok := mw.GetOAuth2Claims(req.Context())
+	if !ok {
+		http.Error(w, "missing claims", http.StatusInternalServerError)
+		return
+	}
+	_ = mm.JSON(w, http.StatusOK, map[string]any{
+		"subject": claims.Subject,
+		"active":  claims.Active,
+	})
 })
 ```
 
-The `!ok` branch is a defensive sanity check; under the hardened stack it cannot fire because the middleware short-circuits inactive tokens with 401 before the handler runs.
+The `!ok` branch is a defensive sanity check; in this stack it cannot fire because the middleware short-circuits inactive tokens with 401 before the handler runs.
 
 ## Step 7 — Start the server and surface the demo invocation
 
-The example listens on `:8080` and logs the curl command a reader can paste to exercise the protected route. `errors.Is(err, http.ErrServerClosed)` is the canonical way to filter the benign "server stopped on Shutdown" signal out of the unhappy-path log.
+The example listens on `:8080`. The upstream file also logs the curl command a reader can paste to exercise the protected route; that statement is elided below (`// …`). `errors.Is(err, http.ErrServerClosed)` is the canonical way to filter the benign "server stopped on Shutdown" signal out of the unhappy-path log.
 
 ```go
 srv := &http.Server{Addr: ":8080", Handler: r}
-log.Info("oauth2 hardened stack listening — see SECURITY.md CDX-S8-001",
-    "addr", srv.Addr,
-    "try", fmt.Sprintf("curl -H 'Authorization: Bearer good-token' http://localhost:8080/api/me"))
+// …
 if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-    log.Error("server error", "err", err)
+	log.Error("server error", "err", err)
 }
 ```
 
-The fourth invariant in the SECURITY.md stack — `Recoverer` plus a `PanicHandler` — is intentionally omitted from this example to keep the listing readable; the routing and authn examples both demonstrate it.
+`Recoverer` plus a `PanicHandler`, which the upstream package comment lists as part of the stack, is intentionally omitted from this example to keep the listing readable; the routing and authn examples both demonstrate it.
 
 ## Common questions
 
@@ -121,14 +122,18 @@ Wrap the protected routes (or the entire router) with `mw.OAuth2Introspect`. The
 
 ### Why does `OAuth2Introspect` reject `http://` endpoints?
 
-CDX-S8-001 invariant 1 — token introspection MUST run over TLS to prevent the network from observing or substituting tokens. The middleware refuses non-HTTPS endpoints at construction time; the `AllowInsecureEndpoint` escape hatch exists for tests only and is never appropriate in production.
+Token introspection MUST run over TLS to prevent the network from observing or substituting tokens. The middleware refuses non-HTTPS endpoints at construction time; the `AllowInsecureEndpoint` escape hatch exists for tests only and is never appropriate in production.
 
 ### How does the per-IP throttle stay safe under a churning-IP attack?
 
-`ThrottlePerIP` stores its counters in a bounded table (default `DefaultThrottlePerIPMaxTableSize`). When the table fills, the middleware evicts entries — the memory footprint stays bounded regardless of how many distinct IPs the attacker uses (CDX-S8-001 invariant 2).
+`ThrottlePerIP` tracks at most `DefaultThrottlePerIPMaxTableSize` (100 000) distinct keys; when the table is full, requests for new keys are rejected with `503 Service Unavailable` while existing keys keep working.
+
+The memory footprint therefore stays bounded however many distinct IP addresses an attacker uses. `ThrottlePerIPCapped` sets a different bound.
 
 </section>
 
 ## Upstream source
 
-Every code excerpt above is lifted verbatim from [`examples/oauth2/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/examples/oauth2/main.go) at the v1.1.0 tag. Follow that link for the complete file (imports, build tags, package comment).
+Every code excerpt above is lifted verbatim (`// …` marks an elided statement) from [`examples/oauth2/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/examples/oauth2/main.go) at the v1.3.0 tag. Follow that link for the complete file (imports, build tags, package comment).
+
+Source: <https://github.com/FlavioCFOliveira/MuxMaster/tree/v1.3.0/examples/oauth2>

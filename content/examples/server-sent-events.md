@@ -1,16 +1,11 @@
 ---
 datePublished: 2026-05-12
+dateModified: 2026-09-26
 ---
 
 # Server-sent events example
 
 A working **Server-Sent Events (SSE)** endpoint on MuxMaster with the opt-in `PoolRequestBundle` enabled. The example pairs a streaming `/events/:topic` route with a synchronous `/publish` endpoint and a periodic server-side `tick` so a subscriber sees live data even with no producer attached.
-
-## Why this example is pool-safe
-
-`PoolRequestBundle` recycles the per-request bundle the instant the handler returns. SSE handlers **do not return** until the client disconnects or the server shuts down — they sit inside their `for` loop streaming data. The request stays alive for the entire stream, so the pooled bundle is returned only **after** the SSE session ends. The lifetime contract holds; pooling is safe.
-
-This is the inverse of WebSocket / `Hijack()` upgrades, which transfer ownership of the connection past `ServeHTTP` return — pooling is unsafe there. SSE is plain HTTP over `net/http` and respects the contract trivially.
 
 ## Step 1 — Construct the router
 
@@ -19,14 +14,29 @@ hub := newHub()
 log := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 mux := mm.New()
+
+// Pool-safe: SSE handlers stay in their for-loop until the client
+// disconnects, so the request is alive for the whole stream.
 mux.PoolRequestBundle = true
+
+// Pre middleware: applies to every route, including the streaming one.
 mux.Pre(mw.RequestID(), mw.RecovererWithLogger(log))
 
+// SSE stream: 1-param route, will be 0-alloc dispatch with Pool ON.
+// The handler then opens a stream that keeps r alive — exactly the
+// shape that is safe for pooling.
 mux.GET("/events/:topic", hub.stream)
+
+// Publish to a topic — POST body is drained inline, so r can be
+// recycled the instant the handler returns.
 mux.POST("/publish", hub.publish)
+
+// Tiny in-browser demo at the root.
 mux.GET("/", indexHTML)
 
-go hub.tick() // emit a server-side "tick" every 5 s on the "system" topic
+// Periodic broadcast: emits a server-side "tick" event every 5 s on the
+// "system" topic so users can see live data even without publishing.
+go hub.tick()
 ```
 
 `Pre` runs once per request, before routing — `RequestID` and `RecovererWithLogger` apply to both the streaming route and the synchronous publisher.
@@ -37,18 +47,18 @@ The hub holds one `map[string]map[chan string]struct{}` (topic → set of subscr
 
 ```go
 func (h *hub) broadcast(topic, msg string) int {
-    h.mu.RLock()
-    subs := h.topics[topic]
-    delivered := 0
-    for ch := range subs {
-        select {
-        case ch <- msg:
-            delivered++
-        default: // slow subscriber — drop the message rather than block
-        }
-    }
-    h.mu.RUnlock()
-    return delivered
+	h.mu.RLock()
+	subs := h.topics[topic]
+	delivered := 0
+	for ch := range subs {
+		select {
+		case ch <- msg:
+			delivered++
+		default: // slow subscriber — drop the message rather than block
+		}
+	}
+	h.mu.RUnlock()
+	return delivered
 }
 ```
 
@@ -60,42 +70,44 @@ The SSE handler writes the canonical event-stream headers, performs the initial 
 
 ```go
 func (h *hub) stream(w http.ResponseWriter, r *http.Request) {
-    topic := mm.PathParam(r, "topic")
-    if topic == "" {
-        http.Error(w, "missing topic", http.StatusBadRequest)
-        return
-    }
+	topic := mm.PathParam(r, "topic")
+	// …
 
-    w.Header().Set("Content-Type", "text/event-stream")
-    w.Header().Set("Cache-Control", "no-cache")
-    w.Header().Set("Connection", "keep-alive")
-    w.Header().Set("X-Accel-Buffering", "no") // for nginx proxies
-    w.WriteHeader(http.StatusOK)
+	// SSE response headers.
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no") // for nginx proxies
+	w.WriteHeader(http.StatusOK)
 
-    flusher, ok := w.(http.Flusher)
-    if !ok {
-        http.Error(w, "streaming unsupported", http.StatusInternalServerError)
-        return
-    }
+	// Required: flush so headers are sent immediately, not buffered.
+	flusher, ok := w.(http.Flusher)
+	// …
 
-    ch := h.subscribe(topic)
-    defer h.unsubscribe(topic, ch)
+	// Subscribe to the topic; unsubscribe on disconnect.
+	ch := h.subscribe(topic)
+	defer h.unsubscribe(topic, ch)
 
-    fmt.Fprintf(w, "event: ready\ndata: subscribed to %q\n\n", topic)
-    flusher.Flush()
+	// Initial event so the client knows the stream is live.
+	fmt.Fprintf(w, "event: ready\ndata: subscribed to %q\n\n", topic)
+	flusher.Flush()
 
-    for {
-        select {
-        case <-r.Context().Done():
-            return
-        case msg, ok := <-ch:
-            if !ok {
-                return
-            }
-            _, _ = fmt.Fprintf(w, "data: %s\n\n", msg)
-            flusher.Flush()
-        }
-    }
+	// Streaming loop. r.Context() is the request context — it is cancelled
+	// when the client disconnects. SAFE to use under PoolRequestBundle
+	// because the handler has not returned yet.
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case msg, ok := <-ch:
+			if !ok {
+				return
+			}
+			// SSE wire format: event + data lines, terminated by blank line.
+			_, _ = fmt.Fprintf(w, "data: %s\n\n", msg)
+			flusher.Flush()
+		}
+	}
 }
 ```
 
@@ -107,28 +119,28 @@ Synchronous POST endpoint that drains the body, parses the JSON, broadcasts to t
 
 ```go
 func (h *hub) publish(w http.ResponseWriter, r *http.Request) {
-    body, err := io.ReadAll(io.LimitReader(r.Body, 1<<16))
-    if err != nil {
-        http.Error(w, "bad body", http.StatusBadRequest)
-        return
-    }
-    var p struct {
-        Topic string `json:"topic"`
-        Msg   string `json:"msg"`
-    }
-    if err := json.Unmarshal(body, &p); err != nil {
-        http.Error(w, "invalid json", http.StatusBadRequest)
-        return
-    }
-    if p.Topic == "" || p.Msg == "" {
-        http.Error(w, "topic and msg required", http.StatusUnprocessableEntity)
-        return
-    }
-    n := h.broadcast(p.Topic, p.Msg)
-    _ = json.NewEncoder(w).Encode(map[string]any{
-        "delivered": n,
-        "topic":     p.Topic,
-    })
+	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<16))
+	if err != nil {
+		http.Error(w, "bad body", http.StatusBadRequest)
+		return
+	}
+	var p struct {
+		Topic string `json:"topic"`
+		Msg   string `json:"msg"`
+	}
+	if err := json.Unmarshal(body, &p); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	if p.Topic == "" || p.Msg == "" {
+		http.Error(w, "topic and msg required", http.StatusUnprocessableEntity)
+		return
+	}
+	n := h.broadcast(p.Topic, p.Msg)
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"delivered": n,
+		"topic":     p.Topic,
+	})
 }
 ```
 
@@ -140,18 +152,24 @@ A goroutine launched at boot broadcasts a "tick" message every 5 s on the `syste
 
 ```go
 func (h *hub) tick() {
-    t := time.NewTicker(5 * time.Second)
-    defer t.Stop()
-    for {
-        select {
-        case <-h.done:
-            return
-        case now := <-t.C:
-            h.broadcast("system", fmt.Sprintf("tick at %s", now.Format(time.Kitchen)))
-        }
-    }
+	t := time.NewTicker(5 * time.Second)
+	defer t.Stop()
+	for {
+		select {
+		case <-h.done:
+			return
+		case now := <-t.C:
+			h.broadcast("system", fmt.Sprintf("tick at %s", now.Format(time.Kitchen)))
+		}
+	}
 }
 ```
+
+## Why this example is pool-safe
+
+`PoolRequestBundle` recycles the per-request bundle the instant the handler returns. SSE handlers **do not return** until the client disconnects or the server shuts down — they sit inside their `for` loop streaming data. The request stays alive for the entire stream, so the pooled bundle is returned only **after** the SSE session ends. The lifetime contract holds; pooling is safe.
+
+This is the inverse of WebSocket / `Hijack()` upgrades, which transfer ownership of the connection past `ServeHTTP` return — pooling is unsafe there. SSE is plain HTTP over `net/http` and respects the contract trivially.
 
 ## Try it
 
@@ -169,7 +187,7 @@ curl -X POST http://localhost:8080/publish \
 # Or open http://localhost:8080/ in a browser — the page subscribes to /events/system.
 ```
 
-## Frequently asked questions
+## Common questions
 
 <section data-conversation="server-sent-events-faq">
 
@@ -183,16 +201,18 @@ The hub's `broadcast` uses `select` with a `default` branch (Step 2). When the s
 
 ### How do I authenticate the publisher?
 
-Wrap `/publish` with an auth middleware in a `Group`: `pub := mux.Group("/publish"); pub.Use(mw.JWTAuth(cfg)); pub.POST("", hub.publish)`. Or, for a server-to-server publisher, use `mw.APIKey` with a SHA-256-hashed key lookup. Both compose at registration time — zero per-request overhead on the publish path. The stream endpoint stays unauthenticated if it should be world-readable, or guarded with the same middleware family if subscriptions are per-tenant.
+Wrap `/publish` with an auth middleware in a `Group`: `pub := mux.Group("/publish"); pub.Use(mw.JWTAuth(cfg)); pub.POST("", hub.publish)`. Or, for a server-to-server publisher, use `mw.APIKey` with a SHA-256-hashed key lookup. Both are applied at registration time, like every `Use` middleware. The stream endpoint stays unauthenticated if it should be world-readable, or guarded with the same middleware family if subscriptions are per-tenant.
 
 </section>
-
-## Upstream source
-
-Every code excerpt above is lifted verbatim from [`examples/server-sent-events/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/examples/server-sent-events/main.go) at the v1.1.0 tag. The upstream file also contains the full `hub` type with `subscribe`, `unsubscribe`, and `close`, plus the in-browser demo HTML — follow the link for the full program.
 
 ## See also
 
 - [Maximum performance](/docs/max-performance#recipe-3--streaming-response-no-opt-in-pool-needed) — Recipe 3 explains why long-lived streams are pool-safe.
 - [Reverse-proxy example](/examples/reverse-proxy) — another pool-safe pattern (the proxy returns synchronously before `ServeHTTP` exits).
 - [Upload file example](/examples/upload-file) — the body-drain-before-spawn pattern for background work.
+
+## Upstream source
+
+Every code excerpt above is lifted verbatim from [`examples/server-sent-events/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/examples/server-sent-events/main.go) at the v1.3.0 tag. The upstream file also contains the full `hub` type with `subscribe`, `unsubscribe`, and `close`, plus the in-browser demo HTML — follow the link for the full program.
+
+Source: <https://github.com/FlavioCFOliveira/MuxMaster/tree/v1.3.0/examples/server-sent-events>

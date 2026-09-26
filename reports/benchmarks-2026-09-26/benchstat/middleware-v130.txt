@@ -1,0 +1,71 @@
+goos: linux
+goarch: amd64
+pkg: github.com/FlavioCFOliveira/MuxMaster/middleware
+cpu: AMD Ryzen 9 5900HX with Radeon Graphics        
+                                         │ middleware-v130.txt │
+                                         │       sec/op        │
+OAuth2CacheSetAtSaturation-16                      3.208µ ± 0%
+ThrottlePerIP/sequential-one-client-16             115.4n ± 1%
+ThrottlePerIP/many-clients-no-overlap-16           121.3n ± 1%
+Logger-16                                          5.664µ ± 0%
+Recoverer_NoPanic-16                               20.82n ± 2%
+RecovererWithLogger_NoPanic-16                     20.58n ± 1%
+Compress/small-600B-16                             317.2n ± 0%
+Compress/chunked-12KiB-16                          7.926µ ± 1%
+RealIP/1-hop-16                                    165.3n ± 0%
+RealIP/3-hops-16                                   201.2n ± 0%
+APIKeyHit-16                                       450.2n ± 1%
+BasicAuth/1-users/hit-16                           314.4n ± 0%
+BasicAuth/10-users/hit-16                          547.5n ± 0%
+BasicAuth/100-users/hit-16                         2.866µ ± 0%
+BasicAuth/1-users/miss-16                          700.5n ± 0%
+BasicAuth/10-users/miss-16                         929.1n ± 0%
+BasicAuth/100-users/miss-16                        3.235µ ± 0%
+JWTAuthHS256-16                                    4.384µ ± 1%
+geomean                                            546.1n
+
+                                         │ middleware-v130.txt │
+                                         │        B/op         │
+OAuth2CacheSetAtSaturation-16                     288.0 ± 0%
+ThrottlePerIP/sequential-one-client-16            0.000 ± 0%
+ThrottlePerIP/many-clients-no-overlap-16          0.000 ± 0%
+Logger-16                                         0.000 ± 0%
+Recoverer_NoPanic-16                              0.000 ± 0%
+RecovererWithLogger_NoPanic-16                    0.000 ± 0%
+Compress/small-600B-16                            32.00 ± 0%
+Compress/chunked-12KiB-16                         58.00 ± 9%
+RealIP/1-hop-16                                   16.00 ± 0%
+RealIP/3-hops-16                                  16.00 ± 0%
+APIKeyHit-16                                      416.0 ± 0%
+BasicAuth/1-users/hit-16                          32.00 ± 0%
+BasicAuth/10-users/hit-16                         32.00 ± 0%
+BasicAuth/100-users/hit-16                        32.00 ± 0%
+BasicAuth/1-users/miss-16                         168.0 ± 0%
+BasicAuth/10-users/miss-16                        168.0 ± 0%
+BasicAuth/100-users/miss-16                       168.0 ± 0%
+JWTAuthHS256-16                                   738.0 ± 0%
+geomean                                                      ¹
+¹ summaries must be >0 to compute geomean
+
+                                         │ middleware-v130.txt │
+                                         │      allocs/op      │
+OAuth2CacheSetAtSaturation-16                     2.000 ± 0%
+ThrottlePerIP/sequential-one-client-16            0.000 ± 0%
+ThrottlePerIP/many-clients-no-overlap-16          0.000 ± 0%
+Logger-16                                         0.000 ± 0%
+Recoverer_NoPanic-16                              0.000 ± 0%
+RecovererWithLogger_NoPanic-16                    0.000 ± 0%
+Compress/small-600B-16                            2.000 ± 0%
+Compress/chunked-12KiB-16                         3.000 ± 0%
+RealIP/1-hop-16                                   1.000 ± 0%
+RealIP/3-hops-16                                  1.000 ± 0%
+APIKeyHit-16                                      6.000 ± 0%
+BasicAuth/1-users/hit-16                          2.000 ± 0%
+BasicAuth/10-users/hit-16                         2.000 ± 0%
+BasicAuth/100-users/hit-16                        2.000 ± 0%
+BasicAuth/1-users/miss-16                         8.000 ± 0%
+BasicAuth/10-users/miss-16                        8.000 ± 0%
+BasicAuth/100-users/miss-16                       8.000 ± 0%
+JWTAuthHS256-16                                   7.000 ± 0%
+geomean                                                      ¹
+¹ summaries must be >0 to compute geomean

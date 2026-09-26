@@ -2,7 +2,7 @@
 title: Specification index
 purpose: Single entry point and table of contents for the MuxMaster website functional specification.
 owners: specification-manager (sole writer); seo-specialist, geo-specialist, tailwind-specialist, ux-specialist (review).
-last-updated: 2026-05-10
+last-updated: 2026-09-26
 status: ratified (initial)
 ---
 
@@ -25,12 +25,13 @@ The specification governs the repository at `/data/dev/github.com/FlavioCFOlivei
 - The marker `TBD` denotes a decision that has not yet been ratified. Every `TBD` is also tracked in `open-questions.md`. Implementation must not invent values for `TBD` items; it must request a ratification first.
 - The marker `MUST` denotes a non-negotiable contract. `SHOULD` denotes a strong preference that may be relaxed only with explicit ratification. `MAY` denotes a permitted option.
 - Cross-references use relative links between files in this folder.
+- Rules added from 2026-09-26 onwards carry a stable identifier of the form `<AREA>-<TOPIC>-<N>` (for example `CS-BENCH-3`, `INT-PERF-4`, `IA-QUERY-7`), where `<AREA>` names the file (`INT` for `overview.md` integrity rules, `CS` for `content-sources.md`, `IA` for `information-architecture.md`, `URL` for `url-and-versioning.md`, `SEO` for `seo.md`, `GEO` for `geo.md`, `SD` for `structured-data.md`). Identifiers are never renumbered or reused; a withdrawn rule keeps its identifier with a withdrawal note. Rules written before that date carry no identifier.
 
 ## Files in this specification
 
-1. [overview.md](./overview.md) — purpose, audience, missions, static-tending operating principle, version cadence, language and integrity rules.
+1. [overview.md](./overview.md) — purpose, audience, missions, static-tending operating principle, version cadence, language and integrity rules, performance-claim rules, the security-defect history exclusion, and the objectives of the MuxMaster v1.3.0 content refresh.
 2. [information-architecture.md](./information-architecture.md) — sitemap, URLs, navigation, page templates, breadcrumb and prev/next rules.
-3. [content-sources.md](./content-sources.md) — `/content/` repository layout, route → local-file mapping, examples-file shape, benchmark citation rule, sync workflow performed by the `content-curator` agent.
+3. [content-sources.md](./content-sources.md) — `/content/` repository layout, route → local-file mapping, examples-file shape, benchmark sources (the website benchmark campaign, corroborating upstream data, historical data), sync workflow performed by the `content-curator` agent, including the security-defect history filter.
 4. [rendering-and-caching.md](./rendering-and-caching.md) — static-tending architecture (every public route pre-rendered at startup; recompute trigger is process restart), SSR pipeline, in-process render store, HTTP cache headers, ETag and Last-Modified strategy.
 5. [url-and-versioning.md](./url-and-versioning.md) — URL conventions, redirects, reserved paths, version label rule (read from `/content/changelog.md`).
 6. [seo.md](./seo.md) — SEO contract per page family, JSON-LD shapes, sitemap, robots, security headers, Core Web Vitals targets.

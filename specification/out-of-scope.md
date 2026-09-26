@@ -2,7 +2,7 @@
 title: Out of scope (v1)
 purpose: Enumerate what v1 of the site explicitly does not do, so that future requests to add these features are recognised as expansions and trigger explicit ratification.
 owners: specification-manager.
-last-updated: 2026-05-10
+last-updated: 2026-09-26
 status: ratified
 ---
 
@@ -45,12 +45,13 @@ The website does **not** read `../MuxMaster/` at request time, at startup, or at
 ## Audit-report mirroring
 
 - The upstream `reports/` directory is **not** mirrored on the site (and is not part of `/content/`).
-- The `/security` page links to it on GitHub.
+- The site MUST NOT link to the security audit reports or findings registers in it (`overview.md` INT-SEC-2; `content-sources.md` § Audit reports).
 
 ## Benchmark re-execution
 
-- The site does **not** re-run benchmarks.
-- The `/benchmarks` page quotes upstream numbers verbatim with citations to the source files.
+- The runtime binary does **not** run MuxMaster's benchmarks. The benchmarks behind `/benchmarks` are run at development time by this project's benchmark campaign, archived under `reports/benchmarks-<YYYY-MM-DD>/` (see `content-sources.md` § Benchmarks — sources, which superseded on 2026-09-26 the earlier rule that the site does not re-run upstream benchmarks).
+- The `/benchmarks` page publishes the campaign's numbers, with upstream numbers only as attributed corroboration or in the historical section.
+- The `/built-with-muxmaster` page quotes numbers from recorded runs of this repository's own `make bench` target, which measures the website's handler chain, not MuxMaster's upstream suite (see `content-sources.md` § Site-owned content). The runtime binary never executes a benchmark.
 
 ## Executable example playground
 
@@ -65,7 +66,7 @@ The website does **not** read `../MuxMaster/` at request time, at startup, or at
 
 ## Compatibility matrix
 
-- The site shows only the **minimum** Go version (currently `Go 1.26+`).
+- The site shows only the **minimum** Go version (currently Go 1.27.1; see `url-and-versioning.md` URL-VER-1).
 - A version-by-version compatibility matrix is out of scope.
 
 ## URL versioning

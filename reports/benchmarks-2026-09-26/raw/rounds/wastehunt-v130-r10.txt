@@ -1,0 +1,75 @@
+goos: linux
+goarch: amd64
+pkg: github.com/FlavioCFOliveira/MuxMaster/reports/perf-lab-2026-09-24/waste-hunt/bench
+cpu: AMD Ryzen 9 5900HX with Radeon Graphics        
+BenchmarkAPIKeyHit/current-16                      	 2658434	       449.7 ns/op	     416 B/op	       6 allocs/op
+BenchmarkAPIKeyHit/alternative-16                  	 2706613	       445.1 ns/op	     416 B/op	       6 allocs/op
+BenchmarkJWTAuthHS256-16                           	  266832	      4430 ns/op	     738 B/op	       7 allocs/op
+BenchmarkJWTParts/[]byte(signingInput)-escaping-16 	31750548	        35.65 ns/op	     128 B/op	       1 allocs/op
+BenchmarkJWTParts/hmac.Sum(nil)-16                 	 5827227	       207.5 ns/op	     160 B/op	       2 allocs/op
+BenchmarkJWTParts/hmac.Sum(stack)-16               	 6123162	       195.0 ns/op	     128 B/op	       1 allocs/op
+BenchmarkJWTHeaderStep/current(decode+unmarshal)-16         	 2888172	       413.5 ns/op	      80 B/op	       2 allocs/op
+BenchmarkJWTHeaderStep/alternative(memo-hit)-16             	295577830	         4.049 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMount/current-16                                   	 4916272	       236.4 ns/op	     864 B/op	       2 allocs/op
+BenchmarkMount/no-redundant-url-16                          	 1226119	       983.8 ns/op	    1784 B/op	       8 allocs/op
+BenchmarkMount/shallow-copy-16                              	 4892631	       248.5 ns/op	     848 B/op	       3 allocs/op
+BenchmarkMount/dispatch-only-16                             	10608786	       115.2 ns/op	     384 B/op	       1 allocs/op
+BenchmarkServeFilesCopy/current-replica-16                  	 1000000	      1014 ns/op	    1928 B/op	       9 allocs/op
+BenchmarkServeFilesCopy/shallow-copy-16                     	 4924095	       249.7 ns/op	     848 B/op	       3 allocs/op
+BenchmarkCleanPathChanged/current-16                        	 8838738	       137.6 ns/op	     464 B/op	       2 allocs/op
+BenchmarkCleanPathChanged/shallow-copy-16                   	 8566690	       137.9 ns/op	     464 B/op	       2 allocs/op
+BenchmarkCompress/small-600B/current-16                     	 3871402	       307.9 ns/op	      32 B/op	       2 allocs/op
+BenchmarkCompress/small-600B/alternative-16                 	 3861778	       310.7 ns/op	      32 B/op	       2 allocs/op
+BenchmarkCompress/chunked-12KiB/current-16                  	  151279	      7968 ns/op	      58 B/op	       3 allocs/op
+BenchmarkCompress/chunked-12KiB/alternative-16              	  153308	      7820 ns/op	      58 B/op	       3 allocs/op
+BenchmarkFileServe/no-logger/small.css-16                   	    8428	    135659 ns/op	    8465 B/op	      98 allocs/op
+BenchmarkFileServe/no-logger/16k.js-16                      	    8389	    139989 ns/op	    8485 B/op	      98 allocs/op
+BenchmarkFileServe/no-logger/128k.js-16                     	    6266	    182459 ns/op	    8505 B/op	      98 allocs/op
+BenchmarkFileServe/no-logger/large.bin-16                   	    1869	    608992 ns/op	    8392 B/op	      98 allocs/op
+BenchmarkFileServe/Logger-current/small.css-16              	    8185	    140039 ns/op	    8509 B/op	      98 allocs/op
+BenchmarkFileServe/Logger-current/16k.js-16                 	    8379	    145840 ns/op	    8501 B/op	      98 allocs/op
+BenchmarkFileServe/Logger-current/128k.js-16                	    6382	    185645 ns/op	    8479 B/op	      98 allocs/op
+BenchmarkFileServe/Logger-current/large.bin-16              	    1896	    614789 ns/op	    8484 B/op	      98 allocs/op
+BenchmarkFileServe/Logger-with-ReaderFrom/small.css-16      	    8488	    140410 ns/op	    8546 B/op	     102 allocs/op
+BenchmarkFileServe/Logger-with-ReaderFrom/16k.js-16         	    8107	    145855 ns/op	    8579 B/op	     102 allocs/op
+BenchmarkFileServe/Logger-with-ReaderFrom/128k.js-16        	    6502	    185643 ns/op	    8688 B/op	     102 allocs/op
+BenchmarkFileServe/Logger-with-ReaderFrom/large.bin-16      	    1852	    609257 ns/op	    8526 B/op	     102 allocs/op
+BenchmarkSetHeaderX4/current-16                             	 6661482	       180.9 ns/op	      64 B/op	       4 allocs/op
+BenchmarkSetHeaderX4/alternative-16                         	10287513	       117.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkText/current-16                                    	19590696	        60.22 ns/op	      16 B/op	       1 allocs/op
+BenchmarkText/alternative-16                                	26613944	        48.15 ns/op	       0 B/op	       0 allocs/op
+BenchmarkJSONHelper-16                                      	 2386215	       503.4 ns/op	     176 B/op	       3 allocs/op
+BenchmarkXMLHelper-16                                       	  503979	      2299 ns/op	    4676 B/op	      11 allocs/op
+BenchmarkHeaderSetConst/Header.Set-16                       	30179196	        39.10 ns/op	      16 B/op	       1 allocs/op
+BenchmarkHeaderSetConst/prealloc-assign-16                  	123639249	         9.725 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLogger/current-16                                  	  208347	      5668 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLogger/alternative-16                              	  211782	      5667 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLogger/alt-single-clock-only-16                    	  199191	      5963 ns/op	     104 B/op	       5 allocs/op
+BenchmarkLogger/alt-no-alloc-only-16                        	  168964	      7061 ns/op	       0 B/op	       0 allocs/op
+BenchmarkClock/time.Now-16                                  	  423160	      2830 ns/op	       0 B/op	       0 allocs/op
+BenchmarkClock/time.Since-16                                	  843048	      1416 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLoggerParts/QuoteToASCII-path-16                   	 8202391	       144.4 ns/op	      80 B/op	       2 allocs/op
+BenchmarkLoggerParts/appendSanitised-path-16                	77649889	        15.28 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLoggerParts/Duration.String-16                     	45665479	        25.28 ns/op	      16 B/op	       1 allocs/op
+BenchmarkLoggerParts/appendDuration-16                      	95284413	        12.48 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRedirectTrailingSlashWithMiddleware-16             	  152110	      7758 ns/op	    1317 B/op	      11 allocs/op
+BenchmarkMatchedRouteWithMiddleware-16                      	  173584	      6893 ns/op	     874 B/op	       7 allocs/op
+BenchmarkRedirectTrailingSlashNoMiddleware-16               	 5040896	       235.7 ns/op	      80 B/op	       2 allocs/op
+BenchmarkMethodNotAllowed-16                                	 8015098	       146.2 ns/op	      48 B/op	       1 allocs/op
+BenchmarkAutoOPTIONS-16                                     	 9961734	       119.9 ns/op	      16 B/op	       1 allocs/op
+BenchmarkStaticDispatch-16                                  	50153370	        23.91 ns/op	       0 B/op	       0 allocs/op
+BenchmarkStaticDispatchMixedTree-16                         	40558396	        29.73 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRegisterRoutes/N=100-16                            	   19275	     62687 ns/op	       626.9 ns/route	   88384 B/op	    1135 allocs/op
+BenchmarkRegisterRoutes/N=1000-16                           	    1486	    794420 ns/op	       794.4 ns/route	 1091123 B/op	   13405 allocs/op
+BenchmarkRegisterRoutes/N=5000-16                           	     248	   4844100 ns/op	       968.8 ns/route	 6379734 B/op	   75938 allocs/op
+BenchmarkRealIP/1-hop/current-16                            	 7933010	       150.5 ns/op	      16 B/op	       1 allocs/op
+BenchmarkRealIP/1-hop/alternative-16                        	 7901646	       151.2 ns/op	      16 B/op	       1 allocs/op
+BenchmarkRealIP/3-hops/current-16                           	 6528949	       187.3 ns/op	      16 B/op	       1 allocs/op
+BenchmarkRealIP/3-hops/alternative-16                       	 5918168	       201.4 ns/op	      16 B/op	       1 allocs/op
+BenchmarkThrottlePerIP/sequential-one-client/current-16     	10316028	       114.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkThrottlePerIP/sequential-one-client/alternative-16 	11047848	       111.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkThrottlePerIP/sequential-one-client/alt-timer-fastpath-only-16         	 1596571	       752.1 ns/op	     128 B/op	       2 allocs/op
+BenchmarkThrottlePerIP/sequential-one-client/alt-entry-reuse-only-16            	  360988	      3256 ns/op	     248 B/op	       3 allocs/op
+BenchmarkThrottlePerIP/many-clients/current-16                                  	10349365	       119.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkThrottlePerIP/many-clients/alternative-16                              	10661850	       114.3 ns/op	       0 B/op	       0 allocs/op
+PASS

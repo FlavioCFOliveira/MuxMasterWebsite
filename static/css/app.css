@@ -67,7 +67,9 @@ html:has(#dark-toggle:checked) {
  * would not give us without re-theming.
  */
 .markdown { max-width: min(72ch, 100%); line-height: 1.6; }
-.markdown > * + * { margin-block-start: 1.25em; }
+/* Doc pages wrap the rendered body in .markdown-body; the section-index
+   intro sits directly inside .markdown. Both need the flow spacing. */
+.markdown > * + *, .markdown-body > * + * { margin-block-start: 1.25em; }
 .markdown :where(h1, h2, h3, h4) { line-height: 1.2; font-weight: 700; scroll-margin-top: 5rem; }
 .markdown h1 { font-size: clamp(1.875rem, 1.5rem + 1.5vw, 2.5rem); margin-block-end: 0.5em; }
 .markdown h2 { font-size: clamp(1.5rem, 1.25rem + 1vw, 2rem); margin-block-start: 2em; padding-block-end: 0.3em; border-block-end: 1px solid var(--color-zinc-200); }
@@ -78,15 +80,20 @@ html:has(#dark-toggle:checked) {
 .markdown ul { list-style: disc; }
 .markdown ol { list-style: decimal; }
 .markdown li + li { margin-block-start: 0.4em; }
-.markdown a { color: var(--color-accent-cyan-strong); text-decoration: underline; text-underline-offset: 0.2em; text-decoration-thickness: 1px; }
+.markdown a { color: var(--color-cyan-700); text-decoration: underline; text-underline-offset: 0.2em; text-decoration-thickness: 1px; overflow-wrap: anywhere; }
 .markdown a:hover { text-decoration-thickness: 2px; }
-.markdown :where(code):not(pre code) { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 0.9em; padding: 0.125rem 0.35rem; border-radius: 0.25rem; background: var(--color-zinc-100); }
-.markdown pre { overflow-x: auto; padding: 1rem; border-radius: 0.5rem; background: var(--color-zinc-100); font-size: 0.875rem; line-height: 1.55; }
+.markdown :where(code):not(pre code) { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 0.9em; padding: 0.125rem 0.35rem; border-radius: 0.25rem; background: var(--color-zinc-100); overflow-wrap: anywhere; }
+.markdown pre { overflow-x: auto; padding: 1rem; border-radius: 0.5rem; background: var(--color-zinc-100); font-size: 0.875rem; line-height: 1.55; tab-size: 4; }
 .markdown pre code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
 .markdown blockquote { padding-inline-start: 1rem; border-inline-start: 3px solid var(--color-zinc-300); color: var(--color-zinc-600); font-style: italic; }
 .markdown :where(table) { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; font-size: 0.95em; }
 .markdown :where(th, td) { padding: 0.5rem 0.75rem; border-block-end: 1px solid var(--color-zinc-200); text-align: start; vertical-align: top; }
 .markdown :where(th) { font-weight: 600; background: var(--color-zinc-50); }
+/* A cell that contains a line break holds short stacked values; keep each
+   line whole. */
+.markdown td:has(br) { white-space: nowrap; }
+/* Keep the row label visible while a wide table scrolls horizontally. */
+.markdown :where(th, td):first-child { position: sticky; inset-inline-start: 0; background: var(--color-zinc-50); }
 .markdown :where(img) { max-width: 100%; height: auto; }
 .markdown hr { border: 0; border-block-start: 1px solid var(--color-zinc-200); margin-block: 2.5em; }
 
@@ -96,10 +103,11 @@ html:has(#dark-toggle:checked) {
   .markdown h2 { border-color: var(--color-zinc-800); }
   .markdown :where(code):not(pre code) { background: var(--color-zinc-800); color: var(--color-zinc-100); }
   .markdown pre { background: var(--color-zinc-900); }
-  .markdown a { color: var(--color-accent-cyan-light); }
+  .markdown a { color: var(--color-cyan-300); }
   .markdown blockquote { border-color: var(--color-zinc-700); color: var(--color-zinc-400); }
   .markdown :where(th, td) { border-color: var(--color-zinc-800); }
   .markdown :where(th) { background: var(--color-zinc-900); }
+  .markdown :where(th, td):first-child { background: var(--color-zinc-900); }
   .markdown hr { border-color: var(--color-zinc-800); }
 }
 

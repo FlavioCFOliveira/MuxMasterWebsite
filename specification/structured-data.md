@@ -2,7 +2,7 @@
 title: Structured Data Doctrine
 purpose: Define the unified JSON-LD contract for the MuxMaster documentation website — schema-by-page-family table, entity graph, field-completeness rules, auxiliary schemas, and the blocking CI validation gate.
 owners: seo-specialist (rich-result eligibility); geo-specialist (AI-ingestion accuracy). Co-owned. Both must approve any change to this file.
-last-updated: 2026-05-11
+last-updated: 2026-09-26
 status: ratified
 ---
 
@@ -20,15 +20,17 @@ The following table maps each page family to the JSON-LD types it MUST emit. Whe
 | --- | --- | --- |
 | `/` | `WebSite`, `SoftwareSourceCode`, `Organization`, `Person` | The four reified entity nodes are emitted **in full** on this page only. Every other page references them by `@id`. |
 | `/docs/<section>` | `TechArticle`, `BreadcrumbList`, `HowTo` (Getting Started) | `TechArticle.author` references `Person@id`; `TechArticle.publisher` references `Organization@id`; `TechArticle.isPartOf` references `WebSite@id`. The Getting Started page emits `HowTo` because its body is structured as an ordered, named step sequence; other doc pages MAY emit `HowTo` when their body has the same shape. |
+| `/docs/http-query-method` | `TechArticle`, `BreadcrumbList`, `FAQPage`, `HowTo` | **SD-QUERY-1.** All four types are mandatory on this page. `TechArticle` carries the same entity references as `/docs/<section>` and, in addition, `about` referencing `SoftwareSourceCode@id`. `FAQPage` lists every Q→A pair of the page's `## Common questions` section (`geo.md` GEO-QUERY-4). `HowTo` lists the page's step sequence (`information-architecture.md` IA-QUERY-13); every step's named code block also emits `Code`. **SD-QUERY-2.** `HowTo.name` MUST be "How to serve the HTTP QUERY method (RFC 10008) with MuxMaster". |
 | `/docs/` | `CollectionPage`, `BreadcrumbList` | `CollectionPage.isPartOf` references `WebSite@id`; `CollectionPage.publisher` references `Organization@id`. |
 | `/api` | `TechArticle`, `SoftwareSourceCode` (by `@id`), `APIReference`, `DefinedTermSet` (curated public-API surface), `BreadcrumbList` | `SoftwareSourceCode` is referenced by `@id` (the MuxMaster module node) — this row MUST NOT cause inline redefinition of the entity on `/api`. `APIReference` is the auxiliary schema mandated for this page family — see `## Auxiliary schemas`. `DefinedTermSet` lists the curated public-API surface (functions, types, methods, middleware constructors) with one-sentence descriptions per `DefinedTerm`; the list is hand-curated rather than auto-extracted because the source `content/api.md` is rendered `go doc` plain text that does not map cleanly onto the `DefinedTerm.description` field. |
 | `/docs/` | `CollectionPage`, `ItemList`, `BreadcrumbList` | `ItemList.itemListElement[*]` lists every doc page with `position`, `name`, `url`, and `description` so AI engines can enumerate the documentation surface and key on the curated order. Same entity references as `/docs/<section>`. |
 | `/examples/` | `CollectionPage`, `ItemList`, `BreadcrumbList` | `ItemList.itemListElement[*]` lists every example page with `position`, `name`, `url`, and `description`; the position field carries the curated learning order (REST → auth family → operational concerns). Same entity references as `/docs/`. |
 | `/examples/<name>` | `TechArticle`, `BreadcrumbList`, `HowTo` (every page complying with `geo.md` § Example walkthrough shape) | Every example page MUST comply with the walkthrough shape defined in `geo.md` § Example walkthrough shape; that shape is the trigger for `HowTo` emission, so emission is data-driven across the entire `/examples/` family rather than hand-curated. When `HowTo` is emitted, every step's named code block also emits `Code` (see `## Auxiliary schemas`). |
-| `/benchmarks` | `TechArticle`, `BreadcrumbList`, `Dataset` | `Dataset.creator` references `Organization@id`; `Dataset.distribution` links to the upstream raw report file. |
+| `/benchmarks` | `TechArticle`, `BreadcrumbList`, `Dataset` | `TechArticle.about` references `SoftwareSourceCode@id` (`#muxmaster`). `Dataset.creator` references `Organization@id`. **SD-BENCH-1.** The `Dataset` describes the current campaign results only (`content-sources.md` CS-BENCH-1): `Dataset.distribution` links to the raw files of the campaign archive `reports/benchmarks-<YYYY-MM-DD>/` in this repository, pinned to the full commit SHA that contains it (`url-and-versioning.md` URL-EXT-1). Corroborating upstream sources MAY be listed under `Dataset.isBasedOn`, linked at the `v1.3.0` tag. Historical `v1.1.0`-era data MUST NOT be described by the `Dataset`. **SD-BENCH-2.** The `Dataset` MUST carry a descriptive `name`, `measurementTechnique`, `keywords`, and `isAccessibleForFree`, as defined in `### Dataset` below. |
 | `/changelog` | `TechArticle`, `BreadcrumbList` | `TechArticle.about` references `SoftwareSourceCode@id` (the MuxMaster module). |
-| `/releases/<v>` | `TechArticle`, `BreadcrumbList` | `TechArticle.about` references `SoftwareSourceCode@id`; `TechArticle.version` is the release version. |
+| `/releases/<v>` | `TechArticle`, `BreadcrumbList` | `TechArticle.about` references `SoftwareSourceCode@id`; `TechArticle.version` is the release version. Applies to `/releases/v1.0.0`, `/releases/v1.1.0`, `/releases/v1.2.0`, and `/releases/v1.3.0`. |
 | `/security`, `/compatibility`, `/contributing` | `TechArticle`, `BreadcrumbList` | Same entity references as `/docs/<section>`. |
+| `/built-with-muxmaster` | `TechArticle`, `BreadcrumbList` | Same entity references as `/docs/<section>`. |
 
 Cross-cutting rules:
 
@@ -45,7 +47,7 @@ The site reifies four project-level entities. Each is **emitted in full only on 
 - `@id`: `https://<canonical>/#muxmaster`.
 - Required fields: `name`, `programmingLanguage`, `codeRepository`, `license`, `version` (latest release, sourced from `../MuxMaster/CHANGELOG.md`), `runtimePlatform` (minimum Go version, sourced from `../MuxMaster/go.mod`), `targetProduct.applicationCategory: "DeveloperApplication"`, `sameAs`.
 - `sameAs` MUST point at authoritative third-party sources only — at minimum the GitHub repository (`https://github.com/FlavioCFOliveira/MuxMaster`) and the Go package index page (`https://pkg.go.dev/github.com/FlavioCFOliveira/MuxMaster`). Future package-tracking aliases are added here as they appear.
-- Referenced from: `/api` (the page is the API surface of this entity), `/changelog` and `/releases/<v>` (`about`), and any page that names the module.
+- Referenced from: `/api` (the page is the API surface of this entity), `/changelog`, `/releases/<v>`, and `/benchmarks` (`about`), and any page that names the module.
 
 ### Publishing organisation — `Organization`
 
@@ -114,7 +116,7 @@ The following are forbidden:
 
 - **Empty strings** as a substitute for an absent value (for example `"datePublished": ""`).
 - **Placeholder URLs** (for example `"url": "https://example.com"`).
-- **Fabricated values** (a guessed `version`, an invented `datePublished`, a benchmark number that is not from the upstream report).
+- **Fabricated values** (a guessed `version`, an invented `datePublished`, a benchmark number that is not from the campaign archive or from an attributed upstream source; see `content-sources.md` § Benchmarks — sources).
 
 When a required-or-recommended field cannot be truthfully populated, the field MUST be omitted entirely. The omission MUST be justified in a one-line HTML comment placed immediately above the relevant `<script type="application/ld+json">` tag, in the form:
 
@@ -180,8 +182,9 @@ Content files served via Go's `embed.FS` carry a zero `mtime` because the embedd
 | `programmingLanguage` | `"Go"`. |
 | `codeRepository` | `"https://github.com/FlavioCFOliveira/MuxMaster"`. |
 | `license` | `"https://opensource.org/licenses/MIT"`. |
-| `version` | The latest release version, sourced from `../MuxMaster/CHANGELOG.md`. |
-| `runtimePlatform` | The minimum Go version, sourced from `../MuxMaster/go.mod`. |
+| `version` | The latest release version, sourced from `../MuxMaster/CHANGELOG.md` (`1.3.0` after the v1.3.0 sync; see `url-and-versioning.md` URL-VER-1). |
+| `runtimePlatform` | The minimum Go version, sourced from `../MuxMaster/go.mod` (Go 1.27.1 at `v1.3.0`). |
+| `description` | **SD-LAND-1.** A description of MuxMaster that states its support for the HTTP QUERY method (RFC 10008) and carries a performance-positioning statement that complies with `overview.md` INT-PERF-3, INT-PERF-4, and INT-PERF-7 (categories named in words, no numbers). |
 | `targetProduct.applicationCategory` | `"DeveloperApplication"`. |
 | `sameAs` | An array including at minimum the GitHub repository URL and the `pkg.go.dev` URL for the module. |
 
@@ -231,11 +234,19 @@ Content files served via Go's `embed.FS` carry a zero `mtime` because the embedd
 | Each `Question.acceptedAnswer.@type` | `"Answer"`. |
 | Each `Question.acceptedAnswer.text` | The answer body, with the opening direct-answer sentence preserved. |
 
+### Text of `FAQPage` and `HowTo` nodes
+
+These rules apply on every page that emits `FAQPage` or `HowTo`, including `/`. They govern `Question.name`, `Question.acceptedAnswer.text`, `HowTo.name`, `HowTo.description`, `HowToStep.name`, and `HowToStep.text`.
+
+- **SD-TEXT-1.** Each of these strings MUST be plain text, with no HTML markup.
+- **SD-TEXT-2.** No whitespace character MAY precede a punctuation mark (for example, a space before a full stop, comma, colon, semicolon, question mark, or closing parenthesis).
+- **SD-TEXT-3.** Each `HowToStep.text` MUST be a complete sentence, or a sequence of complete sentences; it MUST NOT end in a sentence fragment.
+
 ### `HowTo`
 
 | Field | Source |
 | --- | --- |
-| `name` | The page's `<h1>` text or the explicit "How to …" heading that introduces the steps. |
+| `name` | The page's `<h1>` text or the explicit "How to …" heading that introduces the steps. On `/docs/http-query-method`, the value fixed by SD-QUERY-2. |
 | `description` | A one-sentence summary of the procedure. |
 | `step` | An array of `HowToStep` nodes, in order. |
 | Each `HowToStep.name` | The step's heading text. |
@@ -246,13 +257,17 @@ Content files served via Go's `embed.FS` carry a zero `mtime` because the embedd
 
 | Field | Source |
 | --- | --- |
-| `name` | The benchmarks page's `<h1>` text. |
+| `name` | A descriptive name of the form "MuxMaster v<version> router benchmark campaign, <YYYY-MM-DD>", naming the documented release and the campaign date. For the current campaign: "MuxMaster v1.3.0 router benchmark campaign, 2026-09-26" (SD-BENCH-2). |
 | `description` | The benchmarks page's `<meta name="description">` content. |
 | `creator` | Reference to `Organization@id`. |
-| `license` | The licence under which the benchmark numbers are published, as declared upstream. |
-| `temporalCoverage` | The date range of the benchmark runs (ISO 8601 interval), sourced from the upstream benchmark report. |
+| `license` | The licence declared for the campaign archive in this repository. When none is declared, the field is omitted with the audit-trail comment of `## Field completeness`. |
+| `temporalCoverage` | The date or date range of the campaign's measurements (ISO 8601), sourced from the campaign archive's host facts. |
 | `variableMeasured` | An array describing each measured metric — at minimum `ns/op`, `B/op`, `allocs/op`. |
-| `distribution` | An array of `DataDownload` nodes, each linking to the raw report file in the upstream repository. |
+| `measurementTechnique` | The campaign's measurement method: Go benchmarks run with `go test -bench` at the `-count` recorded in the archive (`content-sources.md` CS-BENCH-5), compared with `benchstat` (CS-BENCH-7) (SD-BENCH-2). |
+| `keywords` | An array of terms that describe the dataset's subject (SD-BENCH-2). |
+| `isAccessibleForFree` | `true` (SD-BENCH-2). |
+| `distribution` | An array of `DataDownload` nodes, each linking to a raw `go test` or `benchstat` output file in the campaign archive, pinned to the full commit SHA (SD-BENCH-1). |
+| `isBasedOn` | Optional. The corroborating upstream sources, linked at the `v1.3.0` tag. |
 
 ### `APIReference`
 
@@ -327,7 +342,7 @@ Local pre-commit running of the same validators is RECOMMENDED but not required.
 
 The following behaviours are forbidden everywhere on the site:
 
-- **Fabricated values** in any JSON-LD field (a guessed `version`, an invented `datePublished`, a benchmark number not present upstream).
+- **Fabricated values** in any JSON-LD field (a guessed `version`, an invented `datePublished`, a benchmark number not present in the campaign archive or in an attributed upstream source).
 - **Placeholder URLs** (for example `https://example.com`) in any JSON-LD field.
 - **Empty strings** used as a substitute for an absent value (for example `"author": { "@id": "" }`).
 - **Inline redefinition** of the four reified entities (`SoftwareSourceCode` / `Organization` / `Person` / `WebSite`) on any page other than `/`. Other pages MUST reference them by `@id`.

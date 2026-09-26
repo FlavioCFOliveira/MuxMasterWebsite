@@ -23,6 +23,32 @@ type docPageBody struct {
 	Prev         navLink
 	Next         navLink
 	LastModified time.Time // mtime of the underlying content file; falls back to BuildTime when zero.
+	// SeeAlso is a site-owned cross-link rendered after the article. It
+	// lives in code, not in the curated Markdown, so a content sync from
+	// upstream cannot remove it.
+	SeeAlso *seeAlso
+}
+
+// seeAlso is one "See also" cross-link: Lead is the sentence before the link.
+type seeAlso struct {
+	Lead  string
+	Path  string
+	Title string
+}
+
+// seeAlsoLinks maps a curated page to its site-owned cross-link
+// (specification/information-architecture.md "Built with MuxMaster page").
+var seeAlsoLinks = map[string]*seeAlso{
+	"/benchmarks": {
+		Lead:  "To see how this website configures MuxMaster, and what each of its requests costs in time, memory, and allocations, read",
+		Path:  "/built-with-muxmaster",
+		Title: "Built with MuxMaster",
+	},
+	"/examples/max-performance": {
+		Lead:  "To see PoolRequestBundle, PoolFastParams, Pre middleware, and a HandleFast route configured on this website, read",
+		Path:  "/built-with-muxmaster",
+		Title: "Built with MuxMaster",
+	},
 }
 
 type sidebarItem struct {
@@ -35,13 +61,14 @@ type navLink struct {
 	Title string
 }
 
-// docsSidebar is the eleven-section ordered list defined in
+// docsSidebar is the thirteen-section ordered list defined in
 // specification/information-architecture.md "Sidebar". The order is the
 // canonical reading order and also drives the prev/next chain on every
 // /docs/<section> page.
 var docsSidebar = []sidebarItem{
 	{Path: "/docs/getting-started", Title: "Getting started"},
 	{Path: "/docs/routing", Title: "Routing"},
+	{Path: "/docs/http-query-method", Title: "HTTP QUERY method (RFC 10008)"},
 	{Path: "/docs/groups", Title: "Groups"},
 	{Path: "/docs/middleware", Title: "Middleware"},
 	{Path: "/docs/error-handling", Title: "Error handling"},
@@ -64,7 +91,10 @@ var referenceSidebar = []sidebarItem{
 	{Path: "/api", Title: "API reference"},
 	{Path: "/examples/", Title: "Examples"},
 	{Path: "/benchmarks", Title: "Benchmarks"},
+	{Path: "/built-with-muxmaster", Title: "Built with MuxMaster"},
 	{Path: "/changelog", Title: "Changelog"},
+	{Path: "/releases/v1.3.0", Title: "Release notes — v1.3.0"},
+	{Path: "/releases/v1.2.0", Title: "Release notes — v1.2.0"},
 	{Path: "/releases/v1.1.0", Title: "Release notes — v1.1.0"},
 	{Path: "/releases/v1.0.0", Title: "Release notes — v1.0.0"},
 	{Path: "/security", Title: "Security"},
@@ -97,14 +127,25 @@ var examplesSidebar = []sidebarItem{
 // /benchmarks, /changelog, /releases/<v>, /security, /compatibility, and
 // /contributing.
 type DocPageSpec struct {
-	Path        string // Public route, e.g. "/docs/routing".
-	Title       string // <h1> text and <title> prefix.
+	Path  string // Public route, e.g. "/docs/routing".
+	Title string // Navigation label, breadcrumb label, and <title> prefix.
+	// HeadTitle, when set, is the complete <title> text (meta.Page.HeadTitle).
+	// Release-notes pages derive it from Version when it is empty
+	// (specification/seo.md SEO-REL-1).
+	HeadTitle   string
 	Description string // <meta name="description"> content.
 	ContentPath string // Loader path under /content/, e.g. "docs/routing.md".
 	Section     string // Used to populate breadcrumbs and pick the sidebar.
 	UpstreamURL string // Optional GitHub link, currently unused by this template.
 	Cache       string // Cache-Control value (per spec families).
 	OGType      string // "article" for documentation pages.
+	// AboutSoftware makes the page's TechArticle reference the MuxMaster
+	// SoftwareSourceCode entity through `about`
+	// (specification/structured-data.md master schema table).
+	AboutSoftware bool
+	// Version is the release version of a /releases/<v> page, emitted as
+	// TechArticle.version; empty elsewhere.
+	Version string
 }
 
 // DocPageRecipe builds the HTML representation of a Markdown-backed page.
@@ -138,6 +179,7 @@ func DocPageRecipe(spec DocPageSpec, loader *content.Loader, ogImagePath string,
 			}
 
 			page := basePage(deps, spec.Path, spec.Title, spec.Description, spec.OGType, ogImagePath, productionRobots)
+			page.HeadTitle = headTitleFor(spec)
 			page.Breadcrumbs = breadcrumbsForDoc(spec)
 			page.UpstreamURL = spec.UpstreamURL
 			// Every DocPageSpec route ships a Markdown companion at
@@ -177,6 +219,7 @@ func DocPageRecipe(spec DocPageSpec, loader *content.Loader, ogImagePath string,
 				// from the body's id="…". They come from the same string.
 				TOC:          ExtractHeadingsFromHTML(htmlBody),
 				LastModified: lastMod,
+				SeeAlso:      seeAlsoLinks[spec.Path],
 			}
 
 			switch spec.Section {
@@ -192,7 +235,7 @@ func DocPageRecipe(spec DocPageSpec, loader *content.Loader, ogImagePath string,
 				body.SidebarItems = examplesSidebar
 				body.HasPrevNext = true
 				body.Prev, body.Next = prevNextIn(examplesSidebar, spec.Path)
-			case "api", "benchmarks", "changelog", "releases", "security", "compatibility", "contributing":
+			case "api", "benchmarks", "built-with-muxmaster", "changelog", "releases", "security", "compatibility", "contributing":
 				// Reference pages are independent siblings, not a sequence —
 				// the sidebar provides the lateral navigation but prev/next
 				// is intentionally suppressed to avoid implying a reading
@@ -231,13 +274,15 @@ func DocPageRecipe(spec DocPageSpec, loader *content.Loader, ogImagePath string,
 			}
 
 			page.JSONLD = BuildJSONLD(JSONLDInputs{
-				Page:          page,
-				Family:        family,
-				BuildTime:     deps.BuildTime,
-				DatePublished: datePublished,
-				DateModified:  dateModified,
-				HowToSource:   howToSrc,
-				RenderedHTML:  htmlBody, // FAQPage scanner reads <section data-conversation>.
+				Page:           page,
+				Family:         family,
+				BuildTime:      deps.BuildTime,
+				DatePublished:  datePublished,
+				DateModified:   dateModified,
+				HowToSource:    howToSrc,
+				RenderedHTML:   htmlBody, // FAQPage scanner reads <section data-conversation>; HowTo reads step anchors.
+				AboutSoftware:  spec.AboutSoftware,
+				ArticleVersion: spec.Version,
 			})
 
 			return deps.Renderer.ExecuteTemplate("doc-page.html", Data{Meta: page, Body: body})
@@ -366,6 +411,20 @@ func stripFrontmatter(src []byte) []byte {
 	return src
 }
 
+// headTitleFor returns the complete <title> override for spec, or "" when
+// the page uses the default "<Title> — MuxMaster" form. A release-notes
+// page without an explicit HeadTitle gets "MuxMaster v<version> release
+// notes" (specification/seo.md SEO-REL-1).
+func headTitleFor(spec DocPageSpec) string {
+	if spec.HeadTitle != "" {
+		return spec.HeadTitle
+	}
+	if spec.Section == "releases" && spec.Version != "" {
+		return "MuxMaster v" + spec.Version + " release notes"
+	}
+	return ""
+}
+
 // breadcrumbsForDoc returns the breadcrumb trail for a doc-page. The shape
 // matches the contract in specification/information-architecture.md
 // "Breadcrumbs": Home / Section / Page (or Home / Section for an index URL,
@@ -385,12 +444,15 @@ func breadcrumbsForDoc(spec DocPageSpec) []meta.Breadcrumb {
 			{Label: spec.Title},
 		}
 	case "releases":
+		// IA-BC-1: Home / Changelog / <release>. Every crumb before the
+		// last links somewhere, so each BreadcrumbList position carries a
+		// distinct @id.
 		return []meta.Breadcrumb{
 			{Label: "Home", Href: "/"},
-			{Label: "Releases"},
+			{Label: "Changelog", Href: "/changelog"},
 			{Label: spec.Title},
 		}
-	case "api", "benchmarks", "changelog", "security", "compatibility", "contributing":
+	case "api", "benchmarks", "built-with-muxmaster", "changelog", "security", "compatibility", "contributing":
 		// Top-level leaf pages: Home / Page.
 		return []meta.Breadcrumb{
 			{Label: "Home", Href: "/"},

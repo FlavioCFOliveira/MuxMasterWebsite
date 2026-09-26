@@ -1,10 +1,11 @@
 ---
 datePublished: 2026-05-12
+dateModified: 2026-09-26
 ---
 
 # Graceful shutdown example
 
-The production-recommended pattern for serving a MuxMaster router behind `http.Server`: signal-driven shutdown, in-flight request drain, the full set of slowloris-defeating timeouts, and a cooperative handler that observes `ctx.Done()` so the timeout middleware can preempt long-running work (`SECURITY.md` MM-2026-0019).
+The production-recommended pattern for serving a MuxMaster router behind `http.Server`: signal-driven shutdown, in-flight request drain, the full set of slowloris-defeating timeouts, and a cooperative handler that observes `ctx.Done()` so the timeout middleware can preempt long-running work (see [Timeout Middleware](/security#timeout-middleware) on the Security page).
 
 ## Step 1 — Pin the timeout and grace-period constants
 
@@ -12,14 +13,14 @@ The four `http.Server` timeouts and the shutdown deadline are best held as named
 
 ```go
 const (
-    listenAddr       = ":8080"
-    gracefulTimeout  = 30 * time.Second
-    readHeader       = 10 * time.Second
-    readTimeout      = 30 * time.Second
-    writeTimeout     = 30 * time.Second
-    idleTimeout      = 90 * time.Second
-    maxHeaderBytes   = 1 << 20 // 1 MiB
-    cooperativeSleep = 3 * time.Second
+	listenAddr       = ":8080"
+	gracefulTimeout  = 30 * time.Second
+	readHeader       = 10 * time.Second
+	readTimeout      = 30 * time.Second
+	writeTimeout     = 30 * time.Second
+	idleTimeout      = 90 * time.Second
+	maxHeaderBytes   = 1 << 20 // 1 MiB
+	cooperativeSleep = 3 * time.Second
 )
 ```
 
@@ -48,18 +49,16 @@ The `Timeout(5 * time.Second)` is the per-request budget — independent of `gra
 A handler that ignores `ctx.Done()` cannot be preempted by the `Timeout` middleware nor by a graceful shutdown — its goroutine continues past the deadline and the process exits dirty. The `slowHandler` below shows the canonical cooperative shape: a `select` between the work and the cancellation channel.
 
 ```go
-r.GET("/slow", slowHandler)
-
 func slowHandler(w http.ResponseWriter, req *http.Request) {
-    ctx := req.Context()
-    select {
-    case <-time.After(cooperativeSleep):
-        fmt.Fprintln(w, "slow work done")
-    case <-ctx.Done():
-        // ctx.Err() is context.Canceled (client gone or shutdown)
-        // or context.DeadlineExceeded (Timeout middleware fired).
-        http.Error(w, "request cancelled: "+ctx.Err().Error(), http.StatusGatewayTimeout)
-    }
+	ctx := req.Context()
+	select {
+	case <-time.After(cooperativeSleep):
+		fmt.Fprintln(w, "slow work done")
+	case <-ctx.Done():
+		// ctx.Err() is context.Canceled (client gone or shutdown)
+		// or context.DeadlineExceeded (Timeout middleware fired).
+		http.Error(w, "request cancelled: "+ctx.Err().Error(), http.StatusGatewayTimeout)
+	}
 }
 ```
 
@@ -71,14 +70,14 @@ The `ctx.Err()` discriminator distinguishes the two cancellation reasons — use
 
 ```go
 srv := &http.Server{
-    Addr:              listenAddr,
-    Handler:           r,
-    ReadHeaderTimeout: readHeader,
-    ReadTimeout:       readTimeout,
-    WriteTimeout:      writeTimeout,
-    IdleTimeout:       idleTimeout,
-    MaxHeaderBytes:    maxHeaderBytes,
-    ErrorLog:          slog.NewLogLogger(logger.Handler(), slog.LevelWarn),
+	Addr:              listenAddr,
+	Handler:           r,
+	ReadHeaderTimeout: readHeader,
+	ReadTimeout:       readTimeout,
+	WriteTimeout:      writeTimeout,
+	IdleTimeout:       idleTimeout,
+	MaxHeaderBytes:    maxHeaderBytes,
+	ErrorLog:          slog.NewLogLogger(logger.Handler(), slog.LevelWarn),
 }
 ```
 
@@ -91,12 +90,12 @@ srv := &http.Server{
 ```go
 serverErr := make(chan error, 1)
 go func() {
-    logger.Info("server starting", "addr", listenAddr)
-    if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-        serverErr <- err
-        return
-    }
-    serverErr <- nil
+	logger.Info("server starting", "addr", listenAddr)
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		serverErr <- err
+		return
+	}
+	serverErr <- nil
 }()
 ```
 
@@ -112,14 +111,14 @@ signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
 select {
 case err := <-serverErr:
-    if err != nil {
-        logger.Error("server failed before shutdown", "err", err)
-        os.Exit(1)
-    }
-    return
+	if err != nil {
+		logger.Error("server failed before shutdown", "err", err)
+		os.Exit(1)
+	}
+	return
 case sig := <-stop:
-    logger.Info("shutdown signal received — draining in-flight requests",
-        "signal", sig.String(), "deadline", gracefulTimeout)
+	logger.Info("shutdown signal received — draining in-flight requests",
+		"signal", sig.String(), "deadline", gracefulTimeout)
 }
 ```
 
@@ -134,12 +133,12 @@ ctx, cancel := context.WithTimeout(context.Background(), gracefulTimeout)
 defer cancel()
 
 if err := srv.Shutdown(ctx); err != nil {
-    // Shutdown(ctx) returns the ctx error if the deadline expires before
-    // every connection drained — surface it as a non-zero exit so an
-    // orchestrator (systemd, k8s) can record the unclean shutdown.
-    logger.Error("graceful shutdown timed out — connections were closed mid-flight",
-        "err", err)
-    os.Exit(1)
+	// Shutdown(ctx) returns the ctx error if the deadline expires before
+	// every connection drained — surface it as a non-zero exit so an
+	// orchestrator (systemd, k8s) can record the unclean shutdown.
+	logger.Error("graceful shutdown timed out — connections were closed mid-flight",
+		"err", err)
+	os.Exit(1)
 }
 
 logger.Info("clean shutdown complete")
@@ -167,4 +166,6 @@ Read `req.Context()` and `select` on `ctx.Done()` alongside the work. The exampl
 
 ## Upstream source
 
-Every code excerpt above is lifted verbatim from [`examples/graceful-shutdown/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.1.0/examples/graceful-shutdown/main.go) at the v1.1.0 tag. Follow that link for the complete file, including the package comment, imports, and the run instructions.
+Every code excerpt above is lifted verbatim from [`examples/graceful-shutdown/main.go`](https://github.com/FlavioCFOliveira/MuxMaster/blob/v1.3.0/examples/graceful-shutdown/main.go) at the v1.3.0 tag. Follow that link for the complete file, including the package comment, imports, and the run instructions.
+
+Source: <https://github.com/FlavioCFOliveira/MuxMaster/tree/v1.3.0/examples/graceful-shutdown>

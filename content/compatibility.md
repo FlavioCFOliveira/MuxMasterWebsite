@@ -1,5 +1,6 @@
 ---
 datePublished: 2026-05-12
+dateModified: 2026-09-26
 ---
 
 # Compatibility & Versioning
@@ -36,7 +37,9 @@ MAJOR bump.
 - `Mux.ServeHTTP` (the `http.Handler` implementation)
 - `Mux.Handle`, `Mux.HandleFunc`, `Mux.HandleE`, `Mux.HandleFast`
 - All method shortcuts: `GET`, `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE`,
-  `OPTIONS`, `CONNECT`, `TRACE` and their `*E` and `*Fast` variants
+  `OPTIONS`, `CONNECT`, `TRACE`, `QUERY` and their `*E` and `*Fast`
+  variants (every method has a `*Fast` variant on `*Mux`; there is no
+  `CONNECTE` or `TRACEE`)
 - `Mux.Use`, `Mux.UseFast`, `Mux.Pre`
 - `Mux.Group`, `Mux.Route`, `Mux.With`, `Mux.Mount`, `Mux.ServeFiles`,
   `Mux.Match`, `Mux.ANY`
@@ -86,8 +89,10 @@ time without notice.
    section.
 3. The deprecated symbol must remain functional for **at least one
    MINOR release**. Removing it is then a MAJOR change.
-4. CI runs `staticcheck SA1019` against `examples/` to catch unintended
-   reliance on deprecated APIs in the project's own examples.
+4. CI runs `staticcheck` (which includes SA1019, use of deprecated
+   symbols) on the root module. The `examples/` directories are separate
+   modules that CI does not check; contributors run `staticcheck` in an
+   example they change (see CONTRIBUTING.md).
 
 Example timeline:
 
@@ -99,17 +104,22 @@ v2.0.0  — Foo removed.
 
 ## Breaking change detection (CI)
 
-Every PR runs [`gorelease`](https://pkg.go.dev/golang.org/x/exp/cmd/gorelease)
-or `apidiff` against the most recent tagged release. Detected breaking
-changes fail the build unless the PR carries an `api-break` label and the
-target branch is the next-MAJOR development line.
+Every pull request runs [`apidiff`](https://pkg.go.dev/golang.org/x/exp/cmd/apidiff)
+on the root package against the most recent tagged release. Detected
+incompatible changes fail the build unless the pull request carries the
+`api-break` label. The `middleware` package is not covered by this check;
+changes to it are reviewed against `api.md`, which CI requires to be
+regenerated (`make api`) whenever an exported symbol or its doc comment
+changes.
 
 ## Go version policy
 
 `go.mod` declares the minimum supported Go version. Bumping it is a
 MINOR change, not a MAJOR one — consistent with the
 [Go core team's published guidance](https://go.dev/wiki/MinimumGoVersion).
-The CI matrix tests against the declared minimum and against `stable`.
+The CI matrix tests against the declared minimum (Go 1.27.1) and against
+`stable` on Linux, macOS and Windows, plus Linux/arm64; a non-blocking
+canary job also builds and tests the root package with Go tip.
 
 ## Stability of behaviour, not just types
 
@@ -131,10 +141,9 @@ with a brief migration note.
 
 ## Security patches
 
-Security fixes for supported versions are released as PATCH versions and
-announced via GitHub Security Advisories. The CHANGELOG `### Security`
-section enumerates each finding with its identifier (e.g.
-`CSA-2026-0060`, `HPS-2026-0005`).
+Only the latest release receives security fixes. They are released as
+PATCH versions and announced via GitHub Security Advisories. The supported
+versions and the reporting policy are on the [Security](/security) page.
 
 ## Glossary
 
